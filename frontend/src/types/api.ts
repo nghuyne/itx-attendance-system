@@ -66,6 +66,32 @@ export interface CreateShiftRequest {
   otBuffer: number;
 }
 
+// Valid IP DTOs — Story 2.2
+export type IpScope = 'COMPANY' | 'INDIVIDUAL';
+
+export interface ValidIpDto {
+  id: number;
+  ipAddress: string;
+  scope: IpScope;
+  employeeId: string | null;
+  employeeName: string | null;
+  description: string | null;
+  createdAt: string;
+}
+
+export interface CreateValidIpRequest {
+  ipAddress: string;
+  scope: IpScope;
+  employeeId?: string;
+  description?: string;
+}
+
+export interface EmployeeDto {
+  id: string;
+  fullName: string;
+  username: string;
+}
+
 // Attendance DTOs — Story 3.x
 export interface AttendanceRecordDto {
   id: number;

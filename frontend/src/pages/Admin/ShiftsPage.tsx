@@ -10,17 +10,17 @@ import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { SkeletonCard } from '../../components/common/SkeletonCard';
 
 const shiftSchema = z.object({
-  name: z.string().min(1, 'Vui long nhap ten ca'),
-  startTime: z.string().min(1, 'Vui long nhap gio bat dau'),
-  endTime: z.string().min(1, 'Vui long nhap gio ket thuc'),
-  checkInOpenMinutes: z.coerce.number().int().min(0, 'Phai >= 0'),
-  lateInThreshold: z.coerce.number().int().min(0, 'Phai >= 0'),
-  earlyOutThreshold: z.coerce.number().int().min(0, 'Phai >= 0'),
-  halfDayThreshold: z.coerce.number().int().min(0, 'Phai >= 0'),
-  otBuffer: z.coerce.number().int().min(0, 'Phai >= 0'),
+  name: z.string().min(1, 'Vui lòng nhập tên ca'),
+  startTime: z.string().min(1, 'Vui lòng nhập giờ bắt đầu'),
+  endTime: z.string().min(1, 'Vui lòng nhập giờ kết thúc'),
+  checkInOpenMinutes: z.coerce.number().int().min(0, 'Phải >= 0'),
+  lateInThreshold: z.coerce.number().int().min(0, 'Phải >= 0'),
+  earlyOutThreshold: z.coerce.number().int().min(0, 'Phải >= 0'),
+  halfDayThreshold: z.coerce.number().int().min(0, 'Phải >= 0'),
+  otBuffer: z.coerce.number().int().min(0, 'Phải >= 0'),
 }).refine(
   (data) => data.startTime < data.endTime,
-  { message: 'Gio bat dau phai nho hon gio ket thuc', path: ['endTime'] }
+  { message: 'Giờ bắt đầu phải nhỏ hơn giờ kết thúc (ca xuyên đêm chưa được hỗ trợ)', path: ['endTime'] }
 );
 
 type ShiftFormValues = z.infer<typeof shiftSchema>;
@@ -60,15 +60,15 @@ const ShiftFormModal: React.FC<ShiftFormModalProps> = ({ editingShift, onClose, 
     try {
       if (editingShift) {
         await shiftService.update(editingShift.id, data);
-        showToast({ type: 'success', message: 'Cap nhat ca thanh cong' });
+        showToast({ type: 'success', message: 'Cập nhật ca thành công' });
       } else {
         await shiftService.create(data);
-        showToast({ type: 'success', message: 'Tao ca thanh cong' });
+        showToast({ type: 'success', message: 'Tạo ca thành công' });
       }
       onSuccess();
       onClose();
     } catch {
-      showToast({ type: 'error', message: 'Co loi xay ra, vui long thu lai' });
+      showToast({ type: 'error', message: 'Có lỗi xảy ra, vui lòng thử lại' });
     }
   });
 
@@ -77,11 +77,11 @@ const ShiftFormModal: React.FC<ShiftFormModalProps> = ({ editingShift, onClose, 
       <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-slate-700">
-            {editingShift ? 'Chinh sua ca' : 'Tao ca moi'}
+            {editingShift ? 'Chỉnh sửa ca' : 'Tạo ca mới'}
           </h2>
           <button
             onClick={onClose}
-            aria-label="Dong"
+            aria-label="Đóng"
             className="p-2 rounded-full hover:bg-slate-100 min-w-[48px] min-h-[48px] flex items-center justify-center"
           >
             &#x2715;
@@ -91,14 +91,14 @@ const ShiftFormModal: React.FC<ShiftFormModalProps> = ({ editingShift, onClose, 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-slate-700 mb-1">
-              Ten ca <span className="text-red-500">*</span>
+              Tên ca <span className="text-red-500">*</span>
             </label>
             <input
               id="name"
               type="text"
               {...register('name')}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent"
-              placeholder="VD: Ca Sang, Ca Chieu"
+              placeholder="VD: Ca Sáng, Ca Chiều"
             />
             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
           </div>
@@ -106,7 +106,7 @@ const ShiftFormModal: React.FC<ShiftFormModalProps> = ({ editingShift, onClose, 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="startTime" className="block text-sm font-medium text-slate-700 mb-1">
-                Gio bat dau <span className="text-red-500">*</span>
+                Giờ bắt đầu <span className="text-red-500">*</span>
               </label>
               <input
                 id="startTime"
@@ -118,7 +118,7 @@ const ShiftFormModal: React.FC<ShiftFormModalProps> = ({ editingShift, onClose, 
             </div>
             <div>
               <label htmlFor="endTime" className="block text-sm font-medium text-slate-700 mb-1">
-                Gio ket thuc <span className="text-red-500">*</span>
+                Giờ kết thúc <span className="text-red-500">*</span>
               </label>
               <input
                 id="endTime"
@@ -132,7 +132,7 @@ const ShiftFormModal: React.FC<ShiftFormModalProps> = ({ editingShift, onClose, 
 
           <div>
             <label htmlFor="checkInOpenMinutes" className="block text-sm font-medium text-slate-700 mb-1">
-              Mo cong check-in truoc (phut)
+              Mở cổng check-in trước (phút)
             </label>
             <input
               id="checkInOpenMinutes"
@@ -147,7 +147,7 @@ const ShiftFormModal: React.FC<ShiftFormModalProps> = ({ editingShift, onClose, 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="lateInThreshold" className="block text-sm font-medium text-slate-700 mb-1">
-                Nguong tre (phut)
+                Ngưỡng trễ (phút)
               </label>
               <input id="lateInThreshold" type="number" min={0} {...register('lateInThreshold')}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600" />
@@ -155,7 +155,7 @@ const ShiftFormModal: React.FC<ShiftFormModalProps> = ({ editingShift, onClose, 
             </div>
             <div>
               <label htmlFor="earlyOutThreshold" className="block text-sm font-medium text-slate-700 mb-1">
-                Nguong ve som (phut)
+                Ngưỡng về sớm (phút)
               </label>
               <input id="earlyOutThreshold" type="number" min={0} {...register('earlyOutThreshold')}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600" />
@@ -163,7 +163,7 @@ const ShiftFormModal: React.FC<ShiftFormModalProps> = ({ editingShift, onClose, 
             </div>
             <div>
               <label htmlFor="halfDayThreshold" className="block text-sm font-medium text-slate-700 mb-1">
-                Nguong nua ngay (phut)
+                Ngưỡng nửa ngày (phút)
               </label>
               <input id="halfDayThreshold" type="number" min={0} {...register('halfDayThreshold')}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600" />
@@ -171,7 +171,7 @@ const ShiftFormModal: React.FC<ShiftFormModalProps> = ({ editingShift, onClose, 
             </div>
             <div>
               <label htmlFor="otBuffer" className="block text-sm font-medium text-slate-700 mb-1">
-                Buffer OT (phut)
+                Buffer OT (phút)
               </label>
               <input id="otBuffer" type="number" min={0} {...register('otBuffer')}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600" />
@@ -185,7 +185,7 @@ const ShiftFormModal: React.FC<ShiftFormModalProps> = ({ editingShift, onClose, 
               onClick={onClose}
               className="px-4 py-2 text-sm text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 min-h-[48px]"
             >
-              Huy
+              Hủy
             </button>
             <button
               type="submit"
@@ -193,7 +193,7 @@ const ShiftFormModal: React.FC<ShiftFormModalProps> = ({ editingShift, onClose, 
               className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 min-h-[48px] flex items-center gap-2"
             >
               {isSubmitting && <LoadingSpinner size="sm" />}
-              {editingShift ? 'Luu thay doi' : 'Tao ca'}
+              {editingShift ? 'Lưu thay đổi' : 'Tạo ca'}
             </button>
           </div>
         </form>
@@ -212,16 +212,16 @@ interface DeleteConfirmProps {
 const DeleteConfirmDialog: React.FC<DeleteConfirmProps> = ({ shift, onConfirm, onCancel, isDeleting }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
     <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 p-6">
-      <h3 className="text-lg font-bold text-slate-700 mb-2">Xac nhan xoa ca</h3>
+      <h3 className="text-lg font-bold text-slate-700 mb-2">Xác nhận xóa ca</h3>
       <p className="text-slate-600 text-sm mb-4">
-        Ban co chac muon xoa ca <strong>"{shift.name}"</strong>? Thao tac nay khong the hoan tac.
+        Bạn có chắc muốn xóa ca <strong>"{shift.name}"</strong>? Thao tác này không thể hoàn tác.
       </p>
       <div className="flex justify-end gap-3">
         <button
           onClick={onCancel}
           className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 min-h-[48px]"
         >
-          Huy
+          Hủy
         </button>
         <button
           onClick={onConfirm}
@@ -229,7 +229,7 @@ const DeleteConfirmDialog: React.FC<DeleteConfirmProps> = ({ shift, onConfirm, o
           className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 min-h-[48px] flex items-center gap-2"
         >
           {isDeleting && <LoadingSpinner size="sm" />}
-          Xoa ca
+          Xóa ca
         </button>
       </div>
     </div>
@@ -251,16 +251,16 @@ export const ShiftsPage: React.FC = () => {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => shiftService.delete(id),
     onSuccess: () => {
-      showToast({ type: 'success', message: 'Xoa ca thanh cong' });
+      showToast({ type: 'success', message: 'Xóa ca thành công' });
       setDeletingShift(null);
       queryClient.invalidateQueries({ queryKey: ['admin', 'shifts'] });
     },
     onError: (error: unknown) => {
       const apiError = error as { response?: { data?: { error?: string } } };
       if (apiError.response?.data?.error === 'SHIFT_IN_USE') {
-        showToast({ type: 'error', message: 'Ca dang duoc gan cho nhan vien, khong the xoa' });
+        showToast({ type: 'error', message: 'Ca đang được gán cho nhân viên, không thể xóa' });
       } else {
-        showToast({ type: 'error', message: 'Xoa ca that bai, vui long thu lai' });
+        showToast({ type: 'error', message: 'Xóa ca thất bại, vui lòng thử lại' });
       }
       setDeletingShift(null);
     },
@@ -290,12 +290,12 @@ export const ShiftsPage: React.FC = () => {
   return (
     <main className="p-4">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-slate-700">Ca lam viec</h1>
+        <h1 className="text-2xl font-bold text-slate-700">Ca làm việc</h1>
         <button
           onClick={handleCreateNew}
           className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-emerald-700 min-h-[48px]"
         >
-          + Tao ca moi
+          + Tạo ca mới
         </button>
       </div>
 
@@ -305,27 +305,27 @@ export const ShiftsPage: React.FC = () => {
         </div>
       ) : isError ? (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-          Khong the tai danh sach ca. Vui long thu lai.
+          Không thể tải danh sách ca. Vui lòng thử lại.
         </div>
       ) : shifts.length === 0 ? (
         <div className="text-center py-12 text-slate-500">
-          <p className="text-lg">Chua co ca nao</p>
-          <p className="text-sm mt-1">Bam "Tao ca moi" de bat dau</p>
+          <p className="text-lg">Chưa có ca nào</p>
+          <p className="text-sm mt-1">Bấm "Tạo ca mới" để bắt đầu</p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-sm">
             <thead className="bg-slate-50">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Ten ca</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Bat dau</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Ket thuc</th>
-                <th className="text-right px-4 py-3 font-medium text-slate-600">Nguong tre</th>
-                <th className="text-right px-4 py-3 font-medium text-slate-600">Nguong ve som</th>
-                <th className="text-right px-4 py-3 font-medium text-slate-600">Nua ngay</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Tên ca</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Bắt đầu</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Kết thúc</th>
+                <th className="text-right px-4 py-3 font-medium text-slate-600">Ngưỡng trễ</th>
+                <th className="text-right px-4 py-3 font-medium text-slate-600">Ngưỡng về sớm</th>
+                <th className="text-right px-4 py-3 font-medium text-slate-600">Nửa ngày</th>
                 <th className="text-right px-4 py-3 font-medium text-slate-600">Buffer OT</th>
-                <th className="text-right px-4 py-3 font-medium text-slate-600">Nhan vien</th>
-                <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tac</th>
+                <th className="text-right px-4 py-3 font-medium text-slate-600">Nhân viên</th>
+                <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -334,15 +334,15 @@ export const ShiftsPage: React.FC = () => {
                   key={shift.id}
                   onDoubleClick={() => handleRowDoubleClick(shift)}
                   className="hover:bg-slate-50 cursor-pointer"
-                  title="Double-click de chinh sua"
+                  title="Double-click để chỉnh sửa"
                 >
                   <td className="px-4 py-3 font-medium text-slate-700">{shift.name}</td>
                   <td className="px-4 py-3 font-mono text-slate-600">{shift.startTime}</td>
                   <td className="px-4 py-3 font-mono text-slate-600">{shift.endTime}</td>
-                  <td className="px-4 py-3 text-right text-slate-600">{shift.lateInThreshold} phut</td>
-                  <td className="px-4 py-3 text-right text-slate-600">{shift.earlyOutThreshold} phut</td>
-                  <td className="px-4 py-3 text-right text-slate-600">{shift.halfDayThreshold} phut</td>
-                  <td className="px-4 py-3 text-right text-slate-600">{shift.otBuffer} phut</td>
+                  <td className="px-4 py-3 text-right text-slate-600">{shift.lateInThreshold} phút</td>
+                  <td className="px-4 py-3 text-right text-slate-600">{shift.earlyOutThreshold} phút</td>
+                  <td className="px-4 py-3 text-right text-slate-600">{shift.halfDayThreshold} phút</td>
+                  <td className="px-4 py-3 text-right text-slate-600">{shift.otBuffer} phút</td>
                   <td className="px-4 py-3 text-right">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                       shift.assignedCount > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
@@ -354,14 +354,14 @@ export const ShiftsPage: React.FC = () => {
                     <div className="flex items-center justify-center gap-2">
                       <button
                         onClick={(e) => { e.stopPropagation(); handleRowDoubleClick(shift); }}
-                        aria-label={`Chinh sua ca ${shift.name}`}
+                        aria-label={`Chỉnh sửa ca ${shift.name}`}
                         className="p-1 text-slate-400 hover:text-emerald-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
                       >
                         &#x270F;&#xFE0F;
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); setDeletingShift(shift); }}
-                        aria-label={`Xoa ca ${shift.name}`}
+                        aria-label={`Xóa ca ${shift.name}`}
                         className="p-1 text-slate-400 hover:text-red-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
                       >
                         &#x1F5D1;&#xFE0F;

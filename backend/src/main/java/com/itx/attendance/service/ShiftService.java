@@ -2,6 +2,7 @@ package com.itx.attendance.service;
 
 import com.itx.attendance.domain.Shift;
 import com.itx.attendance.domain.User;
+import com.itx.attendance.domain.UserRole;
 import com.itx.attendance.dto.request.CreateShiftRequest;
 import com.itx.attendance.dto.response.ShiftDto;
 import com.itx.attendance.exception.BusinessException;
@@ -94,6 +95,10 @@ public class ShiftService {
         User employee = userRepository.findById(employeeId)
             .orElseThrow(() -> new BusinessException("Nhan vien khong ton tai",
                 HttpStatus.NOT_FOUND, "EMPLOYEE_NOT_FOUND"));
+        if (employee.getRole() != UserRole.EMPLOYEE) {
+            throw new BusinessException("Chi co the gan ca cho tai khoan nhan vien",
+                HttpStatus.BAD_REQUEST, "NOT_AN_EMPLOYEE");
+        }
         employee.setShift(shift);
         userRepository.save(employee);
         return toDto(shift, userRepository.countByShiftId(shiftId));
