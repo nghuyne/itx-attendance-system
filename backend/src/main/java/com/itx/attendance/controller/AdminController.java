@@ -86,7 +86,7 @@ public class AdminController {
     @DeleteMapping("/valid-ips/{id}")
     public ResponseEntity<Void> deleteValidIp(@PathVariable Long id) {
         validIpService.delete(id);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     // ── Employee listing (for INDIVIDUAL scope dropdown) ──────────────────────

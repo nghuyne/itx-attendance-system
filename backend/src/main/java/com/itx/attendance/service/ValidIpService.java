@@ -11,6 +11,7 @@ import com.itx.attendance.exception.BusinessException;
 import com.itx.attendance.repository.UserRepository;
 import com.itx.attendance.repository.ValidIpRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -33,7 +34,8 @@ public class ValidIpService {
 
     @Transactional
     public ValidIpDto create(CreateValidIpRequest request, String createdByUsername) {
-        validateIpAddress(request.ipAddress());
+        String normalizedIp = request.ipAddress().trim();
+        validateIpAddress(normalizedIp);
 
         User employee = null;
         if (request.scope() == IpScope.INDIVIDUAL) {
@@ -54,16 +56,21 @@ public class ValidIpService {
 
             boolean duplicateIndividual = validIpRepository
                 .existsByIpAddressAndScopeAndEmployeeIdAndActiveTrue(
-                    request.ipAddress(), IpScope.INDIVIDUAL, request.employeeId());
+                    normalizedIp, IpScope.INDIVIDUAL, request.employeeId());
             if (duplicateIndividual) {
                 throw new BusinessException(
                     "IP này đã tồn tại cho nhân viên này",
                     HttpStatus.CONFLICT, "DUPLICATE_IP");
             }
         } else {
+            if (request.employeeId() != null && !request.employeeId().isBlank()) {
+                throw new BusinessException(
+                    "employeeId không được cung cấp khi scope=COMPANY",
+                    HttpStatus.BAD_REQUEST, "EMPLOYEE_ID_NOT_ALLOWED");
+            }
             boolean duplicateCompany = validIpRepository
                 .existsByIpAddressAndScopeAndEmployeeIsNullAndActiveTrue(
-                    request.ipAddress(), IpScope.COMPANY);
+                    normalizedIp, IpScope.COMPANY);
             if (duplicateCompany) {
                 throw new BusinessException(
                     "IP này đã tồn tại ở cấp công ty",
@@ -77,15 +84,21 @@ public class ValidIpService {
                 HttpStatus.INTERNAL_SERVER_ERROR, "ADMIN_NOT_FOUND"));
 
         ValidIp validIp = ValidIp.builder()
-            .ipAddress(request.ipAddress().trim())
+            .ipAddress(normalizedIp)
             .scope(request.scope())
             .employee(employee)
             .description(request.description())
             .createdBy(admin)
             .build();
 
-        ValidIp saved = validIpRepository.save(validIp);
-        return toDto(saved);
+        try {
+            ValidIp saved = validIpRepository.save(validIp);
+            return toDto(saved);
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(
+                "IP này đã tồn tại (duplicate)",
+                HttpStatus.CONFLICT, "DUPLICATE_IP");
+        }
     }
 
     @Transactional
@@ -97,6 +110,7 @@ public class ValidIpService {
         validIpRepository.delete(validIp);
     }
 
+    @Transactional(readOnly = true)
     public List<EmployeeDto> getEmployees() {
         return userRepository.findByRole(UserRole.EMPLOYEE).stream()
             .filter(User::isActive)
@@ -114,11 +128,10 @@ public class ValidIpService {
                 "IP address không được rỗng",
                 HttpStatus.BAD_REQUEST, "INVALID_IP_FORMAT");
         }
-        String trimmed = ip.trim();
-        boolean isValidIpv4 = trimmed.matches(
-            "^((25[0-5]|2[0-4]\\d|[01]?\\d\\d?)\\.){3}(25[0-5]|2[0-4]\\d|[01]?\\d\\d?)$");
-        boolean looksLikeIpv6 = trimmed.contains(":") &&
-            trimmed.matches("^[0-9a-fA-F:]+$");
+        boolean isValidIpv4 = ip.matches(
+            "^((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]\\d|\\d)\\.){3}(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]\\d|\\d)$");
+        boolean looksLikeIpv6 = ip.contains(":") &&
+            ip.matches("^[0-9a-fA-F:]+$");
         if (!isValidIpv4 && !looksLikeIpv6) {
             throw new BusinessException(
                 "Định dạng IP không hợp lệ. Hỗ trợ IPv4 (203.0.113.45) và IPv6 (2001:db8::1)",

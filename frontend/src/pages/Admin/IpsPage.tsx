@@ -69,8 +69,16 @@ const IpFormModal: React.FC<IpFormModalProps> = ({ onClose, onSuccess }) => {
       showToast({ type: 'success', message: 'Thêm IP thành công' });
       onSuccess();
       onClose();
-    } catch {
-      showToast({ type: 'error', message: 'Có lỗi xảy ra, vui lòng thử lại' });
+    } catch (err) {
+      const apiErr = err as { response?: { data?: { error?: string } } };
+      const errorCode = apiErr.response?.data?.error;
+      if (errorCode === 'DUPLICATE_IP') {
+        showToast({ type: 'error', message: 'IP này đã tồn tại trong hệ thống' });
+      } else if (errorCode === 'INVALID_IP_FORMAT') {
+        showToast({ type: 'error', message: 'Định dạng IP không hợp lệ' });
+      } else {
+        showToast({ type: 'error', message: 'Có lỗi xảy ra, vui lòng thử lại' });
+      }
     }
   });
 
@@ -264,12 +272,16 @@ export const IpsPage: React.FC = () => {
 
   const ips = data?.content ?? [];
 
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr).toLocaleDateString('vi-VN', {
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('vi-VN', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
     });
+  };
 
   return (
     <main className="p-4">
