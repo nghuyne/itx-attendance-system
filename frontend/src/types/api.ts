@@ -92,6 +92,25 @@ export interface EmployeeDto {
   username: string;
 }
 
+// Holiday DTOs — Story 2.3
+export type HolidayType = 'FIXED' | 'DYNAMIC';
+
+export interface HolidayDto {
+  id: number;
+  date: string;
+  name: string;
+  type: HolidayType;
+  year: number;
+  createdAt: string;
+}
+
+export interface CreateHolidayRequest {
+  date: string;
+  name: string;
+  type: HolidayType;
+  year: number;
+}
+
 // Attendance DTOs — Story 3.x
 export interface AttendanceRecordDto {
   id: number;

@@ -1,11 +1,14 @@
 package com.itx.attendance.controller;
 
+import com.itx.attendance.dto.request.CreateHolidayRequest;
 import com.itx.attendance.dto.request.CreateShiftRequest;
 import com.itx.attendance.dto.request.CreateValidIpRequest;
 import com.itx.attendance.dto.response.EmployeeDto;
+import com.itx.attendance.dto.response.HolidayDto;
 import com.itx.attendance.dto.response.ShiftDto;
 import com.itx.attendance.dto.response.ValidIpDto;
 import com.itx.attendance.security.SecurityUtil;
+import com.itx.attendance.service.HolidayService;
 import com.itx.attendance.service.ShiftService;
 import com.itx.attendance.service.ValidIpService;
 import jakarta.validation.Valid;
@@ -31,6 +34,7 @@ public class AdminController {
 
     private final ShiftService shiftService;
     private final ValidIpService validIpService;
+    private final HolidayService holidayService;
 
     // ── Shift endpoints ───────────────────────────────────────────────────────
 
@@ -94,5 +98,26 @@ public class AdminController {
     @GetMapping("/employees")
     public ResponseEntity<List<EmployeeDto>> getEmployees() {
         return ResponseEntity.ok(validIpService.getEmployees());
+    }
+
+    // ── Holiday endpoints (Story 2.3) ─────────────────────────────────────────
+
+    @GetMapping("/holidays")
+    public ResponseEntity<Page<HolidayDto>> getHolidays(
+            @RequestParam(required = false) Integer year,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return ResponseEntity.ok(holidayService.getAll(year, PageRequest.of(page, size)));
+    }
+
+    @PostMapping("/holidays")
+    public ResponseEntity<HolidayDto> createHoliday(@Valid @RequestBody CreateHolidayRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(holidayService.create(request));
+    }
+
+    @DeleteMapping("/holidays/{id}")
+    public ResponseEntity<Void> deleteHoliday(@PathVariable Long id) {
+        holidayService.delete(id);
+        return ResponseEntity.noContent().build();
     }
 }
