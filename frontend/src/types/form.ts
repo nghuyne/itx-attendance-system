@@ -2,7 +2,7 @@ import type { RequestType } from './domain';
 
 // Login form — Story 1.5
 export interface LoginFormValues {
-  email: string;
+  username: string;
   password: string;
 }
 

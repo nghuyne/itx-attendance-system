@@ -21,21 +21,20 @@ export interface ErrorResponse {
   path: string;
 }
 
-// Auth DTOs — Story 1.3
+// Auth DTOs — matches AuthResponse.java exactly
 export interface LoginRequest {
-  email: string;
+  username: string;
   password: string;
 }
 
 export interface LoginResponse {
   accessToken: string;
-  tokenType: string;
   user: UserDto;
 }
 
 export interface UserDto {
-  id: number;
-  email: string;
+  id: string;
+  username: string;
   fullName: string;
   role: UserRole;
 }
