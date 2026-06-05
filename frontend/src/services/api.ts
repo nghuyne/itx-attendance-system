@@ -18,7 +18,8 @@ api.interceptors.request.use((config) => {
 
 // 401 → refresh token → retry with queue pattern to avoid parallel refresh races
 let isRefreshing = false;
-let refreshSubscribers: ((token: string) => void)[] = [];
+type Subscriber = { onToken: (token: string) => void; onError: (err: unknown) => void };
+let refreshSubscribers: Subscriber[] = [];
 
 api.interceptors.response.use(
   (response) => response,
@@ -27,10 +28,13 @@ api.interceptors.response.use(
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
-        return new Promise((resolve) => {
-          refreshSubscribers.push((token: string) => {
-            originalRequest.headers['Authorization'] = `Bearer ${token}`;
-            resolve(api(originalRequest));
+        return new Promise((resolve, reject) => {
+          refreshSubscribers.push({
+            onToken: (token: string) => {
+              originalRequest.headers['Authorization'] = `Bearer ${token}`;
+              resolve(api(originalRequest));
+            },
+            onError: reject,
           });
         });
       }
@@ -42,14 +46,15 @@ api.interceptors.response.use(
         const response = await api.post<{ accessToken: string }>('/auth/refresh');
         const { accessToken } = response.data;
         useAuthStore.getState().setAccessToken(accessToken);
-        refreshSubscribers.forEach((cb) => cb(accessToken));
+        refreshSubscribers.forEach(({ onToken }) => onToken(accessToken));
         refreshSubscribers = [];
         originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
         return api(originalRequest);
-      } catch {
+      } catch (refreshError) {
         useAuthStore.getState().clearAuth();
+        refreshSubscribers.forEach(({ onError }) => onError(refreshError));
         refreshSubscribers = [];
-        window.location.href = '/login';
+        window.location.replace('/login');
         return Promise.reject(error);
       } finally {
         isRefreshing = false;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
@@ -35,16 +35,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, role }) => {
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const setLoading = useUiStore((s) => s.setLoading);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const links = role === UserRole.ADMIN ? ADMIN_LINKS : LEADER_LINKS;
 
   const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
     setLoading(true);
     try {
       await authService.logout();
     } finally {
       clearAuth();
       setLoading(false);
+      setIsLoggingOut(false);
       navigate('/login', { replace: true });
     }
   };
@@ -101,8 +105,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, role }) => {
         <div className="p-2 border-t border-slate-200 shrink-0">
           <button
             onClick={handleLogout}
+            disabled={isLoggingOut}
             aria-label="Đăng xuất"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 w-full transition-colors"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 w-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span>🚪</span>
             Đăng xuất

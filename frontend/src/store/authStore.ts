@@ -29,6 +29,9 @@ export const useAuthStore = create<AuthState>()(
       setAccessToken: (token) => set({ accessToken: token }),
       clearAuth: () => set({ accessToken: null, user: null, isAuthenticated: false }),
     }),
-    { name: 'itx-auth' }
+    {
+      name: 'itx-auth',
+      partialize: (s) => ({ user: s.user, isAuthenticated: s.isAuthenticated }),
+    }
   )
 );

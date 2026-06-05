@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
@@ -15,14 +15,18 @@ export const Header: React.FC<HeaderProps> = ({ title, onMenuClick }) => {
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const setLoading = useUiStore((s) => s.setLoading);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
     setLoading(true);
     try {
       await authService.logout();
     } finally {
       clearAuth();
       setLoading(false);
+      setIsLoggingOut(false);
       navigate('/login', { replace: true });
     }
   };
@@ -49,8 +53,9 @@ export const Header: React.FC<HeaderProps> = ({ title, onMenuClick }) => {
 
       <button
         onClick={handleLogout}
+        disabled={isLoggingOut}
         aria-label="Đăng xuất"
-        className="min-w-[48px] min-h-[48px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-sm text-slate-600"
+        className="min-w-[48px] min-h-[48px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-sm text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         ⎋
       </button>
