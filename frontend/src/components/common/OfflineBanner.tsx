@@ -24,7 +24,7 @@ export const OfflineBanner: React.FC = () => {
     <div
       role="alert"
       aria-live="assertive"
-      className="fixed top-0 left-0 right-0 z-[60] bg-warning text-white text-center py-2 px-4 text-sm font-medium"
+      className="fixed top-0 left-0 right-0 z-[60] bg-warning text-gray-900 text-center py-2 px-4 text-sm font-medium"
     >
       Mất kết nối Internet. Hệ thống sẽ đồng bộ khi online.
     </div>

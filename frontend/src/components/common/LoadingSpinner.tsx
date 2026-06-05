@@ -18,7 +18,9 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
       role="status"
       aria-label="Đang tải..."
       className={`animate-spin rounded-full border-emerald-200 border-t-emerald-600 ${SPINNER_SIZES[size]} ${className}`}
-    />
+    >
+      <span className="sr-only">Đang tải...</span>
+    </div>
   );
 
   if (centered) {

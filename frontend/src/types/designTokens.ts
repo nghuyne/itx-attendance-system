@@ -32,5 +32,5 @@ export const SPINNER_SIZES: Record<SpinnerSize, string> = {
 // H2:         text-xl font-bold
 // H3:         text-lg font-semibold
 // Body:       text-base
-// Caption:    text-sm / text-xs
+// Caption:    text-sm
 // Monospace (timestamps, IP addresses): font-mono text-sm

@@ -29,7 +29,7 @@ export const Toast: React.FC<ToastProps> = ({ id, type, message, duration = 4000
       <button
         onClick={() => onClose(id)}
         aria-label="Đóng thông báo"
-        className={`${colors.text} hover:opacity-70 text-xl leading-none min-h-[24px] min-w-[24px] flex items-center justify-center`}
+        className={`${colors.text} hover:opacity-70 text-xl leading-none min-h-[48px] min-w-[48px] flex items-center justify-center`}
       >
         ×
       </button>
