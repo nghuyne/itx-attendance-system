@@ -1,0 +1,43 @@
+# ========================
+# MAC/WINDOWS OS
+# ========================
+.DS_Store
+*.log
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ========================
+# CLAUDE & AI TOOLS
+# ========================
+.claude/
+_bmad/
+_bmad-output/
+
+# ========================
+# BACKEND (Java / Spring Boot / Maven)
+# ========================
+backend/target/
+backend/.mvn/
+backend/mvnw
+backend/mvnw.cmd
+*.jar
+*.war
+*.class
+.idea/
+.vscode/
+
+# ========================
+# FRONTEND (Node.js / React / Vite)
+# ========================
+node_modules/
+dist/
+dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
