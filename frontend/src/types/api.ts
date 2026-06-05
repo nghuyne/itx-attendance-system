@@ -39,6 +39,33 @@ export interface UserDto {
   role: UserRole;
 }
 
+// Shift DTOs — Story 2.1
+export interface ShiftDto {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  checkInOpenMinutes: number;
+  lateInThreshold: number;
+  earlyOutThreshold: number;
+  halfDayThreshold: number;
+  otBuffer: number;
+  assignedCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateShiftRequest {
+  name: string;
+  startTime: string;
+  endTime: string;
+  checkInOpenMinutes: number;
+  lateInThreshold: number;
+  earlyOutThreshold: number;
+  halfDayThreshold: number;
+  otBuffer: number;
+}
+
 // Attendance DTOs — Story 3.x
 export interface AttendanceRecordDto {
   id: number;

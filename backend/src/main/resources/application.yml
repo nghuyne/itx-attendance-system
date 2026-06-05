@@ -17,6 +17,9 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: false
     validate-on-migrate: true
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
   threads:
     virtual:
       enabled: true
