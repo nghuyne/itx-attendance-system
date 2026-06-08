@@ -28,4 +28,10 @@ public class SecurityUtil {
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("No role found for current user"));
     }
+
+    public static boolean hasRole(String role) {
+        return SecurityContextHolder.getContext().getAuthentication()
+                .getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_" + role));
+    }
 }

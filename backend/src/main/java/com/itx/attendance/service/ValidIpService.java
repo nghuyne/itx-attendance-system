@@ -131,7 +131,8 @@ public class ValidIpService {
         boolean isValidIpv4 = ip.matches(
             "^((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]\\d|\\d)\\.){3}(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]\\d|\\d)$");
         boolean looksLikeIpv6 = ip.contains(":") &&
-            ip.matches("^[0-9a-fA-F:]+$");
+            ip.matches("^[0-9a-fA-F:]+$") &&
+            ip.split(":", -1).length <= 8;
         if (!isValidIpv4 && !looksLikeIpv6) {
             throw new BusinessException(
                 "Định dạng IP không hợp lệ. Hỗ trợ IPv4 (203.0.113.45) và IPv6 (2001:db8::1)",

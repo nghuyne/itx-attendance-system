@@ -38,7 +38,7 @@ public class HolidayService {
             .date(request.date())
             .name(request.name().strip())
             .type(request.type())
-            .year(request.year())
+            .year(request.date().getYear())
             .build();
 
         try {

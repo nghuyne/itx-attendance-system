@@ -35,9 +35,16 @@ management:
 
 server:
   port: 8080
+  forward-headers-strategy: native
 
 app:
   jwt:
     secret: ${JWT_SECRET:dev-secret-key-min-32chars-replace-in-prod}
     access-token-expiration-ms: 900000
     refresh-token-expiration-ms: 604800000
+
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket-name: attendance

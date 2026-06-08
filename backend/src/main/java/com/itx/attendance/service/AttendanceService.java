@@ -24,6 +24,8 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ExecutionException;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +36,7 @@ public class AttendanceService {
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final UserRepository userRepository;
     private final ValidIpRepository validIpRepository;
+    private final PhotoService photoService;
 
     @Transactional
     public AttendanceRecordDto checkIn(CheckInRequest request, HttpServletRequest httpRequest) {
@@ -71,6 +74,16 @@ public class AttendanceService {
             }
         }
 
+        byte[] imageBytes = photoService.decodeBase64Photo(request.photoBase64());
+        String objectKey = employee.getId() + "/" + today + "/checkin_" + UUID.randomUUID() + ".jpg";
+        String checkInPhotoUrl;
+        try {
+            checkInPhotoUrl = photoService.uploadPhotoAsync(imageBytes, objectKey).get();
+        } catch (ExecutionException | InterruptedException e) {
+            throw new BusinessException(
+                "Lỗi upload ảnh", HttpStatus.INTERNAL_SERVER_ERROR, "PHOTO_UPLOAD_FAILED");
+        }
+
         LocalDateTime checkInUtc = LocalDateTime.now(ZoneOffset.UTC);
         LocalTime checkInVN = TimeUtil.toUtcPlus7(checkInUtc).toLocalTime();
         AttendanceStatus initialStatus = calculateInitialStatus(checkInVN, shift);
@@ -83,9 +96,10 @@ public class AttendanceService {
             .checkInIp(clientIp)
             .checkInLat(request.lat() != null ? BigDecimal.valueOf(request.lat()) : null)
             .checkInLng(request.lng() != null ? BigDecimal.valueOf(request.lng()) : null)
+            .checkInPhotoUrl(checkInPhotoUrl)
             .attendanceStatus(initialStatus)
             .clientSite(request.isClientSite())
-            .gpsUnavailable(request.lat() == null)
+            .gpsUnavailable(request.lat() == null || request.lng() == null)
             .build();
 
         try {
@@ -119,15 +133,7 @@ public class AttendanceService {
     }
 
     private String extractClientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank() && !"unknown".equalsIgnoreCase(forwarded)) {
-            String ip = forwarded.split(",")[0].strip();
-            return stripIpv6Prefix(ip);
-        }
-        return stripIpv6Prefix(request.getRemoteAddr());
-    }
-
-    private String stripIpv6Prefix(String ip) {
+        String ip = request.getRemoteAddr();
         if (ip != null && ip.startsWith("::ffff:")) {
             return ip.substring(7);
         }
