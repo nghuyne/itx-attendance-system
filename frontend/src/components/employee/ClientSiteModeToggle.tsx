@@ -13,7 +13,7 @@ export const ClientSiteModeToggle: React.FC<ClientSiteModeToggleProps> = ({
 }) => {
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-3">
-      <div className="flex items-center justify-between min-h-[48px]">
+      <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-slate-700">
             {isClientSite ? 'Ngoài văn phòng' : 'Office Mode'}
@@ -30,7 +30,7 @@ export const ClientSiteModeToggle: React.FC<ClientSiteModeToggleProps> = ({
           aria-checked={isClientSite}
           aria-label="Chế độ ngoài văn phòng"
           onClick={() => onChange(!isClientSite)}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
+          className={`relative inline-flex min-h-[48px] w-11 items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${
             isClientSite ? 'bg-emerald-600' : 'bg-slate-300'
           }`}
         >

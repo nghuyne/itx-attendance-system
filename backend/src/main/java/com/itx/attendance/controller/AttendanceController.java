@@ -1,6 +1,12 @@
 package com.itx.attendance.controller;
 
 import com.itx.attendance.dto.request.CheckInRequest;
+import com.itx.attendance.dto.request.CheckOutRequest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+
+import java.time.LocalDate;
 import com.itx.attendance.dto.response.AttendanceRecordDto;
 import com.itx.attendance.security.SecurityUtil;
 import com.itx.attendance.service.AttendanceService;
@@ -37,6 +43,25 @@ public class AttendanceController {
         return attendanceService.getTodayRecord()
             .map(ResponseEntity::ok)
             .orElse(ResponseEntity.noContent().build());
+    }
+
+    @PostMapping("/check-out")
+    public ResponseEntity<AttendanceRecordDto> checkOut(
+            @Valid @RequestBody CheckOutRequest request,
+            HttpServletRequest httpRequest) {
+        return ResponseEntity.ok(attendanceService.checkOut(request, httpRequest));
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<Page<AttendanceRecordDto>> getHistory(
+            @RequestParam String from,
+            @RequestParam String to,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        LocalDate fromDate = LocalDate.parse(from);
+        LocalDate toDate = LocalDate.parse(to);
+        return ResponseEntity.ok(attendanceService.getHistory(
+            fromDate, toDate, PageRequest.of(page, size, Sort.by("date").descending())));
     }
 
     @GetMapping("/{id}/photo/url")

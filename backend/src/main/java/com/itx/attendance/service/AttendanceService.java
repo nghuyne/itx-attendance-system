@@ -2,6 +2,7 @@ package com.itx.attendance.service;
 
 import com.itx.attendance.domain.*;
 import com.itx.attendance.dto.request.CheckInRequest;
+import com.itx.attendance.dto.request.CheckOutRequest;
 import com.itx.attendance.dto.response.AttendanceRecordDto;
 import com.itx.attendance.exception.BusinessException;
 import com.itx.attendance.repository.AttendanceRecordRepository;
@@ -13,6 +14,8 @@ import com.itx.attendance.util.TimeUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -194,6 +197,78 @@ public class AttendanceService {
         return photoService.getPresignedUrl(objectKey);
     }
 
+    public AttendanceRecordDto checkOut(CheckOutRequest request, HttpServletRequest httpRequest) {
+        String username = SecurityUtil.getCurrentUsername();
+        User employee = userRepository.findByUsername(username)
+            .orElseThrow(() -> new BusinessException(
+                "User not found", HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
+
+        LocalDate today = LocalDate.now(TimeUtil.UTC_PLUS_7);
+
+        AttendanceRecord existing = attendanceRecordRepository.findByEmployeeIdAndDate(employee.getId(), today)
+            .orElseThrow(() -> new BusinessException(
+                "Chưa có bản ghi check-in hôm nay", HttpStatus.BAD_REQUEST, "NO_CHECKIN_FOUND"));
+
+        if (existing.getCheckOutTime() != null) {
+            throw new BusinessException(
+                "Đã check-out rồi", HttpStatus.CONFLICT, "ALREADY_CHECKED_OUT");
+        }
+
+        PhotoService.PhotoData photoData = photoService.decodeBase64Photo(request.photoBase64());
+        String objectKey = employee.getId() + "/" + today + "/checkout_" + UUID.randomUUID() + ".jpg";
+        String checkOutObjectKey;
+        try {
+            checkOutObjectKey = photoService.uploadPhotoAsync(photoData.bytes(), objectKey, photoData.contentType()).get();
+        } catch (ExecutionException e) {
+            throw new BusinessException("Lỗi upload ảnh", HttpStatus.INTERNAL_SERVER_ERROR, "PHOTO_UPLOAD_FAILED");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException("Lỗi upload ảnh", HttpStatus.INTERNAL_SERVER_ERROR, "PHOTO_UPLOAD_FAILED");
+        }
+
+        String checkOutIp = extractClientIp(httpRequest);
+        return self.persistCheckOut(employee, today, request, checkOutObjectKey, checkOutIp);
+    }
+
+    @Transactional
+    public AttendanceRecordDto persistCheckOut(User employee, LocalDate today,
+            CheckOutRequest request, String checkOutObjectKey, String checkOutIp) {
+        AttendanceRecord record = attendanceRecordRepository.findByEmployeeIdAndDate(employee.getId(), today)
+            .orElseThrow(() -> new BusinessException(
+                "Chưa có bản ghi check-in hôm nay", HttpStatus.BAD_REQUEST, "NO_CHECKIN_FOUND"));
+
+        LocalDateTime checkOutUtc = LocalDateTime.now(ZoneOffset.UTC);
+        LocalTime checkOutVN = TimeUtil.toUtcPlus7(checkOutUtc).toLocalTime();
+        LocalTime checkInVN = TimeUtil.toUtcPlus7(record.getCheckInTime()).toLocalTime();
+        Shift shift = record.getShift();
+
+        AttendanceStatus finalStatus = calculateFinalStatus(checkInVN, checkOutVN, shift);
+
+        record.setCheckOutTime(checkOutUtc);
+        record.setCheckOutIp(checkOutIp);
+        record.setCheckOutLat(request.lat() != null ? BigDecimal.valueOf(request.lat()) : null);
+        record.setCheckOutLng(request.lng() != null ? BigDecimal.valueOf(request.lng()) : null);
+        record.setCheckOutPhotoUrl(checkOutObjectKey);
+        record.setAttendanceStatus(finalStatus);
+
+        try {
+            return toDto(attendanceRecordRepository.save(record));
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(
+                "Lỗi lưu dữ liệu check-out", HttpStatus.CONFLICT, "CHECKOUT_SAVE_FAILED");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AttendanceRecordDto> getHistory(LocalDate from, LocalDate to, Pageable pageable) {
+        String username = SecurityUtil.getCurrentUsername();
+        User employee = userRepository.findByUsername(username)
+            .orElseThrow(() -> new BusinessException(
+                "User not found", HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
+        return attendanceRecordRepository.findByEmployeeIdAndDateBetween(employee.getId(), from, to, pageable)
+            .map(this::toDto);
+    }
+
     private AttendanceStatus calculateInitialStatus(LocalTime checkInVN, Shift shift) {
         long minutesLate = ChronoUnit.MINUTES.between(shift.getShiftStartTime(), checkInVN);
         if (minutesLate > shift.getHalfDayThreshold()) {
@@ -202,6 +277,22 @@ public class AttendanceService {
         if (minutesLate > shift.getLateInThreshold()) {
             return AttendanceStatus.LATE_IN;
         }
+        return AttendanceStatus.ON_TIME;
+    }
+
+    private AttendanceStatus calculateFinalStatus(LocalTime checkInVN, LocalTime checkOutVN, Shift shift) {
+        long minutesLate = ChronoUnit.MINUTES.between(shift.getShiftStartTime(), checkInVN);
+        long minutesEarlyOut = ChronoUnit.MINUTES.between(checkOutVN, shift.getShiftEndTime());
+
+        boolean halfDayViaLate = minutesLate > shift.getHalfDayThreshold();
+        boolean halfDayViaEarly = minutesEarlyOut > shift.getHalfDayThreshold();
+        boolean lateIn = minutesLate > shift.getLateInThreshold();
+        boolean earlyOut = minutesEarlyOut > shift.getEarlyOutThreshold();
+
+        if (halfDayViaLate || halfDayViaEarly) return AttendanceStatus.HALF_DAY;
+        if (lateIn && earlyOut) return AttendanceStatus.LATE_IN_EARLY_OUT;
+        if (lateIn) return AttendanceStatus.LATE_IN;
+        if (earlyOut) return AttendanceStatus.EARLY_OUT;
         return AttendanceStatus.ON_TIME;
     }
 

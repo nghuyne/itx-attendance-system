@@ -146,3 +146,9 @@ export interface CheckInRequest {
   photoBase64: string;
   isClientSite: boolean;
 }
+
+export interface CheckOutRequest {
+  lat: number | null;
+  lng: number | null;
+  photoBase64: string;
+}

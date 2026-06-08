@@ -6,6 +6,7 @@ import { SkeletonCard } from '../../components/common/SkeletonCard';
 import { CameraViewfinder } from '../../components/employee/CameraViewfinder';
 import { ClientSiteModeToggle } from '../../components/employee/ClientSiteModeToggle';
 import { useUiStore } from '../../store/uiStore';
+import type { CheckOutRequest } from '../../types/api';
 
 export const CheckInPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -24,6 +25,10 @@ export const CheckInPage: React.FC = () => {
   const [isClientSite, setIsClientSite] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const [checkOutPhoto, setCheckOutPhoto] = useState<string>('');
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [checkOutError, setCheckOutError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -72,6 +77,32 @@ export const CheckInPage: React.FC = () => {
     }
   };
 
+  const handleCheckOut = async () => {
+    if (!checkOutPhoto) return;
+    setIsCheckingOut(true);
+    setCheckOutError(null);
+    try {
+      await attendanceService.checkOut({
+        lat: coords.lat,
+        lng: coords.lng,
+        photoBase64: checkOutPhoto,
+      } as CheckOutRequest);
+      await queryClient.invalidateQueries({ queryKey: ['attendance', 'today'] });
+      showToast({ type: 'success', message: 'Check-out thành công!' });
+    } catch (err) {
+      const errorCode = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      const message =
+        errorCode === 'ALREADY_CHECKED_OUT' ? 'Bạn đã check-out rồi hôm nay.' :
+        errorCode === 'NO_CHECKIN_FOUND' ? 'Không tìm thấy bản ghi check-in hôm nay.' :
+        errorCode === 'PHOTO_UPLOAD_FAILED' ? 'Lỗi tải ảnh. Vui lòng thử lại.' :
+        'Lỗi không xác định. Vui lòng thử lại.';
+      setCheckOutError(message);
+      showToast({ type: 'error', message });
+    } finally {
+      setIsCheckingOut(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <main className="p-4">
@@ -93,31 +124,75 @@ export const CheckInPage: React.FC = () => {
   }
 
   if (todayRecord) {
-    const checkInTimeVN = todayRecord.checkInTime
-      ? new Date(todayRecord.checkInTime).toLocaleTimeString('vi-VN', {
-          hour: '2-digit',
-          minute: '2-digit',
-          timeZone: 'Asia/Ho_Chi_Minh',
-        })
-      : '—';
-    return (
-      <main className="p-4">
-        <h1 className="text-2xl font-bold text-slate-700 mb-4">Chấm công</h1>
-        <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
-          <p className="text-sm text-slate-500">
-            Ca: {todayRecord.shiftName} ({todayRecord.shiftStartTime}–{todayRecord.shiftEndTime})
-          </p>
-          <div>
-            <p className="text-sm text-slate-500">Đã check-in lúc</p>
-            <p className="text-2xl font-bold text-slate-800 font-mono">{checkInTimeVN}</p>
+    const formatVN = (utcStr: string | null) =>
+      utcStr ? new Date(utcStr).toLocaleTimeString('vi-VN', {
+        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh',
+      }) : '—';
+
+    if (todayRecord.checkOutTime) {
+      return (
+        <main className="p-4">
+          <h1 className="text-2xl font-bold text-slate-700 mb-4">Chấm công</h1>
+          <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
+            <p className="text-sm text-slate-500">
+              Ca: {todayRecord.shiftName} ({todayRecord.shiftStartTime}–{todayRecord.shiftEndTime})
+            </p>
+            <div className="flex gap-6">
+              <div>
+                <p className="text-xs text-slate-500">Check-in</p>
+                <p className="text-xl font-bold text-slate-800 font-mono">{formatVN(todayRecord.checkInTime)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500">Check-out</p>
+                <p className="text-xl font-bold text-slate-800 font-mono">{formatVN(todayRecord.checkOutTime)}</p>
+              </div>
+            </div>
+            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${ATTENDANCE_STATUS_COLORS[todayRecord.attendanceStatus]}`}>
+              {todayRecord.attendanceStatus}
+            </span>
           </div>
-          <span
-            className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${ATTENDANCE_STATUS_COLORS[todayRecord.attendanceStatus]}`}
+        </main>
+      );
+    }
+
+    const canCheckOut = checkOutPhoto.length > 0 && !isCheckingOut;
+    return (
+      <main className="flex flex-col min-h-0">
+        <div className="p-4 pb-0">
+          <h1 className="text-2xl font-bold text-slate-700 mb-2">Chấm công</h1>
+          <div className="bg-white rounded-lg border border-slate-200 p-3 mb-3">
+            <p className="text-sm text-slate-500">Check-in lúc</p>
+            <p className="text-xl font-bold text-slate-800 font-mono">{formatVN(todayRecord.checkInTime)}</p>
+            <span className={`inline-flex mt-1 px-2 py-1 rounded-full text-xs font-medium ${ATTENDANCE_STATUS_COLORS[todayRecord.attendanceStatus]}`}>
+              {todayRecord.attendanceStatus}
+            </span>
+          </div>
+          <p className="text-sm font-medium text-slate-700 mb-2">Chụp ảnh để check-out:</p>
+        </div>
+
+        <div className="px-4">
+          <CameraViewfinder
+            onPhotoCapture={(base64) => { setCheckOutPhoto(base64); setCheckOutError(null); }}
+            onError={(error) => showToast({ type: 'error', message: error })}
+          />
+        </div>
+
+        <div className="p-4 space-y-2 mt-2">
+          <button
+            onClick={handleCheckOut}
+            disabled={!canCheckOut}
+            className={`w-full py-3 min-h-[48px] rounded-lg font-bold text-lg transition-all ${
+              canCheckOut
+                ? 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95'
+                : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+            } ${isCheckingOut ? 'opacity-75' : ''}`}
           >
-            {todayRecord.attendanceStatus}
-          </span>
-          {!todayRecord.checkOutTime && (
-            <p className="text-sm text-amber-600">Chưa check-out</p>
+            {isCheckingOut ? 'Đang xử lý...' : 'Xác nhận Check-out'}
+          </button>
+          {checkOutError && (
+            <div className="bg-red-50 border border-red-300 rounded-lg p-3">
+              <p className="text-red-700 text-sm">{checkOutError}</p>
+            </div>
           )}
         </div>
       </main>
