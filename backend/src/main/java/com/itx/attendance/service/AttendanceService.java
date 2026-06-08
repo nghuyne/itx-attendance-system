@@ -8,9 +8,12 @@ import com.itx.attendance.repository.AttendanceRecordRepository;
 import com.itx.attendance.repository.UserRepository;
 import com.itx.attendance.repository.ValidIpRepository;
 import com.itx.attendance.security.SecurityUtil;
+import com.itx.attendance.util.HaversineUtil;
 import com.itx.attendance.util.TimeUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -38,7 +41,13 @@ public class AttendanceService {
     private final ValidIpRepository validIpRepository;
     private final PhotoService photoService;
 
-    @Transactional
+    // Self-reference via proxy so @Transactional on persistCheckIn / getPresignedPhotoUrl is honoured.
+    // @Lazy breaks the circular dependency during bean construction.
+    @Autowired @Lazy
+    private AttendanceService self;
+
+    // Not @Transactional: releases DB connection before MinIO I/O so the connection pool
+    // is not held during network upload latency.
     public AttendanceRecordDto checkIn(CheckInRequest request, HttpServletRequest httpRequest) {
         String username = SecurityUtil.getCurrentUsername();
         User employee = userRepository.findByUsername(username)
@@ -74,16 +83,56 @@ public class AttendanceService {
             }
         }
 
-        byte[] imageBytes = photoService.decodeBase64Photo(request.photoBase64());
+        if (request.isClientSite() && (request.lat() == null || request.lng() == null)) {
+            throw new BusinessException(
+                "Yêu cầu GPS để chấm công ngoài văn phòng",
+                HttpStatus.BAD_REQUEST, "GPS_REQUIRED");
+        }
+
+        // Decode and validate photo synchronously before the async upload
+        PhotoService.PhotoData photoData = photoService.decodeBase64Photo(request.photoBase64());
         String objectKey = employee.getId() + "/" + today + "/checkin_" + UUID.randomUUID() + ".jpg";
-        String checkInPhotoUrl;
+        String checkInObjectKey;
         try {
-            checkInPhotoUrl = photoService.uploadPhotoAsync(imageBytes, objectKey).get();
-        } catch (ExecutionException | InterruptedException e) {
+            checkInObjectKey = photoService.uploadPhotoAsync(photoData.bytes(), objectKey, photoData.contentType()).get();
+        } catch (ExecutionException e) {
+            throw new BusinessException(
+                "Lỗi upload ảnh", HttpStatus.INTERNAL_SERVER_ERROR, "PHOTO_UPLOAD_FAILED");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new BusinessException(
                 "Lỗi upload ảnh", HttpStatus.INTERNAL_SERVER_ERROR, "PHOTO_UPLOAD_FAILED");
         }
 
+        boolean suspiciousLocation = false;
+        if (request.lat() != null && request.lng() != null) {
+            LocalDateTime since = LocalDateTime.now(ZoneOffset.UTC).minusHours(24);
+            Optional<AttendanceRecord> prevOpt = attendanceRecordRepository
+                .findFirstByEmployeeIdAndCheckInTimeAfterOrderByCheckInTimeDesc(employee.getId(), since);
+            if (prevOpt.isPresent()) {
+                AttendanceRecord prev = prevOpt.get();
+                if (!prev.isGpsUnavailable()
+                        && prev.getCheckInLat() != null
+                        && prev.getCheckInLng() != null
+                        && prev.getCheckInTime() != null) {
+                    double distKm = HaversineUtil.distanceKm(
+                        prev.getCheckInLat().doubleValue(), prev.getCheckInLng().doubleValue(),
+                        request.lat(), request.lng());
+                    long minutesDelta = ChronoUnit.MINUTES.between(
+                        prev.getCheckInTime(), LocalDateTime.now(ZoneOffset.UTC));
+                    if (distKm > 50.0 && minutesDelta < 60) {
+                        suspiciousLocation = true;
+                    }
+                }
+            }
+        }
+
+        return self.persistCheckIn(employee, shift, today, clientIp, request, checkInObjectKey, suspiciousLocation);
+    }
+
+    @Transactional
+    public AttendanceRecordDto persistCheckIn(User employee, Shift shift, LocalDate today,
+            String clientIp, CheckInRequest request, String checkInObjectKey, boolean suspiciousLocation) {
         LocalDateTime checkInUtc = LocalDateTime.now(ZoneOffset.UTC);
         LocalTime checkInVN = TimeUtil.toUtcPlus7(checkInUtc).toLocalTime();
         AttendanceStatus initialStatus = calculateInitialStatus(checkInVN, shift);
@@ -96,10 +145,11 @@ public class AttendanceService {
             .checkInIp(clientIp)
             .checkInLat(request.lat() != null ? BigDecimal.valueOf(request.lat()) : null)
             .checkInLng(request.lng() != null ? BigDecimal.valueOf(request.lng()) : null)
-            .checkInPhotoUrl(checkInPhotoUrl)
+            .checkInPhotoUrl(checkInObjectKey)
             .attendanceStatus(initialStatus)
             .clientSite(request.isClientSite())
             .gpsUnavailable(request.lat() == null || request.lng() == null)
+            .suspiciousLocation(suspiciousLocation)
             .build();
 
         try {
@@ -119,6 +169,29 @@ public class AttendanceService {
         LocalDate today = LocalDate.now(TimeUtil.UTC_PLUS_7);
         return attendanceRecordRepository.findByEmployeeIdAndDate(employee.getId(), today)
             .map(this::toDto);
+    }
+
+    @Transactional(readOnly = true)
+    public String getPresignedPhotoUrl(String recordId, String username, boolean isAdmin) {
+        AttendanceRecord record = attendanceRecordRepository.findById(recordId)
+            .orElseThrow(() -> new BusinessException(
+                "Record not found", HttpStatus.NOT_FOUND, "RECORD_NOT_FOUND"));
+
+        if (!isAdmin) {
+            User employee = userRepository.findByUsername(username)
+                .orElseThrow(() -> new BusinessException(
+                    "User not found", HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
+            if (!record.getEmployee().getId().equals(employee.getId())) {
+                throw new BusinessException("Forbidden", HttpStatus.FORBIDDEN, "FORBIDDEN");
+            }
+        }
+
+        String objectKey = record.getCheckInPhotoUrl();
+        if (objectKey == null || objectKey.isBlank()) {
+            throw new BusinessException("No photo available", HttpStatus.NOT_FOUND, "NO_PHOTO");
+        }
+
+        return photoService.getPresignedUrl(objectKey);
     }
 
     private AttendanceStatus calculateInitialStatus(LocalTime checkInVN, Shift shift) {

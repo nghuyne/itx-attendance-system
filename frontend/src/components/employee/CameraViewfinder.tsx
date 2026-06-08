@@ -42,7 +42,7 @@ export const CameraViewfinder: React.FC<CameraViewfinderProps> = ({
   const [cameraError, setCameraError] = useState<string | null>(null);
 
   const capturePhoto = useCallback(async () => {
-    if (!webcamRef.current || isProcessing) return;
+    if (!webcamRef.current || isProcessing || isCaptured) return;
     setIsProcessing(true);
     try {
       const imageSrc = webcamRef.current.getScreenshot();
@@ -56,7 +56,7 @@ export const CameraViewfinder: React.FC<CameraViewfinderProps> = ({
     } finally {
       setIsProcessing(false);
     }
-  }, [isProcessing, onPhotoCapture, onError]);
+  }, [isProcessing, isCaptured, onPhotoCapture, onError]);
 
   const retakePhoto = () => {
     setIsCaptured(false);

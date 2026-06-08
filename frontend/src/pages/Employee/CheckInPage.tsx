@@ -4,6 +4,7 @@ import { attendanceService } from '../../services/attendanceService';
 import { ATTENDANCE_STATUS_COLORS } from '../../types/domain';
 import { SkeletonCard } from '../../components/common/SkeletonCard';
 import { CameraViewfinder } from '../../components/employee/CameraViewfinder';
+import { ClientSiteModeToggle } from '../../components/employee/ClientSiteModeToggle';
 import { useUiStore } from '../../store/uiStore';
 
 export const CheckInPage: React.FC = () => {
@@ -20,6 +21,7 @@ export const CheckInPage: React.FC = () => {
     lat: null,
     lng: null,
   });
+  const [isClientSite, setIsClientSite] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -50,13 +52,14 @@ export const CheckInPage: React.FC = () => {
         lat: coords.lat,
         lng: coords.lng,
         photoBase64,
-        isClientSite: false,
+        isClientSite,
       });
       await queryClient.invalidateQueries({ queryKey: ['attendance', 'today'] });
       showToast({ type: 'success', message: 'Check-in thành công!' });
     } catch (err) {
       const errorCode = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
       const message =
+        errorCode === 'GPS_REQUIRED' ? 'GPS bắt buộc khi chấm công ngoài văn phòng.' :
         errorCode === 'INVALID_IP' ? 'Không nhận diện được mạng văn phòng. Kiểm tra kết nối.' :
         errorCode === 'ALREADY_CHECKED_IN' ? 'Bạn đã chấm công rồi hôm nay.' :
         errorCode === 'PHOTO_UPLOAD_FAILED' ? 'Lỗi tải ảnh. Vui lòng thử lại.' :
@@ -121,17 +124,27 @@ export const CheckInPage: React.FC = () => {
     );
   }
 
-  const canSubmit = photoBase64.length > 0 && !isSubmitting;
+  const canSubmit = photoBase64.length > 0
+    && !isSubmitting
+    && (!isClientSite || coords.lat !== null);
 
   return (
     <main className="flex flex-col min-h-0">
       <div className="p-4 pb-0">
         <h1 className="text-2xl font-bold text-slate-700 mb-4">Chấm công</h1>
-        {coords.lat !== null ? (
-          <p className="text-xs text-emerald-600 mb-2">GPS: {coords.lat.toFixed(4)}, {coords.lng!.toFixed(4)}</p>
+        {coords.lat !== null && coords.lng !== null ? (
+          <p className="text-xs text-emerald-600 mb-2">GPS: {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}</p>
         ) : (
           <p className="text-xs text-amber-500 mb-2">GPS không khả dụng — check-in văn phòng vẫn được phép</p>
         )}
+      </div>
+
+      <div className="px-4 mb-3">
+        <ClientSiteModeToggle
+          isClientSite={isClientSite}
+          onChange={setIsClientSite}
+          gpsAvailable={coords.lat !== null}
+        />
       </div>
 
       <div className="px-4">
