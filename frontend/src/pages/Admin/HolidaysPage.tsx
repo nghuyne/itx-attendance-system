@@ -223,12 +223,16 @@ export const HolidaysPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deletingHoliday, setDeletingHoliday] = useState<HolidayDto | null>(null);
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'FIXED' | 'DYNAMIC'>('ALL');
+  const [yearFilter, setYearFilter] = useState<number>(new Date().getFullYear());
   const showToast = useUiStore((s) => s.showToast);
   const queryClient = useQueryClient();
 
+  const currentYear = new Date().getFullYear();
+  const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['admin', 'holidays'],
-    queryFn: () => holidayService.getAll(undefined, 0, 100),
+    queryKey: ['admin', 'holidays', yearFilter],
+    queryFn: () => holidayService.getAll(yearFilter, 0, 100),
   });
 
   const deleteMutation = useMutation({
@@ -236,7 +240,7 @@ export const HolidaysPage: React.FC = () => {
     onSuccess: () => {
       showToast({ type: 'success', message: 'Xóa ngày lễ thành công' });
       setDeletingHoliday(null);
-      queryClient.invalidateQueries({ queryKey: ['admin', 'holidays'] });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'holidays', yearFilter] });
     },
     onError: () => {
       showToast({ type: 'error', message: 'Xóa ngày lễ thất bại, vui lòng thử lại' });
@@ -245,7 +249,7 @@ export const HolidaysPage: React.FC = () => {
   });
 
   const handleFormSuccess = () => {
-    queryClient.invalidateQueries({ queryKey: ['admin', 'holidays'] });
+    queryClient.invalidateQueries({ queryKey: ['admin', 'holidays', yearFilter] });
   };
 
   const allHolidays = data?.content ?? [];
@@ -277,7 +281,17 @@ export const HolidaysPage: React.FC = () => {
         </button>
       </div>
 
-      <div className="mb-4">
+      <div className="mb-4 flex gap-3">
+        <select
+          value={yearFilter}
+          onChange={(e) => setYearFilter(Number(e.target.value))}
+          className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+          aria-label="Lọc theo năm"
+        >
+          {yearOptions.map((y) => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
