@@ -1,4 +1,4 @@
-import type { UserRole, AttendanceStatus, ApprovalSubStatus, RequestType } from './domain';
+import type { UserRole, AttendanceStatus, ApprovalSubStatus } from './domain';
 
 export interface ApiResponse<T> {
   data: T;
@@ -111,14 +111,38 @@ export interface CreateHolidayRequest {
   year: number;
 }
 
-// Attendance DTOs — Story 3.x
+// Attendance DTOs — Story 3.1+
 export interface AttendanceRecordDto {
-  id: number;
-  userId: number;
+  id: string;
+  employeeId: string;
+  shiftId: string;
+  shiftName: string;
+  shiftStartTime: string;
+  shiftEndTime: string;
   date: string;
   checkInTime: string | null;
+  checkInIp: string | null;
+  checkInLat: number | null;
+  checkInLng: number | null;
+  checkInPhotoUrl: string | null;
   checkOutTime: string | null;
-  status: AttendanceStatus;
+  checkOutIp: string | null;
+  checkOutLat: number | null;
+  checkOutLng: number | null;
+  checkOutPhotoUrl: string | null;
+  attendanceStatus: AttendanceStatus;
   approvalSubStatus: ApprovalSubStatus | null;
-  requestType: RequestType | null;
+  isClientSite: boolean;
+  gpsUnavailable: boolean;
+  suspiciousLocation: boolean;
+  isAdminOverride: boolean;
+  version: number;
+  createdAt: string;
+}
+
+export interface CheckInRequest {
+  lat: number | null;
+  lng: number | null;
+  photoBase64: string;
+  isClientSite: boolean;
 }
