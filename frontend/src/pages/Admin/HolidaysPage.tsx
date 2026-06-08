@@ -9,6 +9,12 @@ import { useUiStore } from '../../store/uiStore';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { SkeletonCard } from '../../components/common/SkeletonCard';
 
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return '—';
+  const [year, month, day] = dateStr.split('-');
+  return `${day}/${month}/${year}`;
+};
+
 const holidaySchema = z.object({
   date: z
     .string()
@@ -190,7 +196,7 @@ const DeleteConfirmDialog: React.FC<DeleteConfirmProps> = ({
       <h3 className="text-lg font-bold text-slate-700 mb-2">Xác nhận xóa ngày lễ</h3>
       <p className="text-slate-600 text-sm mb-4">
         Bạn có chắc muốn xóa{' '}
-        <strong>{holiday.name}</strong> ({holiday.date})?
+        <strong>{holiday.name}</strong> ({formatDate(holiday.date)})?
         Thao tác này không thể hoàn tác.
       </p>
       <div className="flex justify-end gap-3">
@@ -222,7 +228,7 @@ export const HolidaysPage: React.FC = () => {
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['admin', 'holidays'],
-    queryFn: () => holidayService.getAll(undefined, 0, 200),
+    queryFn: () => holidayService.getAll(undefined, 0, 100),
   });
 
   const deleteMutation = useMutation({
@@ -250,12 +256,6 @@ export const HolidaysPage: React.FC = () => {
         : allHolidays.filter((h) => h.type === typeFilter),
     [allHolidays, typeFilter]
   );
-
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return '—';
-    const [year, month, day] = dateStr.split('-');
-    return `${day}/${month}/${year}`;
-  };
 
   const typeLabel = (type: HolidayType) =>
     type === 'FIXED' ? 'Cố định' : 'Linh hoạt';

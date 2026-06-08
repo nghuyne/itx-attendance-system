@@ -30,7 +30,7 @@ public class HolidayService {
     public HolidayDto create(CreateHolidayRequest request) {
         if (holidayRepository.existsByDate(request.date())) {
             throw new BusinessException(
-                "Đã có ngày lễ cho ngày " + request.date(),
+                "Đã có ngày lễ cho ngày này",
                 HttpStatus.CONFLICT, "HOLIDAY_DATE_EXISTS");
         }
 
