@@ -65,6 +65,10 @@ public class IncompleteAttendanceJob {
             return true;
         }
         Shift shift = record.getShift();
+        if (shift == null) {
+            log.warn("IncompleteAttendanceJob: skipping record {} — shift is null", record.getId());
+            return false;
+        }
         LocalTime graceCutoff = shift.getShiftEndTime()
             .plusMinutes(shift.getOtBuffer())
             .plusMinutes(30);

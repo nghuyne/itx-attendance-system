@@ -44,6 +44,7 @@ public class AttendanceService {
     private final UserRepository userRepository;
     private final ValidIpRepository validIpRepository;
     private final PhotoService photoService;
+    private final OtCalculationService otCalculationService;
 
     // Self-reference via proxy so @Transactional on persistCheckIn / getPresignedPhotoUrl is honoured.
     // @Lazy breaks the circular dependency during bean construction.
@@ -261,8 +262,9 @@ public class AttendanceService {
         record.setCheckOutPhotoUrl(checkOutObjectKey);
         record.setAttendanceStatus(finalStatus);
 
+        AttendanceRecord saved;
         try {
-            return toDto(attendanceRecordRepository.save(record));
+            saved = attendanceRecordRepository.save(record);
         } catch (ObjectOptimisticLockingFailureException e) {
             throw new BusinessException(
                 "Đã check-out rồi", HttpStatus.CONFLICT, "ALREADY_CHECKED_OUT");
@@ -270,6 +272,8 @@ public class AttendanceService {
             throw new BusinessException(
                 "Lỗi lưu dữ liệu check-out", HttpStatus.CONFLICT, "CHECKOUT_SAVE_FAILED");
         }
+        otCalculationService.calculateAndSave(saved);
+        return toDto(saved);
     }
 
     @Transactional(readOnly = true)

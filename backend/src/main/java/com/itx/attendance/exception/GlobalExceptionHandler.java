@@ -54,7 +54,7 @@ public class GlobalExceptionHandler {
                 .timestamp(LocalDateTime.now())
                 .status(400)
                 .error("INVALID_DATE_FORMAT")
-                .message("Invalid date format: " + ex.getParsedString())
+                .message("Invalid date format. Expected: YYYY-MM-DD")
                 .path(request.getRequestURI())
                 .build());
     }

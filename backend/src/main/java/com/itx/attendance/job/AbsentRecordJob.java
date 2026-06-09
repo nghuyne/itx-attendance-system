@@ -9,7 +9,6 @@ import com.itx.attendance.repository.UserRepository;
 import com.itx.attendance.util.TimeUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,18 +35,13 @@ public class AbsentRecordJob {
         int createdCount = 0;
         for (User employee : activeEmployees) {
             if (!attendanceRecordRepository.existsByEmployeeIdAndDate(employee.getId(), yesterday)) {
-                try {
-                    attendanceRecordRepository.save(AttendanceRecord.builder()
-                        .employee(employee)
-                        .shift(employee.getShift())
-                        .date(yesterday)
-                        .attendanceStatus(AttendanceStatus.ABSENT)
-                        .build());
-                    createdCount++;
-                } catch (DataIntegrityViolationException e) {
-                    log.debug("AbsentRecordJob: duplicate record skipped for employee {} on {}",
-                        employee.getId(), yesterday);
-                }
+                attendanceRecordRepository.save(AttendanceRecord.builder()
+                    .employee(employee)
+                    .shift(employee.getShift())
+                    .date(yesterday)
+                    .attendanceStatus(AttendanceStatus.ABSENT)
+                    .build());
+                createdCount++;
             }
         }
 
