@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { attendanceService } from '../../services/attendanceService';
-import { ATTENDANCE_STATUS_COLORS, ATTENDANCE_STATUS_LABEL } from '../../types/domain';
+import { ATTENDANCE_STATUS_COLORS, ATTENDANCE_STATUS_LABEL, AttendanceStatus } from '../../types/domain';
 import { SkeletonCard } from '../../components/common/SkeletonCard';
+import { ExceptionRequestForm } from '../../components/employee/ExceptionRequestForm';
+import { AdjustmentRequestForm } from '../../components/employee/AdjustmentRequestForm';
 import type { AttendanceRecordDto } from '../../types/api';
 
 const formatDate = (dateStr: string) =>
@@ -13,7 +15,24 @@ const formatTimeVN = (utcStr: string | null) =>
 
 const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
 
-function HistoryCard({ record }: { record: AttendanceRecordDto }) {
+function HistoryCard({
+  record,
+  onExceptionRequest,
+  onAdjustmentRequest,
+}: {
+  record: AttendanceRecordDto;
+  onExceptionRequest: () => void;
+  onAdjustmentRequest: () => void;
+}) {
+  const isExceptionEligible = [
+    AttendanceStatus.LATE_IN,
+    AttendanceStatus.EARLY_OUT,
+    AttendanceStatus.HALF_DAY,
+    AttendanceStatus.LATE_IN_EARLY_OUT,
+  ].includes(record.attendanceStatus);
+
+  const isAdjustmentEligible = record.attendanceStatus === AttendanceStatus.INCOMPLETE;
+
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-4">
       <div className="flex items-center justify-between mb-2">
@@ -22,7 +41,7 @@ function HistoryCard({ record }: { record: AttendanceRecordDto }) {
           {ATTENDANCE_STATUS_LABEL[record.attendanceStatus] ?? record.attendanceStatus}
         </span>
       </div>
-      <div className="flex gap-6 text-sm text-slate-600">
+      <div className="flex gap-6 text-sm text-slate-600 mb-3">
         <div>
           <p className="text-xs text-slate-400">Check-in</p>
           <p className="font-mono font-medium">{formatTimeVN(record.checkInTime)}</p>
@@ -37,6 +56,25 @@ function HistoryCard({ record }: { record: AttendanceRecordDto }) {
           </div>
         )}
       </div>
+
+      <div className="flex gap-2 flex-wrap">
+        {isExceptionEligible && (
+          <button
+            onClick={onExceptionRequest}
+            className="px-3 py-1.5 min-h-[40px] text-xs rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+          >
+            Gửi yêu cầu ngoại lệ
+          </button>
+        )}
+        {isAdjustmentEligible && (
+          <button
+            onClick={onAdjustmentRequest}
+            className="px-3 py-1.5 min-h-[40px] text-xs rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
+          >
+            Gửi yêu cầu điều chỉnh
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -49,8 +87,10 @@ export const HistoryPage: React.FC = () => {
   const [from, setFrom] = useState(toIsoDate(thirtyDaysAgo));
   const [to, setTo] = useState(toIsoDate(today));
   const [page, setPage] = useState(0);
+  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecordDto | null>(null);
+  const [modalType, setModalType] = useState<'exception' | 'adjustment' | null>(null);
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['attendance', 'history', from, to, page],
     queryFn: () => attendanceService.getHistory({ from, to, page, size: 20 }),
   });
@@ -116,7 +156,18 @@ export const HistoryPage: React.FC = () => {
         <>
           <div className="space-y-3 mb-4">
             {records.map(record => (
-              <HistoryCard key={record.id} record={record} />
+              <HistoryCard
+                key={record.id}
+                record={record}
+                onExceptionRequest={() => {
+                  setSelectedRecord(record);
+                  setModalType('exception');
+                }}
+                onAdjustmentRequest={() => {
+                  setSelectedRecord(record);
+                  setModalType('adjustment');
+                }}
+              />
             ))}
           </div>
 
@@ -140,6 +191,32 @@ export const HistoryPage: React.FC = () => {
             </div>
           )}
         </>
+      )}
+
+      {selectedRecord && modalType === 'exception' && (
+        <ExceptionRequestForm
+          record={selectedRecord}
+          onClose={() => {
+            setSelectedRecord(null);
+            setModalType(null);
+          }}
+          onSuccess={() => {
+            refetch();
+          }}
+        />
+      )}
+
+      {selectedRecord && modalType === 'adjustment' && (
+        <AdjustmentRequestForm
+          record={selectedRecord}
+          onClose={() => {
+            setSelectedRecord(null);
+            setModalType(null);
+          }}
+          onSuccess={() => {
+            refetch();
+          }}
+        />
       )}
     </main>
   );

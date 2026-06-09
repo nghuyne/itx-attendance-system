@@ -152,3 +152,45 @@ export interface CheckOutRequest {
   lng: number | null;
   photoBase64: string;
 }
+
+// Request DTOs — Story 4.1
+export type ExceptionRequestType = 'LATE_IN' | 'EARLY_OUT' | 'HALF_DAY' | 'LATE_IN_EARLY_OUT';
+export type RequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface ExceptionRequestCreateDto {
+  attendanceRecordId: string;
+  requestType: ExceptionRequestType;
+  reason: string;
+}
+
+export interface AdjustmentRequestCreateDto {
+  attendanceRecordId: string;
+  proposedCheckoutTime: string;
+  reason: string;
+}
+
+export interface ExceptionRequestDto {
+  id: string;
+  attendanceRecordId: string;
+  employeeId: string;
+  requestType: ExceptionRequestType;
+  reason: string;
+  status: RequestStatus;
+  reviewedBy: string | null;
+  reviewReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdjustmentRequestDto {
+  id: string;
+  attendanceRecordId: string;
+  employeeId: string;
+  proposedCheckoutTime: string;
+  reason: string;
+  status: RequestStatus;
+  reviewedBy: string | null;
+  reviewReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

@@ -36,6 +36,9 @@ public class OtCalculationService {
         }
 
         Shift shift = record.getShift();
+        if (shift == null) {
+            return Optional.empty();
+        }
         LocalTime checkOutVN = TimeUtil.toUtcPlus7(record.getCheckOutTime()).toLocalTime();
         LocalTime otCutoff = shift.getShiftEndTime().plusMinutes(shift.getOtBuffer());
 
