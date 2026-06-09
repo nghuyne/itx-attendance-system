@@ -7,12 +7,15 @@ import { requestService } from '../../services/requestService';
 import { useUiStore } from '../../store/uiStore';
 import type { AttendanceRecordDto } from '../../types/api';
 
-const adjustmentRequestSchema = z.object({
-  proposedCheckoutTime: z.string().min(1, 'Vui lòng chọn thời gian checkout'),
+const createAdjustmentSchema = (checkInTime: string) => z.object({
+  proposedCheckoutTime: z.string()
+    .min(1, 'Vui lòng chọn thời gian checkout')
+    .refine((val) => !isNaN(new Date(val).getTime()), 'Định dạng thời gian không hợp lệ')
+    .refine((val) => new Date(val).getTime() > new Date(checkInTime).getTime(), 'Phải sau thời gian check-in'),
   reason: z.string().min(10, 'Lý do phải có ít nhất 10 ký tự').max(500, 'Lý do không được vượt quá 500 ký tự'),
 });
 
-type AdjustmentRequestFormValues = z.infer<typeof adjustmentRequestSchema>;
+type AdjustmentRequestFormValues = z.infer<ReturnType<typeof createAdjustmentSchema>>;
 
 interface AdjustmentRequestFormProps {
   record: AttendanceRecordDto;
@@ -22,13 +25,14 @@ interface AdjustmentRequestFormProps {
 
 export const AdjustmentRequestForm: React.FC<AdjustmentRequestFormProps> = ({ record, onClose, onSuccess }) => {
   const showToast = useUiStore((s) => s.showToast);
+  const schema = createAdjustmentSchema(record.checkInTime || '');
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<AdjustmentRequestFormValues>({
-    resolver: zodResolver(adjustmentRequestSchema),
+    resolver: zodResolver(schema),
   });
 
   const mutation = useMutation({
@@ -44,13 +48,24 @@ export const AdjustmentRequestForm: React.FC<AdjustmentRequestFormProps> = ({ re
       onClose();
     },
     onError: (err: unknown) => {
-      const errorCode = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      const getErrorCode = (error: unknown): string | undefined => {
+        if (error && typeof error === 'object') {
+          const axiosError = error as { response?: { data?: { error?: string } } };
+          return axiosError.response?.data?.error;
+        }
+        return undefined;
+      };
+      const errorCode = getErrorCode(err);
       if (errorCode === 'PENDING_REQUEST_EXISTS') {
         showToast({ type: 'error', message: 'Đã có yêu cầu điều chỉnh chưa xử lý cho bản ghi này' });
       } else if (errorCode === 'INVALID_CHECKOUT_TIME') {
         showToast({ type: 'error', message: 'Thời gian checkout phải sau thời gian check-in' });
       } else if (errorCode === 'INVALID_ATTENDANCE_STATUS') {
         showToast({ type: 'error', message: 'Chỉ có thể gửi yêu cầu cho bản ghi THIẾU' });
+      } else if (errorCode === 'SECURITY_CONTEXT_MISSING') {
+        showToast({ type: 'error', message: 'Phiên làm việc hết hạn, vui lòng đăng nhập lại' });
+      } else if (errorCode === 'TOO_MANY_PENDING_REQUESTS') {
+        showToast({ type: 'error', message: 'Bạn đã có quá nhiều yêu cầu chưa xử lý' });
       } else {
         showToast({ type: 'error', message: 'Có lỗi xảy ra, vui lòng thử lại' });
       }
@@ -83,6 +98,7 @@ export const AdjustmentRequestForm: React.FC<AdjustmentRequestFormProps> = ({ re
             <input
               id="proposedCheckoutTime"
               type="datetime-local"
+              min={record.checkInTime ? new Date(record.checkInTime).toISOString().slice(0, 16) : undefined}
               {...register('proposedCheckoutTime')}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
             />

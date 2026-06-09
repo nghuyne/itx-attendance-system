@@ -45,8 +45,16 @@ public class AbsentRecordJob {
                         .build());
                     createdCount++;
                 } catch (DataIntegrityViolationException e) {
-                    log.debug("AbsentRecordJob: duplicate record skipped for employee {} on {}",
-                        employee.getId(), yesterday);
+                    String message = e.getCause() != null ? e.getCause().getMessage() : "";
+                    if (message.contains("Duplicate entry")) {
+                        log.debug("AbsentRecordJob: duplicate record skipped for employee {} on {}",
+                            employee.getId(), yesterday);
+                    } else if (message.contains("foreign key")) {
+                        log.warn("AbsentRecordJob: FK constraint violation for employee {} on {}: {}",
+                            employee.getId(), yesterday, message);
+                    } else {
+                        throw e;
+                    }
                 }
             }
         }

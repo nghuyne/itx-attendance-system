@@ -13,6 +13,7 @@ import com.itx.attendance.repository.UserRepository;
 import com.itx.attendance.security.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +33,11 @@ public class RequestService {
 
     public ExceptionRequestDto submitExceptionRequest(ExceptionRequestCreateDto request) {
         String username = SecurityUtil.getCurrentUsername();
+        if (username == null) {
+            throw new BusinessException(
+                "Security context not found",
+                HttpStatus.UNAUTHORIZED, "SECURITY_CONTEXT_MISSING");
+        }
         User employee = userRepository.findByUsername(username)
             .orElseThrow(() -> new BusinessException(
                 "Employee not found",
@@ -42,6 +48,11 @@ public class RequestService {
                 "Attendance record not found",
                 HttpStatus.NOT_FOUND, "ATTENDANCE_RECORD_NOT_FOUND"));
 
+        if (record.getEmployee() == null) {
+            throw new BusinessException(
+                "Record has no associated employee",
+                HttpStatus.INTERNAL_SERVER_ERROR, "INVALID_RECORD_STATE");
+        }
         if (!record.getEmployee().getId().equals(employee.getId())) {
             throw new BusinessException(
                 "Unauthorized: record does not belong to current employee",
@@ -49,10 +60,23 @@ public class RequestService {
         }
 
         AttendanceStatus status = record.getAttendanceStatus();
+        if (status == null) {
+            throw new BusinessException(
+                "Attendance status not set",
+                HttpStatus.INTERNAL_SERVER_ERROR, "INVALID_RECORD_STATE");
+        }
         if (!isValidExceptionRequestStatus(status)) {
             throw new BusinessException(
                 "Cannot submit exception request for status: " + status,
                 HttpStatus.BAD_REQUEST, "INVALID_ATTENDANCE_STATUS");
+        }
+
+        long pendingCount = exceptionRequestRepository.countByEmployeeIdAndStatus(employee.getId(), RequestStatus.PENDING) +
+                           adjustmentRequestRepository.countByEmployeeIdAndStatus(employee.getId(), RequestStatus.PENDING);
+        if (pendingCount >= 5) {
+            throw new BusinessException(
+                "Maximum 5 pending requests allowed per employee",
+                HttpStatus.TOO_MANY_REQUESTS, "TOO_MANY_PENDING_REQUESTS");
         }
 
         if (exceptionRequestRepository.findByAttendanceRecordIdAndStatus(
@@ -70,7 +94,14 @@ public class RequestService {
             .status(RequestStatus.PENDING)
             .build();
 
-        ExceptionRequest savedRequest = exceptionRequestRepository.save(exceptionRequest);
+        ExceptionRequest savedRequest;
+        try {
+            savedRequest = exceptionRequestRepository.save(exceptionRequest);
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(
+                "A pending exception request already exists for this record",
+                HttpStatus.CONFLICT, "PENDING_REQUEST_EXISTS");
+        }
 
         record.setApprovalSubStatus(ApprovalSubStatus.PENDING_APPROVAL);
         attendanceRecordRepository.save(record);
@@ -83,6 +114,11 @@ public class RequestService {
 
     public AdjustmentRequestDto submitAdjustmentRequest(AdjustmentRequestCreateDto request) {
         String username = SecurityUtil.getCurrentUsername();
+        if (username == null) {
+            throw new BusinessException(
+                "Security context not found",
+                HttpStatus.UNAUTHORIZED, "SECURITY_CONTEXT_MISSING");
+        }
         User employee = userRepository.findByUsername(username)
             .orElseThrow(() -> new BusinessException(
                 "Employee not found",
@@ -93,6 +129,11 @@ public class RequestService {
                 "Attendance record not found",
                 HttpStatus.NOT_FOUND, "ATTENDANCE_RECORD_NOT_FOUND"));
 
+        if (record.getEmployee() == null) {
+            throw new BusinessException(
+                "Record has no associated employee",
+                HttpStatus.INTERNAL_SERVER_ERROR, "INVALID_RECORD_STATE");
+        }
         if (!record.getEmployee().getId().equals(employee.getId())) {
             throw new BusinessException(
                 "Unauthorized: record does not belong to current employee",
@@ -105,10 +146,33 @@ public class RequestService {
                 HttpStatus.BAD_REQUEST, "INVALID_ATTENDANCE_STATUS");
         }
 
+        if (record.getCheckInTime() == null) {
+            throw new BusinessException(
+                "Attendance record has no check-in time",
+                HttpStatus.INTERNAL_SERVER_ERROR, "INVALID_RECORD_STATE");
+        }
         if (request.proposedCheckoutTime().isBefore(record.getCheckInTime())) {
             throw new BusinessException(
                 "Proposed checkout time must be after check-in time",
                 HttpStatus.BAD_REQUEST, "INVALID_CHECKOUT_TIME");
+        }
+
+        if (record.getShift() != null && record.getShift().getShiftEndTime() != null) {
+            LocalDateTime shiftEndTime = record.getShift().getShiftEndTime()
+                .atDate(record.getDate());
+            if (request.proposedCheckoutTime().isAfter(shiftEndTime.plusHours(2))) {
+                throw new BusinessException(
+                    "Proposed checkout time is unreasonable (too far beyond shift end)",
+                    HttpStatus.BAD_REQUEST, "INVALID_CHECKOUT_TIME");
+            }
+        }
+
+        long pendingCount = exceptionRequestRepository.countByEmployeeIdAndStatus(employee.getId(), RequestStatus.PENDING) +
+                           adjustmentRequestRepository.countByEmployeeIdAndStatus(employee.getId(), RequestStatus.PENDING);
+        if (pendingCount >= 5) {
+            throw new BusinessException(
+                "Maximum 5 pending requests allowed per employee",
+                HttpStatus.TOO_MANY_REQUESTS, "TOO_MANY_PENDING_REQUESTS");
         }
 
         if (adjustmentRequestRepository.findByAttendanceRecordIdAndStatus(
@@ -126,7 +190,14 @@ public class RequestService {
             .status(RequestStatus.PENDING)
             .build();
 
-        AdjustmentRequest savedRequest = adjustmentRequestRepository.save(adjustmentRequest);
+        AdjustmentRequest savedRequest;
+        try {
+            savedRequest = adjustmentRequestRepository.save(adjustmentRequest);
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(
+                "A pending adjustment request already exists for this record",
+                HttpStatus.CONFLICT, "PENDING_REQUEST_EXISTS");
+        }
 
         record.setApprovalSubStatus(ApprovalSubStatus.PENDING_ADJUSTMENT);
         attendanceRecordRepository.save(record);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { attendanceService } from '../../services/attendanceService';
 import { ATTENDANCE_STATUS_COLORS, ATTENDANCE_STATUS_LABEL, AttendanceStatus } from '../../types/domain';
@@ -87,13 +87,18 @@ export const HistoryPage: React.FC = () => {
   const [from, setFrom] = useState(toIsoDate(thirtyDaysAgo));
   const [to, setTo] = useState(toIsoDate(today));
   const [page, setPage] = useState(0);
-  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecordDto | null>(null);
-  const [modalType, setModalType] = useState<'exception' | 'adjustment' | null>(null);
+  const [modalState, setModalState] = useState<{ record: AttendanceRecordDto; type: 'exception' | 'adjustment' } | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['attendance', 'history', from, to, page],
     queryFn: () => attendanceService.getHistory({ from, to, page, size: 20 }),
   });
+
+  useEffect(() => {
+    return () => {
+      refetch.cancel?.();
+    };
+  }, [refetch]);
 
   const records = data?.content ?? [];
   const totalPages = data?.totalPages ?? 0;
@@ -160,12 +165,10 @@ export const HistoryPage: React.FC = () => {
                 key={record.id}
                 record={record}
                 onExceptionRequest={() => {
-                  setSelectedRecord(record);
-                  setModalType('exception');
+                  if (record.id) setModalState({ record, type: 'exception' });
                 }}
                 onAdjustmentRequest={() => {
-                  setSelectedRecord(record);
-                  setModalType('adjustment');
+                  if (record.id) setModalState({ record, type: 'adjustment' });
                 }}
               />
             ))}
@@ -193,28 +196,24 @@ export const HistoryPage: React.FC = () => {
         </>
       )}
 
-      {selectedRecord && modalType === 'exception' && (
+      {modalState?.type === 'exception' && (
         <ExceptionRequestForm
-          record={selectedRecord}
-          onClose={() => {
-            setSelectedRecord(null);
-            setModalType(null);
-          }}
+          record={modalState.record}
+          onClose={() => setModalState(null)}
           onSuccess={() => {
             refetch();
+            setModalState(null);
           }}
         />
       )}
 
-      {selectedRecord && modalType === 'adjustment' && (
+      {modalState?.type === 'adjustment' && (
         <AdjustmentRequestForm
-          record={selectedRecord}
-          onClose={() => {
-            setSelectedRecord(null);
-            setModalType(null);
-          }}
+          record={modalState.record}
+          onClose={() => setModalState(null)}
           onSuccess={() => {
             refetch();
+            setModalState(null);
           }}
         />
       )}

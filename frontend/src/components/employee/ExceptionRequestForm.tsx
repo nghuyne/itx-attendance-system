@@ -36,7 +36,7 @@ export const ExceptionRequestForm: React.FC<ExceptionRequestFormProps> = ({ reco
     mutationFn: (data: ExceptionRequestFormValues) =>
       requestService.submitExceptionRequest({
         attendanceRecordId: record.id,
-        requestType: data.requestType as ExceptionRequestType,
+        requestType: data.requestType,
         reason: data.reason,
       }),
     onSuccess: () => {
@@ -45,11 +45,22 @@ export const ExceptionRequestForm: React.FC<ExceptionRequestFormProps> = ({ reco
       onClose();
     },
     onError: (err: unknown) => {
-      const errorCode = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      const getErrorCode = (error: unknown): string | undefined => {
+        if (error && typeof error === 'object') {
+          const axiosError = error as { response?: { data?: { error?: string } } };
+          return axiosError.response?.data?.error;
+        }
+        return undefined;
+      };
+      const errorCode = getErrorCode(err);
       if (errorCode === 'PENDING_REQUEST_EXISTS') {
         showToast({ type: 'error', message: 'Đã có yêu cầu ngoại lệ chưa xử lý cho bản ghi này' });
       } else if (errorCode === 'INVALID_ATTENDANCE_STATUS') {
         showToast({ type: 'error', message: 'Không thể gửi yêu cầu cho trạng thái này' });
+      } else if (errorCode === 'SECURITY_CONTEXT_MISSING') {
+        showToast({ type: 'error', message: 'Phiên làm việc hết hạn, vui lòng đăng nhập lại' });
+      } else if (errorCode === 'TOO_MANY_PENDING_REQUESTS') {
+        showToast({ type: 'error', message: 'Bạn đã có quá nhiều yêu cầu chưa xử lý' });
       } else {
         showToast({ type: 'error', message: 'Có lỗi xảy ra, vui lòng thử lại' });
       }
