@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
@@ -41,6 +42,19 @@ public class GlobalExceptionHandler {
                 .status(400)
                 .error("VALIDATION_ERROR")
                 .message(message)
+                .path(request.getRequestURI())
+                .build());
+    }
+
+    @ExceptionHandler(DateTimeParseException.class)
+    public ResponseEntity<ErrorResponse> handleDateTimeParse(DateTimeParseException ex, HttpServletRequest request) {
+        log.warn("Invalid date format at {}: {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(400)
+                .error("INVALID_DATE_FORMAT")
+                .message("Invalid date format: " + ex.getParsedString())
                 .path(request.getRequestURI())
                 .build());
     }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { attendanceService } from '../../services/attendanceService';
-import { ATTENDANCE_STATUS_COLORS } from '../../types/domain';
+import { ATTENDANCE_STATUS_COLORS, ATTENDANCE_STATUS_LABEL } from '../../types/domain';
 import { SkeletonCard } from '../../components/common/SkeletonCard';
 import { CameraViewfinder } from '../../components/employee/CameraViewfinder';
 import { ClientSiteModeToggle } from '../../components/employee/ClientSiteModeToggle';
@@ -148,7 +148,7 @@ export const CheckInPage: React.FC = () => {
               </div>
             </div>
             <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${ATTENDANCE_STATUS_COLORS[todayRecord.attendanceStatus]}`}>
-              {todayRecord.attendanceStatus}
+              {ATTENDANCE_STATUS_LABEL[todayRecord.attendanceStatus] ?? todayRecord.attendanceStatus}
             </span>
           </div>
         </main>
@@ -164,7 +164,7 @@ export const CheckInPage: React.FC = () => {
             <p className="text-sm text-slate-500">Check-in lúc</p>
             <p className="text-xl font-bold text-slate-800 font-mono">{formatVN(todayRecord.checkInTime)}</p>
             <span className={`inline-flex mt-1 px-2 py-1 rounded-full text-xs font-medium ${ATTENDANCE_STATUS_COLORS[todayRecord.attendanceStatus]}`}>
-              {todayRecord.attendanceStatus}
+              {ATTENDANCE_STATUS_LABEL[todayRecord.attendanceStatus] ?? todayRecord.attendanceStatus}
             </span>
           </div>
           <p className="text-sm font-medium text-slate-700 mb-2">Chụp ảnh để check-out:</p>

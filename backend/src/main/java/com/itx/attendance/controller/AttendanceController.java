@@ -2,6 +2,7 @@ package com.itx.attendance.controller;
 
 import com.itx.attendance.dto.request.CheckInRequest;
 import com.itx.attendance.dto.request.CheckOutRequest;
+import com.itx.attendance.exception.BusinessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -58,6 +59,10 @@ public class AttendanceController {
             @RequestParam String to,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
+        if (page < 0 || size < 1) {
+            throw new BusinessException(
+                "Tham số phân trang không hợp lệ", HttpStatus.BAD_REQUEST, "INVALID_PAGINATION");
+        }
         LocalDate fromDate = LocalDate.parse(from);
         LocalDate toDate = LocalDate.parse(to);
         return ResponseEntity.ok(attendanceService.getHistory(

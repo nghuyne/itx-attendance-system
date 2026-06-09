@@ -18,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -237,10 +238,19 @@ public class AttendanceService {
             .orElseThrow(() -> new BusinessException(
                 "Chưa có bản ghi check-in hôm nay", HttpStatus.BAD_REQUEST, "NO_CHECKIN_FOUND"));
 
+        if (record.getCheckOutTime() != null) {
+            throw new BusinessException(
+                "Đã check-out rồi", HttpStatus.CONFLICT, "ALREADY_CHECKED_OUT");
+        }
+
         LocalDateTime checkOutUtc = LocalDateTime.now(ZoneOffset.UTC);
         LocalTime checkOutVN = TimeUtil.toUtcPlus7(checkOutUtc).toLocalTime();
         LocalTime checkInVN = TimeUtil.toUtcPlus7(record.getCheckInTime()).toLocalTime();
         Shift shift = record.getShift();
+        if (shift == null) {
+            throw new BusinessException(
+                "Không tìm thấy ca làm việc", HttpStatus.BAD_REQUEST, "NO_SHIFT_ASSIGNED");
+        }
 
         AttendanceStatus finalStatus = calculateFinalStatus(checkInVN, checkOutVN, shift);
 
@@ -253,6 +263,9 @@ public class AttendanceService {
 
         try {
             return toDto(attendanceRecordRepository.save(record));
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new BusinessException(
+                "Đã check-out rồi", HttpStatus.CONFLICT, "ALREADY_CHECKED_OUT");
         } catch (DataIntegrityViolationException e) {
             throw new BusinessException(
                 "Lỗi lưu dữ liệu check-out", HttpStatus.CONFLICT, "CHECKOUT_SAVE_FAILED");

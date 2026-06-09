@@ -24,4 +24,6 @@ public interface UserRepository extends JpaRepository<User, String> {
     boolean existsByEmail(String email);
 
     long countByShiftId(String shiftId);
+
+    List<User> findByRoleAndActiveTrueAndShiftIsNotNull(UserRole role);
 }

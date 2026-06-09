@@ -45,6 +45,16 @@ export enum HolidayType {
   DYNAMIC = 'DYNAMIC',
 }
 
+export const ATTENDANCE_STATUS_LABEL: Record<AttendanceStatus, string> = {
+  [AttendanceStatus.ON_TIME]: 'Đúng giờ',
+  [AttendanceStatus.LATE_IN]: 'Đi muộn',
+  [AttendanceStatus.EARLY_OUT]: 'Về sớm',
+  [AttendanceStatus.LATE_IN_EARLY_OUT]: 'Muộn & Sớm',
+  [AttendanceStatus.HALF_DAY]: 'Nửa ngày',
+  [AttendanceStatus.INCOMPLETE]: 'Thiếu',
+  [AttendanceStatus.ABSENT]: 'Vắng',
+};
+
 export const ATTENDANCE_STATUS_COLORS: Record<AttendanceStatus, string> = {
   [AttendanceStatus.ON_TIME]: 'bg-green-100 text-green-800',
   [AttendanceStatus.LATE_IN]: 'bg-amber-100 text-amber-800',

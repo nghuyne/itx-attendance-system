@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { attendanceService } from '../../services/attendanceService';
-import { ATTENDANCE_STATUS_COLORS } from '../../types/domain';
+import { ATTENDANCE_STATUS_COLORS, ATTENDANCE_STATUS_LABEL } from '../../types/domain';
 import { SkeletonCard } from '../../components/common/SkeletonCard';
 import type { AttendanceRecordDto } from '../../types/api';
 
@@ -13,23 +13,13 @@ const formatTimeVN = (utcStr: string | null) =>
 
 const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
 
-const STATUS_LABEL: Record<string, string> = {
-  ON_TIME: 'Đúng giờ',
-  LATE_IN: 'Đi muộn',
-  EARLY_OUT: 'Về sớm',
-  LATE_IN_EARLY_OUT: 'Muộn & Sớm',
-  HALF_DAY: 'Nửa ngày',
-  INCOMPLETE: 'Thiếu',
-  ABSENT: 'Vắng',
-};
-
 function HistoryCard({ record }: { record: AttendanceRecordDto }) {
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-4">
       <div className="flex items-center justify-between mb-2">
         <p className="text-sm font-medium text-slate-700">{formatDate(record.date)}</p>
         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${ATTENDANCE_STATUS_COLORS[record.attendanceStatus]}`}>
-          {STATUS_LABEL[record.attendanceStatus] ?? record.attendanceStatus}
+          {ATTENDANCE_STATUS_LABEL[record.attendanceStatus] ?? record.attendanceStatus}
         </span>
       </div>
       <div className="flex gap-6 text-sm text-slate-600">
@@ -54,7 +44,7 @@ function HistoryCard({ record }: { record: AttendanceRecordDto }) {
 export const HistoryPage: React.FC = () => {
   const today = new Date();
   const thirtyDaysAgo = new Date(today);
-  thirtyDaysAgo.setDate(today.getDate() - 30);
+  thirtyDaysAgo.setDate(today.getDate() - 29);
 
   const [from, setFrom] = useState(toIsoDate(thirtyDaysAgo));
   const [to, setTo] = useState(toIsoDate(today));
