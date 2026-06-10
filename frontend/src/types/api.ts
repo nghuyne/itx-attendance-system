@@ -194,3 +194,21 @@ export interface AdjustmentRequestDto {
   createdAt: string;
   updatedAt: string;
 }
+
+// Notification DTOs — Story 4.2
+export type NotificationType = 'EXCEPTION_REQUEST' | 'ADJUSTMENT_REQUEST' | 'REQUEST_APPROVED' | 'REQUEST_REJECTED' | 'INCOMPLETE_RECORD';
+
+export interface NotificationDto {
+  id: string;
+  recipientId: string;
+  type: NotificationType;
+  referenceId: string | null;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface NotificationPendingResponse {
+  notifications: NotificationDto[];
+  unreadCount: number;
+}

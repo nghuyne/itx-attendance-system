@@ -30,6 +30,7 @@ public class RequestService {
     private final AdjustmentRequestRepository adjustmentRequestRepository;
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public ExceptionRequestDto submitExceptionRequest(ExceptionRequestCreateDto request) {
         String username = SecurityUtil.getCurrentUsername();
@@ -105,6 +106,8 @@ public class RequestService {
 
         record.setApprovalSubStatus(ApprovalSubStatus.PENDING_APPROVAL);
         attendanceRecordRepository.save(record);
+
+        notificationService.sendExceptionRequestNotification(savedRequest);
 
         log.info("Exception request created: id={}, recordId={}, type={}",
             savedRequest.getId(), record.getId(), request.requestType());
@@ -201,6 +204,8 @@ public class RequestService {
 
         record.setApprovalSubStatus(ApprovalSubStatus.PENDING_ADJUSTMENT);
         attendanceRecordRepository.save(record);
+
+        notificationService.sendAdjustmentRequestNotification(savedRequest);
 
         log.info("Adjustment request created: id={}, recordId={}, proposedCheckoutTime={}",
             savedRequest.getId(), record.getId(), request.proposedCheckoutTime());
