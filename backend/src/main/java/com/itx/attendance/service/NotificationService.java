@@ -73,6 +73,20 @@ public class NotificationService {
         }
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void sendRequestApprovedNotification(User employee, String requestId, String requestInfo) {
+        String message = "Yêu cầu của bạn (" + requestInfo + ") đã được duyệt.";
+        String subject = "[ITX] Yêu cầu đã được duyệt";
+        sendNotificationToRecipient(employee, NotificationType.REQUEST_APPROVED, requestId, message, subject);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void sendRequestRejectedNotification(User employee, String requestId, String requestInfo, String rejectionReason) {
+        String message = "Yêu cầu của bạn (" + requestInfo + ") đã bị từ chối. Lý do: " + rejectionReason;
+        String subject = "[ITX] Yêu cầu đã bị từ chối";
+        sendNotificationToRecipient(employee, NotificationType.REQUEST_REJECTED, requestId, message, subject);
+    }
+
     private void sendNotificationToRecipient(User recipient, NotificationType type, String referenceId,
                                               String message, String subject) {
         if (notificationRepository.existsByRecipientIdAndTypeAndReferenceId(recipient.getId(), type, referenceId)) {

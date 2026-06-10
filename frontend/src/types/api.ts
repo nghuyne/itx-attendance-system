@@ -195,6 +195,42 @@ export interface AdjustmentRequestDto {
   updatedAt: string;
 }
 
+// Leader/Request DTOs — Story 4.3
+export type RequestCategory = 'EXCEPTION' | 'ADJUSTMENT';
+
+export interface RequestSummaryDto {
+  id: string;
+  requestCategory: RequestCategory;
+  employeeId: string;
+  employeeName: string;
+  attendanceRecordId: string;
+  attendanceDate: string;
+  requestType: ExceptionRequestType | null;
+  proposedCheckoutTime: string | null;
+  reason: string;
+  status: RequestStatus;
+  reviewedBy: string | null;
+  reviewReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TeamRosterItemDto {
+  employeeId: string;
+  employeeName: string;
+  shiftId: string | null;
+  shiftName: string | null;
+  shiftStartTime: string | null;
+  shiftEndTime: string | null;
+  attendanceStatus: AttendanceStatus | null;
+  approvalSubStatus: ApprovalSubStatus | null;
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  hasPendingRequest: boolean;
+  pendingRequestId: string | null;
+  pendingRequestCategory: RequestCategory | null;
+}
+
 // Notification DTOs — Story 4.2
 export type NotificationType = 'EXCEPTION_REQUEST' | 'ADJUSTMENT_REQUEST' | 'REQUEST_APPROVED' | 'REQUEST_REJECTED' | 'INCOMPLETE_RECORD';
 

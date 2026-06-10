@@ -5,6 +5,7 @@ import com.itx.attendance.dto.request.AdjustmentRequestCreateDto;
 import com.itx.attendance.dto.request.ExceptionRequestCreateDto;
 import com.itx.attendance.dto.response.AdjustmentRequestDto;
 import com.itx.attendance.dto.response.ExceptionRequestDto;
+import com.itx.attendance.dto.response.RequestSummaryDto;
 import com.itx.attendance.exception.BusinessException;
 import com.itx.attendance.repository.AdjustmentRequestRepository;
 import com.itx.attendance.repository.AttendanceRecordRepository;
@@ -15,10 +16,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -31,6 +37,8 @@ public class RequestService {
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final AttendanceService attendanceService;
+    private final OtCalculationService otCalculationService;
 
     public ExceptionRequestDto submitExceptionRequest(ExceptionRequestCreateDto request) {
         String username = SecurityUtil.getCurrentUsername();
@@ -211,6 +219,211 @@ public class RequestService {
             savedRequest.getId(), record.getId(), request.proposedCheckoutTime());
 
         return toAdjustmentRequestDto(savedRequest);
+    }
+
+    public RequestSummaryDto approveRequest(String requestId, User reviewer) {
+        Optional<ExceptionRequest> exOpt = exceptionRequestRepository.findById(requestId);
+        if (exOpt.isPresent()) {
+            return approveExceptionRequest(exOpt.get(), reviewer);
+        }
+        Optional<AdjustmentRequest> adjOpt = adjustmentRequestRepository.findById(requestId);
+        if (adjOpt.isPresent()) {
+            return approveAdjustmentRequest(adjOpt.get(), reviewer);
+        }
+        throw new BusinessException("Request not found", HttpStatus.NOT_FOUND, "REQUEST_NOT_FOUND");
+    }
+
+    public RequestSummaryDto rejectRequest(String requestId, String reason, User reviewer) {
+        Optional<ExceptionRequest> exOpt = exceptionRequestRepository.findById(requestId);
+        if (exOpt.isPresent()) {
+            return rejectExceptionRequest(exOpt.get(), reason, reviewer);
+        }
+        Optional<AdjustmentRequest> adjOpt = adjustmentRequestRepository.findById(requestId);
+        if (adjOpt.isPresent()) {
+            return rejectAdjustmentRequest(adjOpt.get(), reason, reviewer);
+        }
+        throw new BusinessException("Request not found", HttpStatus.NOT_FOUND, "REQUEST_NOT_FOUND");
+    }
+
+    public List<RequestSummaryDto> getPendingRequests(User currentUser) {
+        List<ExceptionRequest> exceptions;
+        List<AdjustmentRequest> adjustments;
+
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            exceptions = exceptionRequestRepository.findByStatus(RequestStatus.PENDING);
+            adjustments = adjustmentRequestRepository.findByStatus(RequestStatus.PENDING);
+        } else {
+            List<String> employeeIds = userRepository.findByLeaderId(currentUser.getId())
+                .stream().map(User::getId).toList();
+            if (employeeIds.isEmpty()) {
+                return List.of();
+            }
+            exceptions = exceptionRequestRepository.findByEmployeeIdInAndStatus(employeeIds, RequestStatus.PENDING);
+            adjustments = adjustmentRequestRepository.findByEmployeeIdInAndStatus(employeeIds, RequestStatus.PENDING);
+        }
+
+        List<RequestSummaryDto> result = new ArrayList<>();
+        exceptions.forEach(e -> result.add(toRequestSummaryDto(e)));
+        adjustments.forEach(a -> result.add(toRequestSummaryDto(a)));
+        result.sort(Comparator.comparing(RequestSummaryDto::createdAt).reversed());
+        return result;
+    }
+
+    private RequestSummaryDto approveExceptionRequest(ExceptionRequest request, User reviewer) {
+        if (request.getStatus() != RequestStatus.PENDING) {
+            throw new BusinessException("Request is not pending", HttpStatus.BAD_REQUEST, "REQUEST_NOT_PENDING");
+        }
+        checkLeaderAuthorization(reviewer, request.getEmployee());
+
+        request.setStatus(RequestStatus.APPROVED);
+        request.setReviewedBy(reviewer);
+        exceptionRequestRepository.save(request);
+
+        AttendanceRecord record = request.getAttendanceRecord();
+        record.setApprovalSubStatus(ApprovalSubStatus.APPROVED);
+        try {
+            attendanceRecordRepository.save(record);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new BusinessException("Record was modified concurrently — please retry", HttpStatus.CONFLICT, "CONCURRENT_UPDATE");
+        }
+
+        notificationService.sendRequestApprovedNotification(
+            request.getEmployee(), request.getId(),
+            "ngoại lệ " + request.getRequestType());
+
+        log.info("Exception request approved: id={}, reviewer={}", request.getId(), reviewer.getId());
+        return toRequestSummaryDto(request);
+    }
+
+    private RequestSummaryDto approveAdjustmentRequest(AdjustmentRequest request, User reviewer) {
+        if (request.getStatus() != RequestStatus.PENDING) {
+            throw new BusinessException("Request is not pending", HttpStatus.BAD_REQUEST, "REQUEST_NOT_PENDING");
+        }
+        checkLeaderAuthorization(reviewer, request.getEmployee());
+
+        request.setStatus(RequestStatus.APPROVED);
+        request.setReviewedBy(reviewer);
+        adjustmentRequestRepository.save(request);
+
+        AttendanceRecord record = request.getAttendanceRecord();
+        record.setCheckOutTime(request.getProposedCheckoutTime());
+        record.setAttendanceStatus(attendanceService.computeFinalStatus(
+            record.getCheckInTime(), request.getProposedCheckoutTime(), record.getShift()));
+        record.setApprovalSubStatus(ApprovalSubStatus.APPROVED);
+        try {
+            attendanceRecordRepository.save(record);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new BusinessException("Record was modified concurrently — please retry", HttpStatus.CONFLICT, "CONCURRENT_UPDATE");
+        }
+
+        otCalculationService.recalculate(record);
+
+        notificationService.sendRequestApprovedNotification(
+            request.getEmployee(), request.getId(), "điều chỉnh");
+
+        log.info("Adjustment request approved: id={}, reviewer={}", request.getId(), reviewer.getId());
+        return toRequestSummaryDto(request);
+    }
+
+    private RequestSummaryDto rejectExceptionRequest(ExceptionRequest request, String reason, User reviewer) {
+        if (request.getStatus() != RequestStatus.PENDING) {
+            throw new BusinessException("Request is not pending", HttpStatus.BAD_REQUEST, "REQUEST_NOT_PENDING");
+        }
+        checkLeaderAuthorization(reviewer, request.getEmployee());
+
+        request.setStatus(RequestStatus.REJECTED);
+        request.setReviewedBy(reviewer);
+        request.setReviewReason(reason);
+        exceptionRequestRepository.save(request);
+
+        AttendanceRecord record = request.getAttendanceRecord();
+        record.setApprovalSubStatus(ApprovalSubStatus.REJECTED);
+        try {
+            attendanceRecordRepository.save(record);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new BusinessException("Record was modified concurrently — please retry", HttpStatus.CONFLICT, "CONCURRENT_UPDATE");
+        }
+
+        notificationService.sendRequestRejectedNotification(
+            request.getEmployee(), request.getId(),
+            "ngoại lệ " + request.getRequestType(), reason);
+
+        log.info("Exception request rejected: id={}, reviewer={}", request.getId(), reviewer.getId());
+        return toRequestSummaryDto(request);
+    }
+
+    private RequestSummaryDto rejectAdjustmentRequest(AdjustmentRequest request, String reason, User reviewer) {
+        if (request.getStatus() != RequestStatus.PENDING) {
+            throw new BusinessException("Request is not pending", HttpStatus.BAD_REQUEST, "REQUEST_NOT_PENDING");
+        }
+        checkLeaderAuthorization(reviewer, request.getEmployee());
+
+        request.setStatus(RequestStatus.REJECTED);
+        request.setReviewedBy(reviewer);
+        request.setReviewReason(reason);
+        adjustmentRequestRepository.save(request);
+
+        AttendanceRecord record = request.getAttendanceRecord();
+        record.setApprovalSubStatus(ApprovalSubStatus.REJECTED);
+        try {
+            attendanceRecordRepository.save(record);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new BusinessException("Record was modified concurrently — please retry", HttpStatus.CONFLICT, "CONCURRENT_UPDATE");
+        }
+
+        notificationService.sendRequestRejectedNotification(
+            request.getEmployee(), request.getId(), "điều chỉnh", reason);
+
+        log.info("Adjustment request rejected: id={}, reviewer={}", request.getId(), reviewer.getId());
+        return toRequestSummaryDto(request);
+    }
+
+    private void checkLeaderAuthorization(User reviewer, User requestEmployee) {
+        if (reviewer.getRole() == UserRole.ADMIN) return;
+        User employeeLeader = requestEmployee.getLeader();
+        if (employeeLeader == null || !employeeLeader.getId().equals(reviewer.getId())) {
+            throw new BusinessException(
+                "Leader not authorized for this employee's request",
+                HttpStatus.FORBIDDEN, "FORBIDDEN");
+        }
+    }
+
+    private RequestSummaryDto toRequestSummaryDto(ExceptionRequest request) {
+        return RequestSummaryDto.builder()
+            .id(request.getId())
+            .requestCategory("EXCEPTION")
+            .employeeId(request.getEmployee().getId())
+            .employeeName(request.getEmployee().getFullName())
+            .attendanceRecordId(request.getAttendanceRecord().getId())
+            .attendanceDate(request.getAttendanceRecord().getDate())
+            .requestType(request.getRequestType())
+            .proposedCheckoutTime(null)
+            .reason(request.getReason())
+            .status(request.getStatus())
+            .reviewedBy(request.getReviewedBy() != null ? request.getReviewedBy().getId() : null)
+            .reviewReason(request.getReviewReason())
+            .createdAt(request.getCreatedAt())
+            .updatedAt(request.getUpdatedAt())
+            .build();
+    }
+
+    private RequestSummaryDto toRequestSummaryDto(AdjustmentRequest request) {
+        return RequestSummaryDto.builder()
+            .id(request.getId())
+            .requestCategory("ADJUSTMENT")
+            .employeeId(request.getEmployee().getId())
+            .employeeName(request.getEmployee().getFullName())
+            .attendanceRecordId(request.getAttendanceRecord().getId())
+            .attendanceDate(request.getAttendanceRecord().getDate())
+            .requestType(null)
+            .proposedCheckoutTime(request.getProposedCheckoutTime())
+            .reason(request.getReason())
+            .status(request.getStatus())
+            .reviewedBy(request.getReviewedBy() != null ? request.getReviewedBy().getId() : null)
+            .reviewReason(request.getReviewReason())
+            .createdAt(request.getCreatedAt())
+            .updatedAt(request.getUpdatedAt())
+            .build();
     }
 
     private boolean isValidExceptionRequestStatus(AttendanceStatus status) {

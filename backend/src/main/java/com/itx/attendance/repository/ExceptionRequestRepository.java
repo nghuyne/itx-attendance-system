@@ -16,4 +16,10 @@ public interface ExceptionRequestRepository extends JpaRepository<ExceptionReque
     List<ExceptionRequest> findByEmployeeIdAndStatus(String employeeId, RequestStatus status);
 
     long countByEmployeeIdAndStatus(String employeeId, RequestStatus status);
+
+    List<ExceptionRequest> findByEmployeeIdInAndStatus(List<String> employeeIds, RequestStatus status);
+
+    List<ExceptionRequest> findByStatus(RequestStatus status);
+
+    List<ExceptionRequest> findByAttendanceRecordIdInAndStatus(List<String> recordIds, RequestStatus status);
 }

@@ -297,6 +297,12 @@ public class AttendanceService {
         return AttendanceStatus.ON_TIME;
     }
 
+    public AttendanceStatus computeFinalStatus(LocalDateTime checkInUtc, LocalDateTime checkOutUtc, Shift shift) {
+        LocalTime checkInVN = TimeUtil.toUtcPlus7(checkInUtc).toLocalTime();
+        LocalTime checkOutVN = TimeUtil.toUtcPlus7(checkOutUtc).toLocalTime();
+        return calculateFinalStatus(checkInVN, checkOutVN, shift);
+    }
+
     private AttendanceStatus calculateFinalStatus(LocalTime checkInVN, LocalTime checkOutVN, Shift shift) {
         long minutesLate = ChronoUnit.MINUTES.between(shift.getShiftStartTime(), checkInVN);
         long minutesEarlyOut = ChronoUnit.MINUTES.between(checkOutVN, shift.getShiftEndTime());

@@ -29,4 +29,6 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
         String employeeId, LocalDateTime since);
 
     List<AttendanceRecord> findByCheckOutTimeIsNullAndAttendanceStatusNotIn(Collection<AttendanceStatus> statuses);
+
+    List<AttendanceRecord> findByEmployeeIdInAndDate(List<String> employeeIds, LocalDate date);
 }

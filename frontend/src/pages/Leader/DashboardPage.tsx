@@ -1,8 +1,8 @@
-import React from 'react';
+import { DailyRosterScreen } from '../../components/leader/DailyRosterScreen';
 
-export const LeaderDashboardPage: React.FC = () => (
+export const LeaderDashboardPage = () => (
   <main className="p-4">
-    <h1 className="text-2xl font-bold text-neutral">Dashboard Nhóm</h1>
-    <p className="text-slate-500 mt-2">Implement trong Story 4.x</p>
+    <h1 className="text-2xl font-bold text-neutral mb-4">Dashboard Nhóm</h1>
+    <DailyRosterScreen />
   </main>
 );

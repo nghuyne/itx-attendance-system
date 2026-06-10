@@ -4,6 +4,7 @@ import type {
   ExceptionRequestDto,
   AdjustmentRequestCreateDto,
   AdjustmentRequestDto,
+  RequestSummaryDto,
 } from '../types/api';
 
 export const requestService = {
@@ -12,4 +13,13 @@ export const requestService = {
 
   submitAdjustmentRequest: (data: AdjustmentRequestCreateDto): Promise<AdjustmentRequestDto> =>
     api.post<AdjustmentRequestDto>('/requests/adjustment', data).then(r => r.data),
+
+  getPending: (): Promise<RequestSummaryDto[]> =>
+    api.get<RequestSummaryDto[]>('/requests/pending').then(r => r.data),
+
+  approve: (id: string): Promise<RequestSummaryDto> =>
+    api.put<RequestSummaryDto>(`/requests/${id}/approve`).then(r => r.data),
+
+  reject: (id: string, reason: string): Promise<RequestSummaryDto> =>
+    api.put<RequestSummaryDto>(`/requests/${id}/reject`, { reason }).then(r => r.data),
 };
