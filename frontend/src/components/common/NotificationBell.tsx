@@ -13,6 +13,7 @@ export const NotificationBell: React.FC = () => {
     queryKey: ['notifications', 'pending'],
     queryFn: notificationService.getPending,
     refetchInterval: 15000,
+    refetchIntervalInBackground: false,
   });
 
   const markAsReadMutation = useMutation({

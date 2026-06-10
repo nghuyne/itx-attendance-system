@@ -5,7 +5,10 @@ import com.itx.attendance.repository.NotificationRepository;
 import com.itx.attendance.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -21,6 +24,7 @@ public class NotificationService {
     private final UserRepository userRepository;
     private final EmailService emailService;
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void sendExceptionRequestNotification(ExceptionRequest request) {
         User leader = request.getEmployee().getLeader();
         if (leader == null) {
@@ -35,8 +39,14 @@ public class NotificationService {
         sendNotificationToRecipient(leader, NotificationType.EXCEPTION_REQUEST, request.getId(), message, subject);
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void sendAdjustmentRequestNotification(AdjustmentRequest request) {
         User leader = request.getEmployee().getLeader();
+        if (leader == null) {
+            log.warn("Employee {} has no leader assigned — skipping leader notification for adjustment request {}",
+                    request.getEmployee().getId(), request.getId());
+        }
+
         List<User> admins = userRepository.findByRole(UserRole.ADMIN);
 
         Set<String> recipientIds = new HashSet<>();
@@ -77,7 +87,13 @@ public class NotificationService {
                 .referenceId(referenceId)
                 .message(message)
                 .build();
-        notificationRepository.save(notification);
+        try {
+            notificationRepository.save(notification);
+        } catch (DataIntegrityViolationException e) {
+            log.info("Notification already exists (concurrent save) for recipientId={}, type={}, referenceId={} — skipping",
+                    recipient.getId(), type, referenceId);
+            return;
+        }
 
         emailService.sendEmailAsync(recipient, subject, message);
     }

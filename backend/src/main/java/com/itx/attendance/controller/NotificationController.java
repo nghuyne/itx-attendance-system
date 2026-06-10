@@ -10,6 +10,7 @@ import com.itx.attendance.repository.UserRepository;
 import com.itx.attendance.security.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,6 +33,7 @@ public class NotificationController {
     }
 
     @PutMapping("/{id}/read")
+    @Transactional
     public NotificationDto markAsRead(@PathVariable String id) {
         User user = resolveCurrentUser();
         Notification notification = notificationRepository.findById(id)
@@ -41,12 +43,13 @@ public class NotificationController {
             throw new BusinessException("Forbidden: notification does not belong to current user", HttpStatus.FORBIDDEN, "NOTIFICATION_FORBIDDEN");
         }
 
+        notificationRepository.markAsReadById(id);
         notification.setRead(true);
-        Notification saved = notificationRepository.save(notification);
-        return toDto(saved);
+        return toDto(notification);
     }
 
     @PutMapping("/read-all")
+    @Transactional
     public Map<String, Long> markAllAsRead() {
         User user = resolveCurrentUser();
         int updatedCount = notificationRepository.markAllAsReadByRecipientId(user.getId());

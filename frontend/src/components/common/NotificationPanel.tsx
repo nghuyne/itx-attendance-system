@@ -46,6 +46,7 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
       />
       <div
         role="dialog"
+        aria-modal="true"
         aria-label="Bảng thông báo"
         className="fixed inset-y-0 right-0 z-50 w-80 bg-white shadow-xl flex flex-col"
       >

@@ -1,5 +1,6 @@
 package com.itx.attendance.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.itx.attendance.domain.NotificationType;
 import lombok.Builder;
 
@@ -12,7 +13,7 @@ public record NotificationDto(
         NotificationType type,
         String referenceId,
         String message,
-        boolean isRead,
+        @JsonProperty("isRead") boolean isRead,
         LocalDateTime createdAt
 ) {
 }
