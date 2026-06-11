@@ -6,7 +6,7 @@ import { AttendanceStatus, ATTENDANCE_STATUS_LABEL, ATTENDANCE_STATUS_COLORS } f
 import { SkeletonCard } from '../../components/common/SkeletonCard';
 import { AttendanceOverrideModal } from '../../components/admin/AttendanceOverrideModal';
 
-const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+const getToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 
 const formatVN = (isoStr: string | null): string => {
   if (!isoStr) return '—';
@@ -18,8 +18,8 @@ const formatVN = (isoStr: string | null): string => {
 };
 
 export const AdminAttendancePage: React.FC = () => {
-  const [from, setFrom] = useState(today);
-  const [to, setTo] = useState(today);
+  const [from, setFrom] = useState(getToday);
+  const [to, setTo] = useState(getToday);
   const [page, setPage] = useState(0);
   const [overridingRecord, setOverridingRecord] = useState<AdminAttendanceRecordDto | null>(null);
   const queryClient = useQueryClient();
@@ -111,7 +111,7 @@ export const AdminAttendancePage: React.FC = () => {
                     <td className="px-4 py-3">
                       {record.isAdminOverride && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                          OVERRIDE
+                          ADMIN_OVERRIDE
                         </span>
                       )}
                     </td>

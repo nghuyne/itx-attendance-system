@@ -8,6 +8,7 @@ import com.itx.attendance.exception.BusinessException;
 import com.itx.attendance.repository.AttendanceRecordRepository;
 import com.itx.attendance.repository.AuditLogRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -28,6 +29,14 @@ public class AdminOverrideService {
 
     @Transactional
     public AttendanceRecordDto overrideAttendance(String recordId, AttendanceOverrideRequest req, User admin) {
+        // Reject ambiguous combination: explicit status + time change means intent is unclear
+        boolean timePending = req.checkInTime() != null || req.checkOutTime() != null;
+        if (req.attendanceStatus() != null && timePending) {
+            throw new BusinessException(
+                "Không thể đặt trạng thái thủ công khi đồng thời thay đổi thời gian. Hãy chỉ gửi một trong hai.",
+                HttpStatus.BAD_REQUEST, "AMBIGUOUS_OVERRIDE");
+        }
+
         AttendanceRecord record = attendanceRecordRepository.findById(recordId)
             .orElseThrow(() -> new BusinessException(
                 "Không tìm thấy bản ghi", HttpStatus.NOT_FOUND, "RECORD_NOT_FOUND"));
@@ -50,7 +59,14 @@ public class AdminOverrideService {
             timeChanged = true;
         }
 
-        if (req.attendanceStatus() != null && !timeChanged) {
+        // Validate temporal order after applying time changes
+        if (record.getCheckInTime() != null && record.getCheckOutTime() != null
+                && !record.getCheckInTime().isBefore(record.getCheckOutTime())) {
+            throw new BusinessException(
+                "Giờ ra phải sau giờ vào", HttpStatus.BAD_REQUEST, "INVALID_TIME_RANGE");
+        }
+
+        if (req.attendanceStatus() != null) {
             String oldVal = record.getAttendanceStatus().name();
             record.setAttendanceStatus(req.attendanceStatus());
             auditLogRepository.save(new AuditLog(admin, "attendance_records", recordId,
@@ -67,7 +83,9 @@ public class AdminOverrideService {
         record.setAdminOverride(true);
         record.setApprovalSubStatus(ApprovalSubStatus.ADMIN_OVERRIDE);
 
-        if (timeChanged) {
+        // Only recalculate status when both times are present; a partial-time override
+        // (e.g. ABSENT record with only checkInTime set) cannot produce a meaningful final status
+        if (timeChanged && record.getCheckOutTime() != null) {
             AttendanceStatus recalculated = attendanceService.computeFinalStatus(
                 record.getCheckInTime(), record.getCheckOutTime(), record.getShift());
             String oldStatusVal = record.getAttendanceStatus().name();
@@ -79,12 +97,22 @@ public class AdminOverrideService {
             otCalculationService.recalculate(record);
         }
 
-        attendanceRecordRepository.save(record);
+        try {
+            attendanceRecordRepository.save(record);
+        } catch (OptimisticLockingFailureException e) {
+            throw new BusinessException(
+                "Bản ghi đã được chỉnh sửa bởi người khác, vui lòng tải lại trang",
+                HttpStatus.CONFLICT, "CONCURRENT_MODIFICATION");
+        }
         return attendanceService.toDto(record);
     }
 
     public Page<AdminAttendanceRecordDto> searchAttendance(
             LocalDate from, LocalDate to, String employeeId, Pageable pageable) {
+        if (from.isAfter(to)) {
+            throw new BusinessException(
+                "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc", HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE");
+        }
         Page<AttendanceRecord> records;
         if (employeeId != null && !employeeId.isBlank()) {
             records = attendanceRecordRepository.findByEmployeeIdAndDateBetween(employeeId, from, to, pageable);

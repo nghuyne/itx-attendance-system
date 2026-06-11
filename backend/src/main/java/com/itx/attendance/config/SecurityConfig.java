@@ -1,5 +1,6 @@
 package com.itx.attendance.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itx.attendance.security.CustomUserDetailsService;
 import com.itx.attendance.security.JwtAuthenticationEntryPoint;
 import com.itx.attendance.security.JwtAuthenticationFilter;
@@ -22,6 +23,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+import java.util.Map;
 
 @Configuration
 @EnableWebSecurity
@@ -32,6 +34,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final CustomUserDetailsService customUserDetailsService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -45,8 +48,15 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .anyRequest().authenticated()
             )
-            .exceptionHandling(ex ->
-                ex.authenticationEntryPoint(jwtAuthenticationEntryPoint)
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint(jwtAuthenticationEntryPoint)
+                .accessDeniedHandler((request, response, denied) -> {
+                    response.setStatus(403);
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write(
+                        objectMapper.writeValueAsString(Map.of("error", "FORBIDDEN"))
+                    );
+                })
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

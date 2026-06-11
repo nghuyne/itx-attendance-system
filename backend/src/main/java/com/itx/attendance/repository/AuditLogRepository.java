@@ -13,6 +13,31 @@ import java.time.LocalDateTime;
 @Repository
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
+    @Override
+    default void delete(AuditLog entity) {
+        throw new UnsupportedOperationException("Audit logs are immutable");
+    }
+
+    @Override
+    default void deleteById(Long id) {
+        throw new UnsupportedOperationException("Audit logs are immutable");
+    }
+
+    @Override
+    default void deleteAll() {
+        throw new UnsupportedOperationException("Audit logs are immutable");
+    }
+
+    @Override
+    default void deleteAll(Iterable<? extends AuditLog> entities) {
+        throw new UnsupportedOperationException("Audit logs are immutable");
+    }
+
+    @Override
+    default void deleteAllById(Iterable<? extends Long> ids) {
+        throw new UnsupportedOperationException("Audit logs are immutable");
+    }
+
     @Query(
         value = """
             SELECT al FROM AuditLog al

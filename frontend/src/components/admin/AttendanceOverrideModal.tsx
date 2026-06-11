@@ -27,7 +27,8 @@ interface AttendanceOverrideModalProps {
 
 const toDatetimeLocal = (isoStr: string | null): string => {
   if (!isoStr) return '';
-  return isoStr.slice(0, 16);
+  // Strip optional milliseconds and timezone offset before slicing to "YYYY-MM-DDTHH:mm"
+  return isoStr.replace(/(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/, '').slice(0, 16);
 };
 
 export const AttendanceOverrideModal: React.FC<AttendanceOverrideModalProps> = ({

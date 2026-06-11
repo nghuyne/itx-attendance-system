@@ -6,6 +6,7 @@ import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -35,6 +36,22 @@ public class GlobalExceptionHandler {
         log.warn("Constraint violation at {}: {}", request.getRequestURI(), ex.getMessage());
         String message = ex.getConstraintViolations().stream()
             .map(v -> v.getPropertyPath() + ": " + v.getMessage())
+            .collect(Collectors.joining(", "));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(400)
+                .error("VALIDATION_ERROR")
+                .message(message)
+                .path(request.getRequestURI())
+                .build());
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(MethodArgumentNotValidException ex, HttpServletRequest request) {
+        log.warn("Validation failed at {}: {}", request.getRequestURI(), ex.getMessage());
+        String message = ex.getBindingResult().getFieldErrors().stream()
+            .map(fe -> fe.getField() + ": " + fe.getDefaultMessage())
             .collect(Collectors.joining(", "));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(ErrorResponse.builder()
