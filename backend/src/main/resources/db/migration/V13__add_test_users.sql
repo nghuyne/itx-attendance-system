@@ -1,9 +1,9 @@
 -- V13__add_test_users.sql
 -- Add test users for development and testing
 
--- Generate test users with password 'test123' (BCrypt hash)
--- password_hash = BCrypt(rounds=10) của chuỗi 'test123'
--- Generated: $2a$10$8P5/Q7.E.R5nJ9pYQ5R5He0PJpVpvTOv3Qr4pGzR7W4mK3A9L1tl2
+-- All test users use password 'admin123' (BCrypt hash)
+-- password_hash = BCrypt(rounds=10) của chuỗi 'admin123'
+-- Generated: $2a$10$XjCq.Z6n1spYh4K0Ac14HOnbegYb9HnaB1MbFCT7/qFic1/nUO7yK
 
 -- Create LEADER user
 INSERT INTO users (id, username, email, password_hash, full_name, role, is_active, leader_id)
@@ -11,7 +11,7 @@ VALUES (
     'leader-001',
     'leader1',
     'leader1@itx.local',
-    '$2a$10$8P5/Q7.E.R5nJ9pYQ5R5He0PJpVpvTOv3Qr4pGzR7W4mK3A9L1tl2',
+    '$2a$10$XjCq.Z6n1spYh4K0Ac14HOnbegYb9HnaB1MbFCT7/qFic1/nUO7yK',
     'Trần Văn A - Trưởng Phòng IT',
     'LEADER',
     TRUE,
@@ -25,7 +25,7 @@ VALUES
     'emp-001',
     'employee1',
     'employee1@itx.local',
-    '$2a$10$8P5/Q7.E.R5nJ9pYQ5R5He0PJpVpvTOv3Qr4pGzR7W4mK3A9L1tl2',
+    '$2a$10$XjCq.Z6n1spYh4K0Ac14HOnbegYb9HnaB1MbFCT7/qFic1/nUO7yK',
     'Nguyễn Văn B',
     'EMPLOYEE',
     TRUE,
@@ -35,7 +35,7 @@ VALUES
     'emp-002',
     'employee2',
     'employee2@itx.local',
-    '$2a$10$8P5/Q7.E.R5nJ9pYQ5R5He0PJpVpvTOv3Qr4pGzR7W4mK3A9L1tl2',
+    '$2a$10$XjCq.Z6n1spYh4K0Ac14HOnbegYb9HnaB1MbFCT7/qFic1/nUO7yK',
     'Phạm Thị C',
     'EMPLOYEE',
     TRUE,
@@ -45,7 +45,7 @@ VALUES
     'emp-003',
     'employee3',
     'employee3@itx.local',
-    '$2a$10$8P5/Q7.E.R5nJ9pYQ5R5He0PJpVpvTOv3Qr4pGzR7W4mK3A9L1tl2',
+    '$2a$10$XjCq.Z6n1spYh4K0Ac14HOnbegYb9HnaB1MbFCT7/qFic1/nUO7yK',
     'Đỗ Minh D',
     'EMPLOYEE',
     TRUE,
@@ -58,7 +58,7 @@ VALUES (
     'leader-002',
     'leader2',
     'leader2@itx.local',
-    '$2a$10$8P5/Q7.E.R5nJ9pYQ5R5He0PJpVpvTOv3Qr4pGzR7W4mK3A9L1tl2',
+    '$2a$10$XjCq.Z6n1spYh4K0Ac14HOnbegYb9HnaB1MbFCT7/qFic1/nUO7yK',
     'Lê Thị E - Trưởng Phòng HR',
     'LEADER',
     TRUE,
@@ -72,7 +72,7 @@ VALUES
     'emp-004',
     'employee4',
     'employee4@itx.local',
-    '$2a$10$8P5/Q7.E.R5nJ9pYQ5R5He0PJpVpvTOv3Qr4pGzR7W4mK3A9L1tl2',
+    '$2a$10$XjCq.Z6n1spYh4K0Ac14HOnbegYb9HnaB1MbFCT7/qFic1/nUO7yK',
     'Hoàng Văn F',
     'EMPLOYEE',
     TRUE,
@@ -82,7 +82,7 @@ VALUES
     'emp-005',
     'employee5',
     'employee5@itx.local',
-    '$2a$10$8P5/Q7.E.R5nJ9pYQ5R5He0PJpVpvTOv3Qr4pGzR7W4mK3A9L1tl2',
+    '$2a$10$XjCq.Z6n1spYh4K0Ac14HOnbegYb9HnaB1MbFCT7/qFic1/nUO7yK',
     'Vũ Thanh G',
     'EMPLOYEE',
     TRUE,
