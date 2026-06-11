@@ -277,3 +277,17 @@ export interface AttendanceOverrideRequest {
   photoUrl?: string | null;
   auditReason: string;
 }
+
+// Audit Log DTOs — Story 5.2
+export interface AuditLogDto {
+  id: number;
+  adminId: string;
+  adminName: string;
+  targetTable: string;
+  targetId: string;
+  fieldChanged: string;
+  oldValue: string | null;
+  newValue: string | null;
+  reason: string;
+  createdAt: string; // ISO datetime string (UTC)
+}

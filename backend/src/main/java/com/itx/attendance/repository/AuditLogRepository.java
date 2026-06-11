@@ -41,6 +41,7 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     @Query(
         value = """
             SELECT al FROM AuditLog al
+            JOIN FETCH al.admin
             WHERE (:adminId IS NULL OR al.admin.id = :adminId)
             AND (:targetTable IS NULL OR al.targetTable = :targetTable)
             AND (:fromDate IS NULL OR al.createdAt >= :fromDate)

@@ -6,12 +6,14 @@ import com.itx.attendance.dto.request.CreateShiftRequest;
 import com.itx.attendance.dto.request.CreateValidIpRequest;
 import com.itx.attendance.dto.response.AdminAttendanceRecordDto;
 import com.itx.attendance.dto.response.AttendanceRecordDto;
+import com.itx.attendance.dto.response.AuditLogDto;
 import com.itx.attendance.dto.response.EmployeeDto;
 import com.itx.attendance.dto.response.HolidayDto;
 import com.itx.attendance.dto.response.ShiftDto;
 import com.itx.attendance.dto.response.ValidIpDto;
 import com.itx.attendance.security.SecurityUtil;
 import com.itx.attendance.service.AdminOverrideService;
+import com.itx.attendance.service.AuditLogService;
 import com.itx.attendance.service.CurrentUserService;
 import com.itx.attendance.service.HolidayService;
 import com.itx.attendance.service.ShiftService;
@@ -22,6 +24,7 @@ import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -43,6 +46,7 @@ public class AdminController {
     private final HolidayService holidayService;
     private final AdminOverrideService adminOverrideService;
     private final CurrentUserService currentUserService;
+    private final AuditLogService auditLogService;
 
     // ── Shift endpoints ───────────────────────────────────────────────────────
 
@@ -148,5 +152,25 @@ public class AdminController {
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         return ResponseEntity.ok(
             adminOverrideService.searchAttendance(from, to, employeeId, PageRequest.of(page, size)));
+    }
+
+    // ── Audit log endpoints (Story 5.2) ──────────────────────────────────────
+
+    @GetMapping("/audit-logs")
+    public ResponseEntity<Page<AuditLogDto>> getAuditLogs(
+            @RequestParam LocalDate from,
+            @RequestParam LocalDate to,
+            @RequestParam(required = false) String adminId,
+            @RequestParam(required = false) String targetTable,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "50") @Min(1) @Max(100) int size) {
+        return ResponseEntity.ok(
+            auditLogService.getAuditLogs(adminId, targetTable, from, to,
+                PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))));
+    }
+
+    @GetMapping("/admins")
+    public ResponseEntity<List<EmployeeDto>> getAdmins() {
+        return ResponseEntity.ok(auditLogService.getAdminUsers());
     }
 }
