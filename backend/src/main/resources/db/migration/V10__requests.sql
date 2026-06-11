@@ -13,7 +13,7 @@ CREATE TABLE exception_requests (
     updated_at           TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
     PRIMARY KEY (id),
-    UNIQUE KEY uk_exception_pending (attendance_record_id, status) USING BTREE WHERE status='PENDING',
+    UNIQUE KEY uk_exception_pending (attendance_record_id, status),
     KEY idx_requests_employee_status (employee_id, status),
     KEY idx_requests_attendance_status (attendance_record_id, status),
 
@@ -39,7 +39,7 @@ CREATE TABLE adjustment_requests (
     updated_at              TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
     PRIMARY KEY (id),
-    UNIQUE KEY uk_adjustment_pending (attendance_record_id, status) USING BTREE WHERE status='PENDING',
+    UNIQUE KEY uk_adjustment_pending (attendance_record_id, status),
     KEY idx_adjustment_employee_status (employee_id, status),
     KEY idx_adjustment_attendance_status (attendance_record_id, status),
 
