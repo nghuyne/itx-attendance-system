@@ -20,6 +20,7 @@ const ADMIN_LINKS: SidebarLink[] = [
   { to: '/admin/shifts', label: 'Ca làm việc', icon: '🕐' },
   { to: '/admin/ips', label: 'Quản lý IP', icon: '🌐' },
   { to: '/admin/holidays', label: 'Ngày lễ', icon: '📅' },
+  { to: '/admin/attendance', label: 'Chấm công', icon: '📋' },
   { to: '/admin/requests', label: 'Yêu cầu', icon: '📝' },
   { to: '/admin/audit', label: 'Audit Logs', icon: '🔍' },
 ];

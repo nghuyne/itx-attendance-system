@@ -1,13 +1,18 @@
 package com.itx.attendance.controller;
 
+import com.itx.attendance.dto.request.AttendanceOverrideRequest;
 import com.itx.attendance.dto.request.CreateHolidayRequest;
 import com.itx.attendance.dto.request.CreateShiftRequest;
 import com.itx.attendance.dto.request.CreateValidIpRequest;
+import com.itx.attendance.dto.response.AdminAttendanceRecordDto;
+import com.itx.attendance.dto.response.AttendanceRecordDto;
 import com.itx.attendance.dto.response.EmployeeDto;
 import com.itx.attendance.dto.response.HolidayDto;
 import com.itx.attendance.dto.response.ShiftDto;
 import com.itx.attendance.dto.response.ValidIpDto;
 import com.itx.attendance.security.SecurityUtil;
+import com.itx.attendance.service.AdminOverrideService;
+import com.itx.attendance.service.CurrentUserService;
 import com.itx.attendance.service.HolidayService;
 import com.itx.attendance.service.ShiftService;
 import com.itx.attendance.service.ValidIpService;
@@ -23,6 +28,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -35,6 +41,8 @@ public class AdminController {
     private final ShiftService shiftService;
     private final ValidIpService validIpService;
     private final HolidayService holidayService;
+    private final AdminOverrideService adminOverrideService;
+    private final CurrentUserService currentUserService;
 
     // ── Shift endpoints ───────────────────────────────────────────────────────
 
@@ -119,5 +127,26 @@ public class AdminController {
     public ResponseEntity<Void> deleteHoliday(@PathVariable Long id) {
         holidayService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // ── Attendance override endpoints (Story 5.1) ─────────────────────────────
+
+    @PutMapping("/attendance/{id}/override")
+    public ResponseEntity<AttendanceRecordDto> overrideAttendance(
+            @PathVariable String id,
+            @Valid @RequestBody AttendanceOverrideRequest request) {
+        return ResponseEntity.ok(
+            adminOverrideService.overrideAttendance(id, request, currentUserService.getCurrentUser()));
+    }
+
+    @GetMapping("/attendance")
+    public ResponseEntity<Page<AdminAttendanceRecordDto>> getAttendance(
+            @RequestParam LocalDate from,
+            @RequestParam LocalDate to,
+            @RequestParam(required = false) String employeeId,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return ResponseEntity.ok(
+            adminOverrideService.searchAttendance(from, to, employeeId, PageRequest.of(page, size)));
     }
 }

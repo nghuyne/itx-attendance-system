@@ -25,6 +25,8 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     Page<AttendanceRecord> findByEmployeeIdAndDateBetween(
         String employeeId, LocalDate from, LocalDate to, Pageable pageable);
 
+    Page<AttendanceRecord> findByDateBetween(LocalDate from, LocalDate to, Pageable pageable);
+
     Optional<AttendanceRecord> findFirstByEmployeeIdAndCheckInTimeAfterOrderByCheckInTimeDesc(
         String employeeId, LocalDateTime since);
 

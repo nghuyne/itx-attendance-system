@@ -250,3 +250,30 @@ export interface NotificationPendingResponse {
   notifications: NotificationDto[];
   unreadCount: number;
 }
+
+// Admin Override DTOs — Story 5.1
+export interface AdminAttendanceRecordDto {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  shiftId: string | null;
+  shiftName: string | null;
+  date: string;
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  checkInPhotoUrl: string | null;
+  checkOutPhotoUrl: string | null;
+  attendanceStatus: AttendanceStatus;
+  approvalSubStatus: ApprovalSubStatus | null;
+  isAdminOverride: boolean;
+  version: number;
+  createdAt: string;
+}
+
+export interface AttendanceOverrideRequest {
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
+  attendanceStatus?: AttendanceStatus | null;
+  photoUrl?: string | null;
+  auditReason: string;
+}

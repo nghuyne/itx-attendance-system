@@ -16,6 +16,7 @@ import { LeaderRequestsPage } from './pages/Leader/RequestsPage';
 import { ShiftsPage } from './pages/Admin/ShiftsPage';
 import { IpsPage } from './pages/Admin/IpsPage';
 import { HolidaysPage } from './pages/Admin/HolidaysPage';
+import { AdminAttendancePage } from './pages/Admin/AttendancePage';
 import { AdminRequestsPage } from './pages/Admin/RequestsPage';
 import { AuditPage } from './pages/Admin/AuditPage';
 import { useAuthStore } from './store/authStore';
@@ -73,6 +74,7 @@ function App() {
               <Route path="/admin/shifts" element={<ShiftsPage />} />
               <Route path="/admin/ips" element={<IpsPage />} />
               <Route path="/admin/holidays" element={<HolidaysPage />} />
+              <Route path="/admin/attendance" element={<AdminAttendancePage />} />
               <Route path="/admin/requests" element={<AdminRequestsPage />} />
               <Route path="/admin/audit" element={<AuditPage />} />
             </Route>
