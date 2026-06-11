@@ -17,6 +17,8 @@ public record RequestSummaryDto(
         LocalDate attendanceDate,
         ExceptionRequestType requestType,
         LocalDateTime proposedCheckoutTime,
+        LocalDateTime checkInTime,
+        LocalDateTime checkOutTime,
         String reason,
         RequestStatus status,
         String reviewedBy,

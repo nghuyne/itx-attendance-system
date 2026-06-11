@@ -17,7 +17,8 @@ const REQUEST_CATEGORY_LABEL: Record<string, string> = {
   ADJUSTMENT: 'Điều chỉnh',
 };
 
-function formatDatetime(isoString: string): string {
+function formatDatetime(isoString: string | null): string {
+  if (!isoString) return '—';
   return new Date(isoString).toLocaleString('vi-VN', {
     timeZone: 'Asia/Ho_Chi_Minh',
     day: '2-digit',
@@ -32,16 +33,36 @@ export const PendingRequestsScreen = () => {
   const [activeTab, setActiveTab] = useState<Tab>('PENDING');
   const [selectedRequest, setSelectedRequest] = useState<RequestSummaryDto | null>(null);
 
-  const { data, isPending } = useQuery({
+  const pendingQuery = useQuery({
     queryKey: ['leader', 'pending-requests'],
     queryFn: requestService.getPending,
     refetchInterval: 15000,
     refetchIntervalInBackground: true,
   });
 
-  const allRequests = data ?? [];
-  const pendingCount = allRequests.filter(r => r.status === 'PENDING').length;
-  const filtered = allRequests.filter(r => r.status === activeTab);
+  const approvedQuery = useQuery({
+    queryKey: ['leader', 'requests', 'APPROVED'],
+    queryFn: () => requestService.getByStatus('APPROVED'),
+    enabled: activeTab === 'APPROVED',
+  });
+
+  const rejectedQuery = useQuery({
+    queryKey: ['leader', 'requests', 'REJECTED'],
+    queryFn: () => requestService.getByStatus('REJECTED'),
+    enabled: activeTab === 'REJECTED',
+  });
+
+  const activeQuery = activeTab === 'PENDING' ? pendingQuery
+    : activeTab === 'APPROVED' ? approvedQuery
+    : rejectedQuery;
+
+  const filtered = activeQuery.data ?? [];
+  const isPending = activeQuery.isPending;
+  const pendingCount = (pendingQuery.data ?? []).length;
+
+  const handleModalClose = () => {
+    setSelectedRequest(null);
+  };
 
   return (
     <div>
@@ -109,7 +130,7 @@ export const PendingRequestsScreen = () => {
         <RequestDetailModal
           isOpen={true}
           request={selectedRequest}
-          onClose={() => setSelectedRequest(null)}
+          onClose={handleModalClose}
         />
       )}
     </div>

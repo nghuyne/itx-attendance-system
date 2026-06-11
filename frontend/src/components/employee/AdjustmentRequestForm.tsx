@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -26,6 +26,21 @@ interface AdjustmentRequestFormProps {
 export const AdjustmentRequestForm: React.FC<AdjustmentRequestFormProps> = ({ record, onClose, onSuccess }) => {
   const showToast = useUiStore((s) => s.showToast);
   const schema = createAdjustmentSchema(record.checkInTime || '');
+
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement;
+    return () => {
+      previouslyFocused?.focus();
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const {
     register,
@@ -77,10 +92,15 @@ export const AdjustmentRequestForm: React.FC<AdjustmentRequestFormProps> = ({ re
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="adjustment-form-title"
+    >
       <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-slate-700">Gửi yêu cầu điều chỉnh</h2>
+          <h2 id="adjustment-form-title" className="text-xl font-bold text-slate-700">Gửi yêu cầu điều chỉnh</h2>
           <button
             onClick={onClose}
             aria-label="Đóng"

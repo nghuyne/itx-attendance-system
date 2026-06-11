@@ -207,6 +207,8 @@ export interface RequestSummaryDto {
   attendanceDate: string;
   requestType: ExceptionRequestType | null;
   proposedCheckoutTime: string | null;
+  checkInTime: string | null;
+  checkOutTime: string | null;
   reason: string;
   status: RequestStatus;
   reviewedBy: string | null;

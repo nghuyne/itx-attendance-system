@@ -222,11 +222,11 @@ public class RequestService {
     }
 
     public RequestSummaryDto approveRequest(String requestId, User reviewer) {
-        Optional<ExceptionRequest> exOpt = exceptionRequestRepository.findById(requestId);
+        Optional<ExceptionRequest> exOpt = exceptionRequestRepository.findByIdForUpdate(requestId);
         if (exOpt.isPresent()) {
             return approveExceptionRequest(exOpt.get(), reviewer);
         }
-        Optional<AdjustmentRequest> adjOpt = adjustmentRequestRepository.findById(requestId);
+        Optional<AdjustmentRequest> adjOpt = adjustmentRequestRepository.findByIdForUpdate(requestId);
         if (adjOpt.isPresent()) {
             return approveAdjustmentRequest(adjOpt.get(), reviewer);
         }
@@ -234,11 +234,11 @@ public class RequestService {
     }
 
     public RequestSummaryDto rejectRequest(String requestId, String reason, User reviewer) {
-        Optional<ExceptionRequest> exOpt = exceptionRequestRepository.findById(requestId);
+        Optional<ExceptionRequest> exOpt = exceptionRequestRepository.findByIdForUpdate(requestId);
         if (exOpt.isPresent()) {
             return rejectExceptionRequest(exOpt.get(), reason, reviewer);
         }
-        Optional<AdjustmentRequest> adjOpt = adjustmentRequestRepository.findById(requestId);
+        Optional<AdjustmentRequest> adjOpt = adjustmentRequestRepository.findByIdForUpdate(requestId);
         if (adjOpt.isPresent()) {
             return rejectAdjustmentRequest(adjOpt.get(), reason, reviewer);
         }
@@ -265,7 +265,7 @@ public class RequestService {
         List<RequestSummaryDto> result = new ArrayList<>();
         exceptions.forEach(e -> result.add(toRequestSummaryDto(e)));
         adjustments.forEach(a -> result.add(toRequestSummaryDto(a)));
-        result.sort(Comparator.comparing(RequestSummaryDto::createdAt).reversed());
+        result.sort(Comparator.comparing(RequestSummaryDto::createdAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed());
         return result;
     }
 
@@ -288,8 +288,7 @@ public class RequestService {
         }
 
         notificationService.sendRequestApprovedNotification(
-            request.getEmployee(), request.getId(),
-            "ngoại lệ " + request.getRequestType());
+            request.getEmployee(), request.getId(), "ngoại lệ");
 
         log.info("Exception request approved: id={}, reviewer={}", request.getId(), reviewer.getId());
         return toRequestSummaryDto(request);
@@ -301,11 +300,18 @@ public class RequestService {
         }
         checkLeaderAuthorization(reviewer, request.getEmployee());
 
+        AttendanceRecord record = request.getAttendanceRecord();
+        if (record.getCheckInTime() == null) {
+            throw new BusinessException("Attendance record has no check-in time", HttpStatus.BAD_REQUEST, "INVALID_RECORD_STATE");
+        }
+        if (record.getShift() == null) {
+            throw new BusinessException("Attendance record has no shift assigned", HttpStatus.BAD_REQUEST, "INVALID_RECORD_STATE");
+        }
+
         request.setStatus(RequestStatus.APPROVED);
         request.setReviewedBy(reviewer);
         adjustmentRequestRepository.save(request);
 
-        AttendanceRecord record = request.getAttendanceRecord();
         record.setCheckOutTime(request.getProposedCheckoutTime());
         record.setAttendanceStatus(attendanceService.computeFinalStatus(
             record.getCheckInTime(), request.getProposedCheckoutTime(), record.getShift()));
@@ -316,7 +322,10 @@ public class RequestService {
             throw new BusinessException("Record was modified concurrently — please retry", HttpStatus.CONFLICT, "CONCURRENT_UPDATE");
         }
 
-        otCalculationService.recalculate(record);
+        if (record.getAttendanceStatus() != AttendanceStatus.INCOMPLETE
+                && record.getAttendanceStatus() != AttendanceStatus.ABSENT) {
+            otCalculationService.recalculate(record);
+        }
 
         notificationService.sendRequestApprovedNotification(
             request.getEmployee(), request.getId(), "điều chỉnh");
@@ -345,8 +354,7 @@ public class RequestService {
         }
 
         notificationService.sendRequestRejectedNotification(
-            request.getEmployee(), request.getId(),
-            "ngoại lệ " + request.getRequestType(), reason);
+            request.getEmployee(), request.getId(), "ngoại lệ " + request.getRequestType(), reason);
 
         log.info("Exception request rejected: id={}, reviewer={}", request.getId(), reviewer.getId());
         return toRequestSummaryDto(request);
@@ -388,16 +396,41 @@ public class RequestService {
         }
     }
 
+    public List<RequestSummaryDto> getRequestsByStatus(User currentUser, RequestStatus status) {
+        List<ExceptionRequest> exceptions;
+        List<AdjustmentRequest> adjustments;
+
+        if (currentUser.getRole() == UserRole.ADMIN) {
+            exceptions = exceptionRequestRepository.findByStatus(status);
+            adjustments = adjustmentRequestRepository.findByStatus(status);
+        } else {
+            List<String> employeeIds = userRepository.findByLeaderId(currentUser.getId())
+                .stream().map(User::getId).toList();
+            if (employeeIds.isEmpty()) return List.of();
+            exceptions = exceptionRequestRepository.findByEmployeeIdInAndStatus(employeeIds, status);
+            adjustments = adjustmentRequestRepository.findByEmployeeIdInAndStatus(employeeIds, status);
+        }
+
+        List<RequestSummaryDto> result = new ArrayList<>();
+        exceptions.forEach(e -> result.add(toRequestSummaryDto(e)));
+        adjustments.forEach(a -> result.add(toRequestSummaryDto(a)));
+        result.sort(Comparator.comparing(RequestSummaryDto::createdAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed());
+        return result;
+    }
+
     private RequestSummaryDto toRequestSummaryDto(ExceptionRequest request) {
+        AttendanceRecord record = request.getAttendanceRecord();
         return RequestSummaryDto.builder()
             .id(request.getId())
             .requestCategory("EXCEPTION")
             .employeeId(request.getEmployee().getId())
             .employeeName(request.getEmployee().getFullName())
-            .attendanceRecordId(request.getAttendanceRecord().getId())
-            .attendanceDate(request.getAttendanceRecord().getDate())
+            .attendanceRecordId(record.getId())
+            .attendanceDate(record.getDate())
             .requestType(request.getRequestType())
             .proposedCheckoutTime(null)
+            .checkInTime(record.getCheckInTime())
+            .checkOutTime(record.getCheckOutTime())
             .reason(request.getReason())
             .status(request.getStatus())
             .reviewedBy(request.getReviewedBy() != null ? request.getReviewedBy().getId() : null)
@@ -408,15 +441,18 @@ public class RequestService {
     }
 
     private RequestSummaryDto toRequestSummaryDto(AdjustmentRequest request) {
+        AttendanceRecord record = request.getAttendanceRecord();
         return RequestSummaryDto.builder()
             .id(request.getId())
             .requestCategory("ADJUSTMENT")
             .employeeId(request.getEmployee().getId())
             .employeeName(request.getEmployee().getFullName())
-            .attendanceRecordId(request.getAttendanceRecord().getId())
-            .attendanceDate(request.getAttendanceRecord().getDate())
+            .attendanceRecordId(record.getId())
+            .attendanceDate(record.getDate())
             .requestType(null)
             .proposedCheckoutTime(request.getProposedCheckoutTime())
+            .checkInTime(record.getCheckInTime())
+            .checkOutTime(record.getCheckOutTime())
             .reason(request.getReason())
             .status(request.getStatus())
             .reviewedBy(request.getReviewedBy() != null ? request.getReviewedBy().getId() : null)

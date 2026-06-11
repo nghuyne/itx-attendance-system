@@ -298,6 +298,9 @@ public class AttendanceService {
     }
 
     public AttendanceStatus computeFinalStatus(LocalDateTime checkInUtc, LocalDateTime checkOutUtc, Shift shift) {
+        if (checkInUtc == null || checkOutUtc == null || shift == null) {
+            return AttendanceStatus.INCOMPLETE;
+        }
         LocalTime checkInVN = TimeUtil.toUtcPlus7(checkInUtc).toLocalTime();
         LocalTime checkOutVN = TimeUtil.toUtcPlus7(checkOutUtc).toLocalTime();
         return calculateFinalStatus(checkInVN, checkOutVN, shift);

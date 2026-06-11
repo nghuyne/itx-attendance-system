@@ -17,6 +17,9 @@ export const requestService = {
   getPending: (): Promise<RequestSummaryDto[]> =>
     api.get<RequestSummaryDto[]>('/requests/pending').then(r => r.data),
 
+  getByStatus: (status: 'APPROVED' | 'REJECTED'): Promise<RequestSummaryDto[]> =>
+    api.get<RequestSummaryDto[]>('/requests', { params: { status } }).then(r => r.data),
+
   approve: (id: string): Promise<RequestSummaryDto> =>
     api.put<RequestSummaryDto>(`/requests/${id}/approve`).then(r => r.data),
 

@@ -1,5 +1,6 @@
 package com.itx.attendance.controller;
 
+import com.itx.attendance.domain.RequestStatus;
 import com.itx.attendance.domain.User;
 import com.itx.attendance.dto.request.AdjustmentRequestCreateDto;
 import com.itx.attendance.dto.request.ExceptionRequestCreateDto;
@@ -7,9 +8,7 @@ import com.itx.attendance.dto.request.RequestRejectDto;
 import com.itx.attendance.dto.response.AdjustmentRequestDto;
 import com.itx.attendance.dto.response.ExceptionRequestDto;
 import com.itx.attendance.dto.response.RequestSummaryDto;
-import com.itx.attendance.exception.BusinessException;
-import com.itx.attendance.repository.UserRepository;
-import com.itx.attendance.security.SecurityUtil;
+import com.itx.attendance.service.CurrentUserService;
 import com.itx.attendance.service.RequestService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +29,7 @@ import java.util.List;
 public class RequestController {
 
     private final RequestService requestService;
-    private final UserRepository userRepository;
+    private final CurrentUserService currentUserService;
 
     @PreAuthorize("hasRole('EMPLOYEE')")
     @PostMapping("/exception")
@@ -55,14 +54,22 @@ public class RequestController {
     @PreAuthorize("hasAnyRole('LEADER', 'ADMIN')")
     @GetMapping("/pending")
     public ResponseEntity<List<RequestSummaryDto>> getPendingRequests() {
-        User reviewer = getCurrentUser();
+        User reviewer = currentUserService.getCurrentUser();
         return ResponseEntity.ok(requestService.getPendingRequests(reviewer));
+    }
+
+    @PreAuthorize("hasAnyRole('LEADER', 'ADMIN')")
+    @GetMapping
+    public ResponseEntity<List<RequestSummaryDto>> getRequestsByStatus(
+            @RequestParam RequestStatus status) {
+        User currentUser = currentUserService.getCurrentUser();
+        return ResponseEntity.ok(requestService.getRequestsByStatus(currentUser, status));
     }
 
     @PreAuthorize("hasAnyRole('LEADER', 'ADMIN')")
     @PutMapping("/{id}/approve")
     public ResponseEntity<RequestSummaryDto> approveRequest(@PathVariable String id) {
-        User reviewer = getCurrentUser();
+        User reviewer = currentUserService.getCurrentUser();
         return ResponseEntity.ok(requestService.approveRequest(id, reviewer));
     }
 
@@ -71,13 +78,8 @@ public class RequestController {
     public ResponseEntity<RequestSummaryDto> rejectRequest(
             @PathVariable String id,
             @Valid @RequestBody RequestRejectDto body) {
-        User reviewer = getCurrentUser();
+        User reviewer = currentUserService.getCurrentUser();
         return ResponseEntity.ok(requestService.rejectRequest(id, body.reason(), reviewer));
     }
 
-    private User getCurrentUser() {
-        String username = SecurityUtil.getCurrentUsername();
-        return userRepository.findByUsername(username)
-            .orElseThrow(() -> new BusinessException("User not found", HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
-    }
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useUiStore } from '../../store/uiStore';
 import type { RequestSummaryDto, RequestCategory } from '../../types/api';
 import { AttendanceStatus } from '../../types/domain';
 import { leaderService } from '../../services/leaderService';
@@ -12,14 +13,15 @@ function todayVN(): string {
 }
 
 function addDays(dateStr: string, days: number): string {
-  const d = new Date(dateStr + 'T00:00:00');
+  const d = new Date(dateStr + 'T00:00:00+07:00');
   d.setDate(d.getDate() + days);
-  return d.toLocaleDateString('en-CA');
+  return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 }
 
 export const DailyRosterScreen = () => {
   const [selectedDate, setSelectedDate] = useState(todayVN);
   const [selectedRequest, setSelectedRequest] = useState<RequestSummaryDto | null>(null);
+  const showToast = useUiStore((s) => s.showToast);
 
   const { data, isPending } = useQuery({
     queryKey: ['leader', 'team-roster', selectedDate],
@@ -35,10 +37,18 @@ export const DailyRosterScreen = () => {
     const found = (pendingQuery.data ?? []).find(r => r.id === requestId);
     if (found) {
       setSelectedRequest(found);
-    } else {
-      await pendingQuery.refetch();
-      const refound = (pendingQuery.data ?? []).find(r => r.id === requestId);
-      if (refound) setSelectedRequest(refound);
+      return;
+    }
+    try {
+      const result = await pendingQuery.refetch();
+      const refound = (result.data ?? []).find(r => r.id === requestId);
+      if (refound) {
+        setSelectedRequest(refound);
+      } else {
+        showToast({ type: 'warning', message: 'Yêu cầu không còn tồn tại' });
+      }
+    } catch {
+      showToast({ type: 'error', message: 'Không thể tải thông tin yêu cầu' });
     }
   };
 

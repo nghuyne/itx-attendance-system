@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { RequestSummaryDto } from '../../types/api';
 import { requestService } from '../../services/requestService';
@@ -40,10 +40,14 @@ export const RequestDetailModal = ({ isOpen, request, onClose, onApproved }: Req
   const [showRejectForm, setShowRejectForm] = useState(false);
   const queryClient = useQueryClient();
   const showToast = useUiStore(s => s.showToast);
+  const rejectButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (!isOpen) setShowRejectForm(false);
-  }, [isOpen]);
+    const previouslyFocused = document.activeElement as HTMLElement;
+    return () => {
+      previouslyFocused?.focus();
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -53,11 +57,21 @@ export const RequestDetailModal = ({ isOpen, request, onClose, onApproved }: Req
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  const handleCancelReject = () => {
+    setShowRejectForm(false);
+    setTimeout(() => rejectButtonRef.current?.focus(), 0);
+  };
+
+  const invalidateAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['leader', 'pending-requests'] });
+    queryClient.invalidateQueries({ queryKey: ['leader', 'requests'] });
+    queryClient.invalidateQueries({ queryKey: ['leader', 'team-roster'] });
+  };
+
   const approveMutation = useMutation({
     mutationFn: () => requestService.approve(request.id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['leader', 'pending-requests'] });
-      queryClient.invalidateQueries({ queryKey: ['leader', 'team-roster'] });
+      invalidateAll();
       showToast({ type: 'success', message: 'Đã duyệt yêu cầu thành công' });
       onApproved?.();
       onClose();
@@ -70,8 +84,7 @@ export const RequestDetailModal = ({ isOpen, request, onClose, onApproved }: Req
   const rejectMutation = useMutation({
     mutationFn: (reason: string) => requestService.reject(request.id, reason),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['leader', 'pending-requests'] });
-      queryClient.invalidateQueries({ queryKey: ['leader', 'team-roster'] });
+      invalidateAll();
       showToast({ type: 'success', message: 'Đã từ chối yêu cầu' });
       onClose();
     },
@@ -125,6 +138,14 @@ export const RequestDetailModal = ({ isOpen, request, onClose, onApproved }: Req
               <dd className="font-medium">{request.attendanceDate}</dd>
             </div>
             <div className="flex justify-between">
+              <dt className="text-slate-500">Giờ vào</dt>
+              <dd className="font-medium">{formatDatetime(request.checkInTime)}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-slate-500">Giờ ra thực tế</dt>
+              <dd className="font-medium">{formatDatetime(request.checkOutTime)}</dd>
+            </div>
+            <div className="flex justify-between">
               <dt className="text-slate-500">Lý do</dt>
               <dd className="font-medium text-right max-w-[60%]">{request.reason}</dd>
             </div>
@@ -152,18 +173,19 @@ export const RequestDetailModal = ({ isOpen, request, onClose, onApproved }: Req
 
           {request.status === 'PENDING' && (
             <div className="mt-6 space-y-2">
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={() => approveMutation.mutate()}
                   disabled={approveMutation.isPending || rejectMutation.isPending}
-                  className="flex-1 min-h-[48px] bg-success text-white rounded-lg font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
+                  className="w-full min-h-[48px] bg-success text-white rounded-lg font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
                 >
                   {approveMutation.isPending ? 'Đang xử lý...' : 'Duyệt'}
                 </button>
                 <button
+                  ref={rejectButtonRef}
                   onClick={() => setShowRejectForm(v => !v)}
                   disabled={approveMutation.isPending || rejectMutation.isPending}
-                  className="flex-1 min-h-[48px] border border-danger text-danger rounded-lg font-medium disabled:opacity-50 hover:bg-red-50 transition-colors"
+                  className="w-full min-h-[48px] border border-danger text-danger rounded-lg font-medium disabled:opacity-50 hover:bg-red-50 transition-colors"
                 >
                   Từ chối
                 </button>
@@ -171,7 +193,7 @@ export const RequestDetailModal = ({ isOpen, request, onClose, onApproved }: Req
               <RejectionReasonModal
                 isOpen={showRejectForm}
                 onConfirm={reason => rejectMutation.mutate(reason)}
-                onCancel={() => setShowRejectForm(false)}
+                onCancel={handleCancelReject}
                 isSubmitting={rejectMutation.isPending}
               />
             </div>

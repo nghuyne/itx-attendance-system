@@ -24,13 +24,19 @@ public class LeaderService {
 
     @Transactional(readOnly = true)
     public List<TeamRosterItemDto> getTeamRoster(User leader, LocalDate date) {
-        List<User> teamMembers = userRepository.findByLeaderId(leader.getId());
+        List<User> teamMembers;
+        if (leader.getRole() == UserRole.ADMIN) {
+            teamMembers = userRepository.findByRole(UserRole.EMPLOYEE);
+        } else {
+            teamMembers = userRepository.findByLeaderId(leader.getId());
+        }
         if (teamMembers.isEmpty()) return List.of();
 
         List<String> employeeIds = teamMembers.stream().map(User::getId).toList();
         List<AttendanceRecord> records = attendanceRecordRepository.findByEmployeeIdInAndDate(employeeIds, date);
         Map<String, AttendanceRecord> recordByEmployeeId = records.stream()
-            .collect(java.util.stream.Collectors.toMap(r -> r.getEmployee().getId(), r -> r));
+            .collect(java.util.stream.Collectors.toMap(
+                r -> r.getEmployee().getId(), r -> r, (existing, duplicate) -> existing));
 
         Map<String, String[]> pendingByRecordId = new HashMap<>();
         if (!records.isEmpty()) {
