@@ -2,6 +2,7 @@ package com.itx.attendance.controller;
 
 import com.itx.attendance.domain.RequestStatus;
 import com.itx.attendance.domain.User;
+import com.itx.attendance.exception.BusinessException;
 import com.itx.attendance.dto.request.AdjustmentRequestCreateDto;
 import com.itx.attendance.dto.request.ExceptionRequestCreateDto;
 import com.itx.attendance.dto.request.RequestRejectDto;
@@ -62,6 +63,9 @@ public class RequestController {
     @GetMapping
     public ResponseEntity<List<RequestSummaryDto>> getRequestsByStatus(
             @RequestParam RequestStatus status) {
+        if (status == RequestStatus.PENDING) {
+            throw new BusinessException("Use /pending endpoint for pending requests", HttpStatus.BAD_REQUEST, "INVALID_STATUS_PARAM");
+        }
         User currentUser = currentUserService.getCurrentUser();
         return ResponseEntity.ok(requestService.getRequestsByStatus(currentUser, status));
     }
