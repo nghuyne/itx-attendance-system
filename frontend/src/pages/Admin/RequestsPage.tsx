@@ -1,8 +1,8 @@
-import React from 'react';
+import { PendingRequestsScreen } from '../../components/leader/PendingRequestsScreen';
 
-export const AdminRequestsPage: React.FC = () => (
+export const AdminRequestsPage = () => (
   <main className="p-4">
-    <h1 className="text-2xl font-bold text-neutral">Yêu cầu (Admin)</h1>
-    <p className="text-slate-500 mt-2">Implement trong Story 4.x</p>
+    <h1 className="text-2xl font-bold text-neutral mb-4">Duyệt Yêu cầu (Admin)</h1>
+    <PendingRequestsScreen />
   </main>
 );
