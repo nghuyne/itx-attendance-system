@@ -4,11 +4,13 @@ import com.itx.attendance.domain.AuditLog;
 import com.itx.attendance.domain.UserRole;
 import com.itx.attendance.dto.response.AuditLogDto;
 import com.itx.attendance.dto.response.EmployeeDto;
+import com.itx.attendance.exception.BusinessException;
 import com.itx.attendance.repository.AuditLogRepository;
 import com.itx.attendance.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +32,10 @@ public class AuditLogService {
             LocalDate from,
             LocalDate to,
             Pageable pageable) {
+
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new BusinessException("'from' must not be after 'to'", HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE");
+        }
 
         LocalDateTime fromDate = from != null ? from.atStartOfDay() : null;
         LocalDateTime toDate = to != null ? to.atTime(23, 59, 59) : null;

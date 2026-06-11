@@ -10,8 +10,9 @@ const getDefaultDates = () => {
   return { from, to };
 };
 
-const formatVNDateTime = (isoStr: string): string =>
-  new Date(isoStr).toLocaleString('vi-VN', {
+const formatVNDateTime = (isoStr: string): string => {
+  const utcStr = isoStr.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(isoStr) ? isoStr : `${isoStr}Z`;
+  return new Date(utcStr).toLocaleString('vi-VN', {
     timeZone: 'Asia/Ho_Chi_Minh',
     day: '2-digit',
     month: '2-digit',
@@ -19,6 +20,7 @@ const formatVNDateTime = (isoStr: string): string =>
     hour: '2-digit',
     minute: '2-digit',
   });
+};
 
 export const AuditPage: React.FC = () => {
   const defaults = getDefaultDates();
@@ -34,7 +36,7 @@ export const AuditPage: React.FC = () => {
       adminService.getAuditLogs(from, to, page, 50, adminId || undefined, targetTable || undefined),
   });
 
-  const { data: admins } = useQuery({
+  const { data: admins, isError: isAdminsError } = useQuery({
     queryKey: ['admin', 'admins'],
     queryFn: () => adminService.getAdmins(),
     staleTime: 5 * 60 * 1000,
@@ -46,7 +48,6 @@ export const AuditPage: React.FC = () => {
         <h1 className="text-2xl font-bold text-slate-700">Audit Logs</h1>
       </div>
 
-      {/* Filter bar */}
       <div className="flex flex-wrap gap-3 mb-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
         <div>
           <label htmlFor="from" className="block text-xs font-medium text-slate-600 mb-1">Từ ngày</label>
@@ -55,7 +56,7 @@ export const AuditPage: React.FC = () => {
             type="date"
             value={from}
             onChange={e => { setFrom(e.target.value); setPage(0); }}
-            className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            className="min-h-[48px] border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
           />
         </div>
         <div>
@@ -65,7 +66,7 @@ export const AuditPage: React.FC = () => {
             type="date"
             value={to}
             onChange={e => { setTo(e.target.value); setPage(0); }}
-            className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            className="min-h-[48px] border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
           />
         </div>
         <div>
@@ -74,13 +75,14 @@ export const AuditPage: React.FC = () => {
             id="adminFilter"
             value={adminId}
             onChange={e => { setAdminId(e.target.value); setPage(0); }}
-            className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            className="min-h-[48px] border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
           >
             <option value="">Tất cả admin</option>
             {(admins ?? []).map(a => (
               <option key={a.id} value={a.id}>{a.fullName}</option>
             ))}
           </select>
+          {isAdminsError && <p className="text-xs text-danger mt-1">Không tải được danh sách admin</p>}
         </div>
         <div>
           <label htmlFor="tableFilter" className="block text-xs font-medium text-slate-600 mb-1">Bảng</label>
@@ -88,7 +90,7 @@ export const AuditPage: React.FC = () => {
             id="tableFilter"
             value={targetTable}
             onChange={e => { setTargetTable(e.target.value); setPage(0); }}
-            className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            className="min-h-[48px] border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
           >
             <option value="">Tất cả bảng</option>
             <option value="attendance_records">attendance_records</option>
@@ -105,7 +107,7 @@ export const AuditPage: React.FC = () => {
       )}
 
       {isError && (
-        <div className="text-center py-8 text-red-600">
+        <div className="text-center py-8 text-danger">
           Không thể tải audit logs. Vui lòng thử lại.
         </div>
       )}
@@ -122,7 +124,7 @@ export const AuditPage: React.FC = () => {
             <table className="w-full text-sm">
               <thead className="bg-slate-50">
                 <tr>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Thời gian</th>
+                  <th className="text-left px-4 py-3 font-medium text-slate-600">Thời gian (UTC+7)</th>
                   <th className="text-left px-4 py-3 font-medium text-slate-600">Admin</th>
                   <th className="text-left px-4 py-3 font-medium text-slate-600">Bảng</th>
                   <th className="text-left px-4 py-3 font-medium text-slate-600">Record ID</th>
@@ -140,14 +142,14 @@ export const AuditPage: React.FC = () => {
                     </td>
                     <td className="px-4 py-3 text-slate-700">{log.adminName}</td>
                     <td className="px-4 py-3 text-slate-500 font-mono text-xs">{log.targetTable}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-slate-600" title={log.targetId}>
-                      {log.targetId.slice(0, 8)}…
+                    <td className="px-4 py-3 font-mono text-xs text-slate-600" title={log.targetId ?? undefined}>
+                      {log.targetId ? (log.targetId.length > 8 ? `${log.targetId.slice(0, 8)}…` : log.targetId) : '—'}
                     </td>
                     <td className="px-4 py-3 text-slate-600">{log.fieldChanged}</td>
                     <td className="px-4 py-3 text-slate-500">{log.oldValue ?? '—'}</td>
                     <td className="px-4 py-3 text-slate-700">{log.newValue ?? '—'}</td>
-                    <td className="px-4 py-3 text-slate-600 max-w-xs truncate" title={log.reason}>
-                      {log.reason}
+                    <td className="px-4 py-3 text-slate-600 max-w-xs truncate" title={log.reason ?? undefined}>
+                      {log.reason ?? '—'}
                     </td>
                   </tr>
                 ))}
@@ -155,12 +157,11 @@ export const AuditPage: React.FC = () => {
             </table>
           </div>
 
-          {/* Pagination */}
           <div className="flex items-center gap-2 justify-end mt-4">
             <button
               onClick={() => setPage(p => p - 1)}
               disabled={page === 0}
-              className="px-3 py-1.5 rounded border text-sm disabled:opacity-50 hover:bg-slate-50"
+              className="min-h-[48px] px-3 py-1.5 rounded border text-sm disabled:opacity-50 hover:bg-slate-50"
             >
               Trước
             </button>
@@ -170,7 +171,7 @@ export const AuditPage: React.FC = () => {
             <button
               onClick={() => setPage(p => p + 1)}
               disabled={page >= (data.totalPages ?? 1) - 1}
-              className="px-3 py-1.5 rounded border text-sm disabled:opacity-50 hover:bg-slate-50"
+              className="min-h-[48px] px-3 py-1.5 rounded border text-sm disabled:opacity-50 hover:bg-slate-50"
             >
               Sau
             </button>
