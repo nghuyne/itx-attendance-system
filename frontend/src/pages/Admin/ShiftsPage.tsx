@@ -23,8 +23,6 @@ const shiftSchema = z.object({
   { message: 'Giờ bắt đầu phải nhỏ hơn giờ kết thúc (ca xuyên đêm chưa được hỗ trợ)', path: ['endTime'] }
 );
 
-type ShiftFormValues = z.infer<typeof shiftSchema>;
-
 interface ShiftFormModalProps {
   editingShift: ShiftDto | null;
   onClose: () => void;
@@ -34,7 +32,7 @@ interface ShiftFormModalProps {
 const ShiftFormModal: React.FC<ShiftFormModalProps> = ({ editingShift, onClose, onSuccess }) => {
   const showToast = useUiStore((s) => s.showToast);
 
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<ShiftFormValues>({
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
     resolver: zodResolver(shiftSchema),
     defaultValues: editingShift
       ? {
@@ -57,6 +55,11 @@ const ShiftFormModal: React.FC<ShiftFormModalProps> = ({ editingShift, onClose, 
   });
 
   const onSubmit = handleSubmit(async (data) => {
+    if (!data.name || typeof data.startTime !== 'string' || typeof data.endTime !== 'string') {
+      showToast({ type: 'error', message: 'Dữ liệu ca làm việc bị thiếu hoặc sai định dạng' });
+      return;
+    }
+
     try {
       if (editingShift) {
         await shiftService.update(editingShift.id, data);
@@ -68,7 +71,7 @@ const ShiftFormModal: React.FC<ShiftFormModalProps> = ({ editingShift, onClose, 
       onSuccess();
       onClose();
     } catch {
-      showToast({ type: 'error', message: 'Có lỗi xảy ra, vui lòng thử lại' });
+      showToast({ type: 'error', message: 'Có lỗi xảy ra khi lưu ca làm việc' });
     }
   });
 

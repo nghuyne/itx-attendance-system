@@ -64,6 +64,7 @@ export const CheckInPage: React.FC = () => {
     } catch (err) {
       const errorCode = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
       const message =
+        errorCode === 'NO_SHIFT_ASSIGNED' ? 'Bạn chưa được gán ca làm việc. Liên hệ HR để cập nhật.' :
         errorCode === 'GPS_REQUIRED' ? 'GPS bắt buộc khi chấm công ngoài văn phòng.' :
         errorCode === 'INVALID_IP' ? 'Không nhận diện được mạng văn phòng. Kiểm tra kết nối.' :
         errorCode === 'ALREADY_CHECKED_IN' ? 'Bạn đã chấm công rồi hôm nay.' :

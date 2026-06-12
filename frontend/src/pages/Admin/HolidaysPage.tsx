@@ -23,13 +23,11 @@ const holidaySchema = z.object({
   name: z.string().min(2, 'Tên ngày lễ phải có ít nhất 2 ký tự').max(255),
   type: z.enum(['FIXED', 'DYNAMIC'] as const),
   year: z
-    .number({ invalid_type_error: 'Năm phải là số nguyên' })
-    .int()
+    .coerce.number()
+    .int('Năm phải là số nguyên')
     .min(1900, 'Năm phải ≥ 1900')
     .max(2100, 'Năm phải ≤ 2100'),
 });
-
-type HolidayFormValues = z.infer<typeof holidaySchema>;
 
 interface HolidayFormModalProps {
   onClose: () => void;
@@ -45,7 +43,7 @@ const HolidayFormModal: React.FC<HolidayFormModalProps> = ({ onClose, onSuccess 
     watch,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<HolidayFormValues>({
+  } = useForm({
     resolver: zodResolver(holidaySchema),
     defaultValues: { type: 'FIXED', year: new Date().getFullYear() },
   });

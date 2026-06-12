@@ -5,7 +5,6 @@ import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { requestService } from '../../services/requestService';
 import { useUiStore } from '../../store/uiStore';
-import type { ExceptionRequestType } from '../../types/api';
 import type { AttendanceRecordDto } from '../../types/api';
 
 const exceptionRequestSchema = z.object({

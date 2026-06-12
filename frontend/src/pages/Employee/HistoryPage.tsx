@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { attendanceService } from '../../services/attendanceService';
 import { ATTENDANCE_STATUS_COLORS, ATTENDANCE_STATUS_LABEL, AttendanceStatus } from '../../types/domain';
 import { SkeletonCard } from '../../components/common/SkeletonCard';
@@ -89,6 +89,8 @@ export const HistoryPage: React.FC = () => {
   const [page, setPage] = useState(0);
   const [modalState, setModalState] = useState<{ record: AttendanceRecordDto; type: 'exception' | 'adjustment' } | null>(null);
 
+  const queryClient = useQueryClient();
+
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['attendance', 'history', from, to, page],
     queryFn: () => attendanceService.getHistory({ from, to, page, size: 20 }),
@@ -96,9 +98,9 @@ export const HistoryPage: React.FC = () => {
 
   useEffect(() => {
     return () => {
-      refetch.cancel?.();
+      queryClient.cancelQueries({ queryKey: ['attendance', 'history'] });
     };
-  }, [refetch]);
+  }, [queryClient]);
 
   const records = data?.content ?? [];
   const totalPages = data?.totalPages ?? 0;
