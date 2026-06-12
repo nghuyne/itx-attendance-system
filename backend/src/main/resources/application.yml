@@ -52,7 +52,9 @@ server:
   forward-headers-strategy: native
   tomcat:
     remoteip:
-      internal-proxies: ${TRUSTED_PROXIES:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}|127\.\d{1,3}\.\d{1,3}\.\d{1,3}|0:0:0:0:0:0:0:1|::1}
+      # Danh sách dải IP được tin tưởng là Proxy (Docker internal networks + Loopback)
+      # Chỉ khi request đến từ dải IP này, Spring Boot mới tin tưởng X-Forwarded-For header
+      internal-proxies: ${TRUSTED_PROXIES:10\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|192\\.168\\.\\d{1,3}\\.\\d{1,3}|172\\.(1[6-9]|2\\d|3[0-1])\\.\\d{1,3}\\.\\d{1,3}|127\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}|0:0:0:0:0:0:0:1|::1}
 
 app:
   jwt:

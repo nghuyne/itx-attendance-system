@@ -13,6 +13,7 @@ import com.itx.attendance.util.HaversineUtil;
 import com.itx.attendance.util.TimeUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -34,6 +35,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AttendanceService {
@@ -323,10 +325,37 @@ public class AttendanceService {
     }
 
     private String extractClientIp(HttpServletRequest request) {
-        String ip = request.getRemoteAddr();
-        if (ip != null && ip.startsWith("::ffff:")) {
-            return ip.substring(7);
+        String xRealIp = request.getHeader("X-Real-IP");
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        String remoteAddr = request.getRemoteAddr();
+
+        log.debug("IP Extraction Debug: X-Real-IP={}, X-Forwarded-For={}, Remote-Addr={}",
+            xRealIp, xForwardedFor, remoteAddr);
+
+        // Ưu tiên 1: X-Real-IP được Nginx thiết lập dựa trên kết nối TCP thực tế
+        String ip = xRealIp;
+
+        // Ưu tiên 2: X-Forwarded-For (lấy IP đầu tiên trong danh sách)
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+                ip = xForwardedFor.split(",")[0].trim();
+            }
         }
+
+        // Fallback: Kết nối trực tiếp nếu không qua proxy
+        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+            ip = remoteAddr;
+        }
+
+        // Chuẩn hóa IPv6 loopback
+        if (ip != null && ip.startsWith("::ffff:")) {
+            ip = ip.substring(7);
+        }
+        if ("0:0:0:0:0:0:0:1".equals(ip)) {
+            ip = "127.0.0.1";
+        }
+
+        log.info("Client IP extracted and normalized: {}", ip);
         return ip;
     }
 
