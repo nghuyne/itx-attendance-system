@@ -6,6 +6,7 @@ import com.itx.attendance.exception.BusinessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.time.LocalDate;
 import com.itx.attendance.dto.response.AttendanceRecordDto;
@@ -55,18 +56,20 @@ public class AttendanceController {
 
     @GetMapping("/history")
     public ResponseEntity<Page<AttendanceRecordDto>> getHistory(
-            @RequestParam String from,
-            @RequestParam String to,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         if (page < 0 || size < 1) {
             throw new BusinessException(
                 "Tham số phân trang không hợp lệ", HttpStatus.BAD_REQUEST, "INVALID_PAGINATION");
         }
-        LocalDate fromDate = LocalDate.parse(from);
-        LocalDate toDate = LocalDate.parse(to);
+        if (from.isAfter(to)) {
+            throw new BusinessException(
+                "Invalid date range", HttpStatus.BAD_REQUEST, "INVALID_DATE");
+        }
         return ResponseEntity.ok(attendanceService.getHistory(
-            fromDate, toDate, PageRequest.of(page, size, Sort.by("date").descending())));
+            from, to, PageRequest.of(page, size, Sort.by("date").descending())));
     }
 
     @GetMapping("/{id}/photo/url")

@@ -14,6 +14,9 @@ export const requestService = {
   submitAdjustmentRequest: (data: AdjustmentRequestCreateDto): Promise<AdjustmentRequestDto> =>
     api.post<AdjustmentRequestDto>('/requests/adjustment', data).then(r => r.data),
 
+  getMyRequests: (): Promise<RequestSummaryDto[]> =>
+    api.get<RequestSummaryDto[]>('/requests/me').then(r => r.data),
+
   getPending: (): Promise<RequestSummaryDto[]> =>
     api.get<RequestSummaryDto[]>('/requests/pending').then(r => r.data),
 

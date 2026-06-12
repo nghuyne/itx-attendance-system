@@ -17,16 +17,15 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/itx_attendance?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8
-      SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: password
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-key-must-be-at-least-32-chars}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       MAIL_HOST: ${MAIL_HOST:-localhost}
     depends_on:
       mysql:
@@ -39,14 +38,12 @@ services:
   mysql:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: itx_attendance
       MYSQL_CHARACTER_SET_SERVER: utf8mb4
       MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
     volumes:
       - mysql_data:/var/lib/mysql
-    ports:
-      - "3306:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s
@@ -59,11 +56,8 @@ services:
   minio:
     image: minio/minio:latest
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    ports:
-      - "9000:9000"
-      - "9001:9001"
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"

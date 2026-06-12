@@ -50,8 +50,9 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Map<String, String>> logout() {
-        authService.logout();
+    public ResponseEntity<Map<String, String>> logout(
+            @CookieValue(name = "refreshToken", required = false) String refreshToken) {
+        authService.logout(refreshToken);
         ResponseCookie clearCookie = ResponseCookie.from("refreshToken", "")
                 .httpOnly(true)
                 .path("/")

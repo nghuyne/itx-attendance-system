@@ -54,7 +54,7 @@ export const AdjustmentRequestForm: React.FC<AdjustmentRequestFormProps> = ({ re
     mutationFn: (data: AdjustmentRequestFormValues) =>
       requestService.submitAdjustmentRequest({
         attendanceRecordId: record.id,
-        proposedCheckoutTime: data.proposedCheckoutTime,
+        proposedCheckoutTime: new Date(data.proposedCheckoutTime).toISOString(),
         reason: data.reason,
       }),
     onSuccess: () => {
@@ -118,7 +118,7 @@ export const AdjustmentRequestForm: React.FC<AdjustmentRequestFormProps> = ({ re
             <input
               id="proposedCheckoutTime"
               type="datetime-local"
-              min={record.checkInTime ? new Date(record.checkInTime).toISOString().slice(0, 16) : undefined}
+              min={record.checkInTime ? new Date(record.checkInTime).toLocaleString('sv').slice(0, 16) : undefined}
               {...register('proposedCheckoutTime')}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
             />

@@ -20,7 +20,10 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.itx.attendance.util.TimeUtil;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -162,16 +165,19 @@ public class RequestService {
                 "Attendance record has no check-in time",
                 HttpStatus.INTERNAL_SERVER_ERROR, "INVALID_RECORD_STATE");
         }
-        if (request.proposedCheckoutTime().isBefore(record.getCheckInTime())) {
+        if (request.proposedCheckoutTime().isBefore(record.getCheckInTime().toInstant(ZoneOffset.UTC))) {
             throw new BusinessException(
                 "Proposed checkout time must be after check-in time",
                 HttpStatus.BAD_REQUEST, "INVALID_CHECKOUT_TIME");
         }
 
         if (record.getShift() != null && record.getShift().getShiftEndTime() != null) {
-            LocalDateTime shiftEndTime = record.getShift().getShiftEndTime()
-                .atDate(record.getDate());
-            if (request.proposedCheckoutTime().isAfter(shiftEndTime.plusHours(2))) {
+            // shiftEndTime is VN local time (UTC+7); convert to UTC Instant for comparison
+            Instant shiftEndUtc = record.getShift().getShiftEndTime()
+                .atDate(record.getDate())
+                .atZone(TimeUtil.UTC_PLUS_7)
+                .toInstant();
+            if (request.proposedCheckoutTime().isAfter(shiftEndUtc.plusSeconds(2 * 3600L))) {
                 throw new BusinessException(
                     "Proposed checkout time is unreasonable (too far beyond shift end)",
                     HttpStatus.BAD_REQUEST, "INVALID_CHECKOUT_TIME");
@@ -245,6 +251,17 @@ public class RequestService {
         throw new BusinessException("Request not found", HttpStatus.NOT_FOUND, "REQUEST_NOT_FOUND");
     }
 
+    public List<RequestSummaryDto> getMyRequests(User employee) {
+        List<ExceptionRequest> exceptions = exceptionRequestRepository.findByEmployeeId(employee.getId());
+        List<AdjustmentRequest> adjustments = adjustmentRequestRepository.findByEmployeeId(employee.getId());
+
+        List<RequestSummaryDto> result = new ArrayList<>();
+        exceptions.forEach(e -> result.add(toRequestSummaryDto(e)));
+        adjustments.forEach(a -> result.add(toRequestSummaryDto(a)));
+        result.sort(Comparator.comparing(RequestSummaryDto::createdAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed());
+        return result;
+    }
+
     public List<RequestSummaryDto> getPendingRequests(User currentUser) {
         List<ExceptionRequest> exceptions;
         List<AdjustmentRequest> adjustments;
@@ -280,6 +297,7 @@ public class RequestService {
         exceptionRequestRepository.save(request);
 
         AttendanceRecord record = request.getAttendanceRecord();
+        record.setAttendanceStatus(AttendanceStatus.EXCUSED);
         record.setApprovalSubStatus(ApprovalSubStatus.APPROVED);
         try {
             attendanceRecordRepository.save(record);
@@ -312,9 +330,11 @@ public class RequestService {
         request.setReviewedBy(reviewer);
         adjustmentRequestRepository.save(request);
 
-        record.setCheckOutTime(request.getProposedCheckoutTime());
+        LocalDateTime proposedCheckoutUtc = LocalDateTime.ofInstant(
+            request.getProposedCheckoutTime(), ZoneOffset.UTC);
+        record.setCheckOutTime(proposedCheckoutUtc);
         record.setAttendanceStatus(attendanceService.computeFinalStatus(
-            record.getCheckInTime(), request.getProposedCheckoutTime(), record.getShift()));
+            record.getCheckInTime(), proposedCheckoutUtc, record.getShift()));
         record.setApprovalSubStatus(ApprovalSubStatus.APPROVED);
         try {
             attendanceRecordRepository.save(record);

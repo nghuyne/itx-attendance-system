@@ -85,7 +85,7 @@ public class AttendanceService {
 
             if (!companyValid && !individualValid) {
                 throw new BusinessException(
-                    "Không nhận diện được mạng văn phòng",
+                    "Không nhận diện được mạng văn phòng (IP của bạn: " + clientIp + ")",
                     HttpStatus.FORBIDDEN, "INVALID_IP");
             }
         }
@@ -207,9 +207,10 @@ public class AttendanceService {
             .orElseThrow(() -> new BusinessException(
                 "User not found", HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
 
-        LocalDate today = LocalDate.now(TimeUtil.UTC_PLUS_7);
-
-        AttendanceRecord existing = attendanceRecordRepository.findByEmployeeIdAndDate(employee.getId(), today)
+        LocalDateTime threshold = LocalDateTime.now(ZoneOffset.UTC).minusHours(24);
+        AttendanceRecord existing = attendanceRecordRepository
+            .findFirstByEmployeeIdAndCheckOutTimeIsNullAndCheckInTimeAfterOrderByCheckInTimeDesc(
+                employee.getId(), threshold)
             .orElseThrow(() -> new BusinessException(
                 "Chưa có bản ghi check-in hôm nay", HttpStatus.BAD_REQUEST, "NO_CHECKIN_FOUND"));
 
@@ -218,8 +219,24 @@ public class AttendanceService {
                 "Đã check-out rồi", HttpStatus.CONFLICT, "ALREADY_CHECKED_OUT");
         }
 
+        String checkOutIp = extractClientIp(httpRequest);
+
+        if (!existing.isClientSite()) {
+            boolean companyValid = validIpRepository
+                .existsByIpAddressAndScopeAndEmployeeIsNullAndActiveTrue(checkOutIp, IpScope.COMPANY);
+            boolean individualValid = validIpRepository
+                .existsByIpAddressAndScopeAndEmployeeIdAndActiveTrue(checkOutIp, IpScope.INDIVIDUAL, employee.getId());
+
+            if (!companyValid && !individualValid) {
+                throw new BusinessException(
+                    "Không nhận diện được mạng văn phòng (IP của bạn: " + checkOutIp + ")",
+                    HttpStatus.FORBIDDEN, "INVALID_IP");
+            }
+        }
+
         PhotoService.PhotoData photoData = photoService.decodeBase64Photo(request.photoBase64());
-        String objectKey = employee.getId() + "/" + today + "/checkout_" + UUID.randomUUID() + ".jpg";
+        LocalDate recordDate = existing.getDate();
+        String objectKey = employee.getId() + "/" + recordDate + "/checkout_" + UUID.randomUUID() + ".jpg";
         String checkOutObjectKey;
         try {
             checkOutObjectKey = photoService.uploadPhotoAsync(photoData.bytes(), objectKey, photoData.contentType()).get();
@@ -230,14 +247,16 @@ public class AttendanceService {
             throw new BusinessException("Lỗi upload ảnh", HttpStatus.INTERNAL_SERVER_ERROR, "PHOTO_UPLOAD_FAILED");
         }
 
-        String checkOutIp = extractClientIp(httpRequest);
-        return self.persistCheckOut(employee, today, request, checkOutObjectKey, checkOutIp);
+        return self.persistCheckOut(employee, request, checkOutObjectKey, checkOutIp);
     }
 
     @Transactional
-    public AttendanceRecordDto persistCheckOut(User employee, LocalDate today,
+    public AttendanceRecordDto persistCheckOut(User employee,
             CheckOutRequest request, String checkOutObjectKey, String checkOutIp) {
-        AttendanceRecord record = attendanceRecordRepository.findByEmployeeIdAndDate(employee.getId(), today)
+        LocalDateTime threshold = LocalDateTime.now(ZoneOffset.UTC).minusHours(24);
+        AttendanceRecord record = attendanceRecordRepository
+            .findFirstByEmployeeIdAndCheckOutTimeIsNullAndCheckInTimeAfterOrderByCheckInTimeDesc(
+                employee.getId(), threshold)
             .orElseThrow(() -> new BusinessException(
                 "Chưa có bản ghi check-in hôm nay", HttpStatus.BAD_REQUEST, "NO_CHECKIN_FOUND"));
 

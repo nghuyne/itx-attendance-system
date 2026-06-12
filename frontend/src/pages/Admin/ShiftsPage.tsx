@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { shiftService } from '../../services/shiftService';
+import { validIpService } from '../../services/validIpService';
 import type { ShiftDto } from '../../types/api';
 import { useUiStore } from '../../store/uiStore';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
@@ -205,6 +206,102 @@ const ShiftFormModal: React.FC<ShiftFormModalProps> = ({ editingShift, onClose, 
   );
 };
 
+interface AssignShiftModalProps {
+  shift: ShiftDto;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+const AssignShiftModal: React.FC<AssignShiftModalProps> = ({ shift, onClose, onSuccess }) => {
+  const showToast = useUiStore((s) => s.showToast);
+  const queryClient = useQueryClient();
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+
+  const { data: employees, isLoading: isLoadingEmployees } = useQuery({
+    queryKey: ['admin', 'employees'],
+    queryFn: () => validIpService.getEmployees(),
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: () => shiftService.assignToEmployee(shift.id, selectedEmployeeId),
+    onSuccess: () => {
+      showToast({ type: 'success', message: `Gán ca "${shift.name}" thành công` });
+      queryClient.invalidateQueries({ queryKey: ['admin', 'shifts'] });
+      onSuccess();
+      onClose();
+    },
+    onError: () => {
+      showToast({ type: 'error', message: 'Gán ca thất bại, vui lòng thử lại' });
+    },
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-slate-700">Gán ca làm việc</h2>
+          <button
+            onClick={onClose}
+            aria-label="Đóng"
+            className="p-2 rounded-full hover:bg-slate-100 min-w-[48px] min-h-[48px] flex items-center justify-center"
+          >
+            &#x2715;
+          </button>
+        </div>
+
+        <p className="text-sm text-slate-500 mb-4">
+          Ca: <span className="font-semibold text-slate-700">{shift.name}</span>{' '}
+          ({shift.startTime} – {shift.endTime})
+        </p>
+
+        <div className="mb-4">
+          <label htmlFor="employeeSelect" className="block text-sm font-medium text-slate-700 mb-1">
+            Chọn nhân viên <span className="text-red-500">*</span>
+          </label>
+          {isLoadingEmployees ? (
+            <div className="flex items-center gap-2 text-sm text-slate-500 py-2">
+              <LoadingSpinner size="sm" /> Đang tải danh sách nhân viên...
+            </div>
+          ) : (
+            <select
+              id="employeeSelect"
+              value={selectedEmployeeId}
+              onChange={(e) => setSelectedEmployeeId(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white"
+            >
+              <option value="">-- Chọn nhân viên --</option>
+              {(employees ?? []).map((emp) => (
+                <option key={emp.id} value={emp.id}>
+                  {emp.fullName} ({emp.username})
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 min-h-[48px]"
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            disabled={!selectedEmployeeId || assignMutation.isPending}
+            onClick={() => assignMutation.mutate()}
+            className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 min-h-[48px] flex items-center gap-2"
+          >
+            {assignMutation.isPending && <LoadingSpinner size="sm" />}
+            Gán ca
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface DeleteConfirmProps {
   shift: ShiftDto;
   onConfirm: () => void;
@@ -243,6 +340,7 @@ export const ShiftsPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<ShiftDto | null>(null);
   const [deletingShift, setDeletingShift] = useState<ShiftDto | null>(null);
+  const [assigningShift, setAssigningShift] = useState<ShiftDto | null>(null);
   const showToast = useUiStore((s) => s.showToast);
   const queryClient = useQueryClient();
 
@@ -356,6 +454,14 @@ export const ShiftsPage: React.FC = () => {
                   <td className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-2">
                       <button
+                        onClick={(e) => { e.stopPropagation(); setAssigningShift(shift); }}
+                        aria-label={`Gán ca ${shift.name}`}
+                        title="Gán ca cho nhân viên"
+                        className="px-2 py-1 text-xs text-emerald-700 border border-emerald-300 rounded hover:bg-emerald-50 min-h-[36px] flex items-center"
+                      >
+                        Gán ca
+                      </button>
+                      <button
                         onClick={(e) => { e.stopPropagation(); handleRowDoubleClick(shift); }}
                         aria-label={`Chỉnh sửa ca ${shift.name}`}
                         className="p-1 text-slate-400 hover:text-emerald-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
@@ -391,6 +497,13 @@ export const ShiftsPage: React.FC = () => {
           onConfirm={() => deleteMutation.mutate(deletingShift.id)}
           onCancel={() => setDeletingShift(null)}
           isDeleting={deleteMutation.isPending}
+        />
+      )}
+      {assigningShift && (
+        <AssignShiftModal
+          shift={assigningShift}
+          onClose={() => setAssigningShift(null)}
+          onSuccess={() => {}}
         />
       )}
     </main>

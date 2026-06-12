@@ -1,5 +1,6 @@
 package com.itx.attendance.job;
 
+import com.itx.attendance.domain.ApprovalSubStatus;
 import com.itx.attendance.domain.AttendanceRecord;
 import com.itx.attendance.domain.AttendanceStatus;
 import com.itx.attendance.domain.Notification;
@@ -34,12 +35,19 @@ public class IncompleteAttendanceJob {
         LocalDate today = nowVn.toLocalDate();
         LocalTime nowTime = nowVn.toLocalTime();
 
+        LocalDateTime lookbackFrom = today.minusDays(7).atStartOfDay();
         List<AttendanceRecord> candidates = attendanceRecordRepository
-            .findByCheckOutTimeIsNullAndAttendanceStatusNotIn(
-                List.of(AttendanceStatus.INCOMPLETE, AttendanceStatus.ABSENT));
+            .findByCheckInTimeAfterAndCheckOutTimeIsNullAndAttendanceStatusNotIn(
+                lookbackFrom,
+                List.of(AttendanceStatus.INCOMPLETE, AttendanceStatus.ABSENT, AttendanceStatus.EXCUSED));
 
         int markedCount = 0;
         for (AttendanceRecord record : candidates) {
+            ApprovalSubStatus subStatus = record.getApprovalSubStatus();
+            if (subStatus == ApprovalSubStatus.PENDING_ADJUSTMENT
+                    || subStatus == ApprovalSubStatus.PENDING_APPROVAL) {
+                continue;
+            }
             if (shouldMarkIncomplete(record, today, nowTime)) {
                 record.setAttendanceStatus(AttendanceStatus.INCOMPLETE);
                 attendanceRecordRepository.save(record);

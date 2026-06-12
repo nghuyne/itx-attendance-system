@@ -5,6 +5,7 @@ import com.itx.attendance.security.CustomUserDetailsService;
 import com.itx.attendance.security.JwtAuthenticationEntryPoint;
 import com.itx.attendance.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -30,6 +31,9 @@ import java.util.Map;
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
+
+    @Value("${app.cors.allowed-origins:http://localhost:5173}")
+    private List<String> allowedOrigins;
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
@@ -72,7 +76,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedOriginPatterns(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

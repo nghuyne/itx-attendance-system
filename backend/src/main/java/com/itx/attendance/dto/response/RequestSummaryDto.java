@@ -4,6 +4,7 @@ import com.itx.attendance.domain.ExceptionRequestType;
 import com.itx.attendance.domain.RequestStatus;
 import lombok.Builder;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -16,7 +17,7 @@ public record RequestSummaryDto(
         String attendanceRecordId,
         LocalDate attendanceDate,
         ExceptionRequestType requestType,
-        LocalDateTime proposedCheckoutTime,
+        Instant proposedCheckoutTime,
         LocalDateTime checkInTime,
         LocalDateTime checkOutTime,
         String reason,

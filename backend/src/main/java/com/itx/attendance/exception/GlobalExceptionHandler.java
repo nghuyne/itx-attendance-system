@@ -78,13 +78,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneral(Exception ex, HttpServletRequest request) {
-        log.error("Unhandled exception at {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        log.error("Unhandled Exception: ", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
             .body(ErrorResponse.builder()
                 .timestamp(LocalDateTime.now())
                 .status(500)
                 .error("INTERNAL_SERVER_ERROR")
-                .message(ex.getMessage())
+                .message("Đã xảy ra lỗi hệ thống. Vui lòng liên hệ quản trị viên.")
                 .path(request.getRequestURI())
                 .build());
     }

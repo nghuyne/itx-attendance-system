@@ -52,6 +52,13 @@ public class RequestController {
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
 
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    @GetMapping("/me")
+    public ResponseEntity<List<RequestSummaryDto>> getMyRequests() {
+        User employee = currentUserService.getCurrentUser();
+        return ResponseEntity.ok(requestService.getMyRequests(employee));
+    }
+
     @PreAuthorize("hasAnyRole('LEADER', 'ADMIN')")
     @GetMapping("/pending")
     public ResponseEntity<List<RequestSummaryDto>> getPendingRequests() {

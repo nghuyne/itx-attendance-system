@@ -30,7 +30,13 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     Optional<AttendanceRecord> findFirstByEmployeeIdAndCheckInTimeAfterOrderByCheckInTimeDesc(
         String employeeId, LocalDateTime since);
 
+    Optional<AttendanceRecord> findFirstByEmployeeIdAndCheckOutTimeIsNullAndCheckInTimeAfterOrderByCheckInTimeDesc(
+        String employeeId, LocalDateTime timeThreshold);
+
     List<AttendanceRecord> findByCheckOutTimeIsNullAndAttendanceStatusNotIn(Collection<AttendanceStatus> statuses);
+
+    List<AttendanceRecord> findByCheckInTimeAfterAndCheckOutTimeIsNullAndAttendanceStatusNotIn(
+        LocalDateTime from, List<AttendanceStatus> statuses);
 
     List<AttendanceRecord> findByEmployeeIdInAndDate(List<String> employeeIds, LocalDate date);
 }

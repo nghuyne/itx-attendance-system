@@ -12,6 +12,7 @@ export enum AttendanceStatus {
   HALF_DAY = 'HALF_DAY',
   INCOMPLETE = 'INCOMPLETE',
   ABSENT = 'ABSENT',
+  EXCUSED = 'EXCUSED',
 }
 
 export enum ApprovalSubStatus {
@@ -53,6 +54,7 @@ export const ATTENDANCE_STATUS_LABEL: Record<AttendanceStatus, string> = {
   [AttendanceStatus.HALF_DAY]: 'Nửa ngày',
   [AttendanceStatus.INCOMPLETE]: 'Thiếu',
   [AttendanceStatus.ABSENT]: 'Vắng',
+  [AttendanceStatus.EXCUSED]: 'Được miễn',
 };
 
 export const ATTENDANCE_STATUS_COLORS: Record<AttendanceStatus, string> = {
@@ -63,4 +65,5 @@ export const ATTENDANCE_STATUS_COLORS: Record<AttendanceStatus, string> = {
   [AttendanceStatus.HALF_DAY]: 'bg-red-100 text-red-800',
   [AttendanceStatus.INCOMPLETE]: 'bg-red-100 text-red-800',
   [AttendanceStatus.ABSENT]: 'bg-slate-100 text-slate-800',
+  [AttendanceStatus.EXCUSED]: 'bg-blue-100 text-blue-800',
 };

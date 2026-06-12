@@ -23,6 +23,8 @@ public interface AdjustmentRequestRepository extends JpaRepository<AdjustmentReq
 
     List<AdjustmentRequest> findByEmployeeIdInAndStatus(List<String> employeeIds, RequestStatus status);
 
+    List<AdjustmentRequest> findByEmployeeId(String employeeId);
+
     List<AdjustmentRequest> findByStatus(RequestStatus status);
 
     List<AdjustmentRequest> findByAttendanceRecordIdInAndStatus(List<String> recordIds, RequestStatus status);

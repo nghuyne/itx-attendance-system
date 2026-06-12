@@ -5,6 +5,7 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 
 @Entity
@@ -30,8 +31,8 @@ public class AdjustmentRequest {
     @JoinColumn(name = "employee_id", nullable = false)
     private User employee;
 
-    @Column(name = "proposed_checkout_time", nullable = false)
-    private LocalDateTime proposedCheckoutTime;
+    @Column(name = "proposed_checkout_time", nullable = false, columnDefinition = "TIMESTAMP")
+    private Instant proposedCheckoutTime;
 
     @Column(name = "reason", nullable = false, columnDefinition = "TEXT")
     private String reason;
