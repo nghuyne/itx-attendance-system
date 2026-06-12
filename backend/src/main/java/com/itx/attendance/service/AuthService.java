@@ -82,9 +82,14 @@ public class AuthService {
         return jwtTokenProvider.generateAccessToken(user.getUsername(), user.getRole());
     }
 
-    public void logout(String refreshToken) {
-        if (refreshToken != null && !refreshToken.isBlank()) {
-            String tokenHash = sha256(refreshToken);
+    public void logout(String accessToken, String refreshToken) {
+        revokeToken(accessToken);
+        revokeToken(refreshToken);
+    }
+
+    private void revokeToken(String token) {
+        if (token != null && !token.isBlank()) {
+            String tokenHash = sha256(token);
             if (!revokedTokenRepository.existsByTokenHash(tokenHash)) {
                 revokedTokenRepository.save(RevokedToken.builder().tokenHash(tokenHash).build());
             }
