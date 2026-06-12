@@ -97,7 +97,11 @@ export const CameraViewfinder: React.FC<CameraViewfinderProps> = ({
         videoConstraints={{ facingMode: 'user', width: 1280, height: 720 }}
         screenshotFormat="image/jpeg"
         screenshotQuality={0.92}
-        onUserMediaError={(_err) => setCameraError('Camera không khả dụng hoặc bị từ chối quyền truy cập.')}
+        onUserMediaError={(_err) => {
+          const errorMsg = 'Camera không khả dụng hoặc bị từ chối quyền truy cập.';
+          setCameraError(errorMsg);
+          onError(errorMsg);
+        }}
         className="w-full h-full object-cover"
       />
       <button
