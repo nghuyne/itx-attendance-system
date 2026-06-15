@@ -13,6 +13,7 @@ public record AuthResponse(
         String id,
         String username,
         String fullName,
-        UserRole role
+        UserRole role,
+        boolean mustChangePassword
     ) {}
 }

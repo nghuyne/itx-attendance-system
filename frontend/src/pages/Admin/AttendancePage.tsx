@@ -5,6 +5,8 @@ import type { AdminAttendanceRecordDto } from '../../types/api';
 import { AttendanceStatus, ATTENDANCE_STATUS_LABEL, ATTENDANCE_STATUS_COLORS } from '../../types/domain';
 import { SkeletonCard } from '../../components/common/SkeletonCard';
 import { AttendanceOverrideModal } from '../../components/admin/AttendanceOverrideModal';
+import { reportService } from '../../services/reportService';
+import { useUiStore } from '../../store/uiStore';
 
 const getToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 
@@ -23,6 +25,7 @@ export const AdminAttendancePage: React.FC = () => {
   const [page, setPage] = useState(0);
   const [overridingRecord, setOverridingRecord] = useState<AdminAttendanceRecordDto | null>(null);
   const queryClient = useQueryClient();
+  const showToast = useUiStore((s) => s.showToast);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['admin', 'attendance', from, to, page],
@@ -36,13 +39,28 @@ export const AdminAttendancePage: React.FC = () => {
     queryClient.invalidateQueries({ queryKey: ['admin', 'attendance'] });
   };
 
+  const handleExport = async () => {
+    try {
+      await reportService.exportAttendance(from, to);
+    } catch {
+      showToast({ type: 'error', message: 'Có lỗi xảy ra khi xuất báo cáo!' });
+    }
+  };
+
   return (
     <main className="p-4">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-slate-700">Chấm công</h1>
+        <button
+          onClick={handleExport}
+          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Xuất Excel
+        </button>
       </div>
-
-      {/* Date range filter */}
       <div className="flex flex-wrap gap-3 mb-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
         <div>
           <label htmlFor="from" className="block text-xs font-medium text-slate-600 mb-1">Từ ngày</label>

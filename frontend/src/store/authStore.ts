@@ -7,6 +7,7 @@ interface AuthUser {
   username: string;
   fullName: string;
   role: UserRole;
+  mustChangePassword: boolean;
 }
 
 interface AuthState {
@@ -16,6 +17,7 @@ interface AuthState {
   setAuth: (token: string, user: AuthUser) => void;
   setAccessToken: (token: string) => void;
   clearAuth: () => void;
+  clearMustChangePassword: () => void;
 }
 
 // Zustand v5 curried form required with middleware
@@ -28,6 +30,10 @@ export const useAuthStore = create<AuthState>()(
       setAuth: (token, user) => set({ accessToken: token, user, isAuthenticated: true }),
       setAccessToken: (token) => set({ accessToken: token }),
       clearAuth: () => set({ accessToken: null, user: null, isAuthenticated: false }),
+      clearMustChangePassword: () =>
+        set((state) => ({
+          user: state.user ? { ...state.user, mustChangePassword: false } : null,
+        })),
     }),
     {
       name: 'itx-auth',

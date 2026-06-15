@@ -42,7 +42,11 @@ export const LoginPage: React.FC = () => {
     try {
       const response = await authService.login(data);
       setAuth(response.accessToken, response.user);
-      navigate(ROLE_DEFAULT_ROUTES[response.user.role], { replace: true });
+      if (response.user.mustChangePassword) {
+        navigate('/change-password', { replace: true });
+      } else {
+        navigate(ROLE_DEFAULT_ROUTES[response.user.role], { replace: true });
+      }
     } catch {
       showToast({ type: 'error', message: 'Tên đăng nhập hoặc mật khẩu không đúng', duration: 4000 });
     } finally {

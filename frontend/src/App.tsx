@@ -19,6 +19,7 @@ import { HolidaysPage } from './pages/Admin/HolidaysPage';
 import { AdminAttendancePage } from './pages/Admin/AttendancePage';
 import { AdminRequestsPage } from './pages/Admin/RequestsPage';
 import { AuditPage } from './pages/Admin/AuditPage';
+import { ForceChangePasswordPage } from './pages/ForceChangePasswordPage';
 import { useAuthStore } from './store/authStore';
 import { UserRole } from './types/domain';
 
@@ -49,6 +50,11 @@ function App() {
         <Routes>
           {/* Public */}
           <Route path="/login" element={<LoginPage />} />
+
+          {/* Force change password — auth-only, no role or mustChangePassword restriction */}
+          <Route element={<ProtectedRoute allowedRoles={[UserRole.EMPLOYEE, UserRole.LEADER, UserRole.ADMIN]} skipForceChangeCheck />}>
+            <Route path="/change-password" element={<ForceChangePasswordPage />} />
+          </Route>
 
           {/* Employee routes */}
           <Route element={<ProtectedRoute allowedRoles={[UserRole.EMPLOYEE]} />}>

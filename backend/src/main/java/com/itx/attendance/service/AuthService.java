@@ -28,6 +28,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final RevokedTokenRepository revokedTokenRepository;
+    private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     public LoginResult login(LoginRequest request) {
         try {
@@ -55,6 +56,7 @@ public class AuthService {
                         .username(user.getUsername())
                         .fullName(user.getFullName())
                         .role(user.getRole())
+                        .mustChangePassword(user.isMustChangePassword())
                         .build())
                 .build();
 
@@ -104,6 +106,27 @@ public class AuthService {
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 not available", e);
         }
+    }
+
+    public void changePassword(String username, String oldPassword, String newPassword) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new BusinessException("User not found", HttpStatus.NOT_FOUND, "USER_NOT_FOUND"));
+
+        try {
+            authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(username, oldPassword)
+            );
+        } catch (AuthenticationException e) {
+            throw new BusinessException(
+                "Mật khẩu cũ không đúng",
+                HttpStatus.BAD_REQUEST,
+                "INVALID_OLD_PASSWORD"
+            );
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setMustChangePassword(false);
+        userRepository.save(user);
     }
 
     public record LoginResult(AuthResponse authResponse, String refreshToken) {}

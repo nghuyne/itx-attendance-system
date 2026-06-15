@@ -33,7 +33,6 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 
 @Slf4j
 @Service
@@ -99,17 +98,13 @@ public class AttendanceService {
         // Decode and validate photo synchronously before the async upload
         PhotoService.PhotoData photoData = photoService.decodeBase64Photo(request.photoBase64());
         String objectKey = employee.getId() + "/" + today + "/checkin_" + UUID.randomUUID() + ".jpg";
-        String checkInObjectKey;
-        try {
-            checkInObjectKey = photoService.uploadPhotoAsync(photoData.bytes(), objectKey, photoData.contentType()).get();
-        } catch (ExecutionException e) {
-            throw new BusinessException(
-                "Lỗi upload ảnh", HttpStatus.INTERNAL_SERVER_ERROR, "PHOTO_UPLOAD_FAILED");
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new BusinessException(
-                "Lỗi upload ảnh", HttpStatus.INTERNAL_SERVER_ERROR, "PHOTO_UPLOAD_FAILED");
-        }
+        // Fire and forget upload to MinIO so we don't block the HTTP request thread
+        photoService.uploadPhotoAsync(photoData.bytes(), objectKey, photoData.contentType())
+            .exceptionally(ex -> {
+                log.error("Async photo upload failed for check-in: {}", objectKey, ex);
+                return null;
+            });
+        String checkInObjectKey = objectKey;
 
         boolean suspiciousLocation = false;
         if (request.lat() != null && request.lng() != null) {
@@ -237,15 +232,13 @@ public class AttendanceService {
         PhotoService.PhotoData photoData = photoService.decodeBase64Photo(request.photoBase64());
         LocalDate recordDate = existing.getDate();
         String objectKey = employee.getId() + "/" + recordDate + "/checkout_" + UUID.randomUUID() + ".jpg";
-        String checkOutObjectKey;
-        try {
-            checkOutObjectKey = photoService.uploadPhotoAsync(photoData.bytes(), objectKey, photoData.contentType()).get();
-        } catch (ExecutionException e) {
-            throw new BusinessException("Lỗi upload ảnh", HttpStatus.INTERNAL_SERVER_ERROR, "PHOTO_UPLOAD_FAILED");
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new BusinessException("Lỗi upload ảnh", HttpStatus.INTERNAL_SERVER_ERROR, "PHOTO_UPLOAD_FAILED");
-        }
+        // Fire and forget upload to MinIO
+        photoService.uploadPhotoAsync(photoData.bytes(), objectKey, photoData.contentType())
+            .exceptionally(ex -> {
+                log.error("Async photo upload failed for check-out: {}", objectKey, ex);
+                return null;
+            });
+        String checkOutObjectKey = objectKey;
 
         return self.persistCheckOut(employee, request, checkOutObjectKey, checkOutIp);
     }

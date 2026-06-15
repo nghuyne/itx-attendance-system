@@ -37,6 +37,7 @@ export interface UserDto {
   username: string;
   fullName: string;
   role: UserRole;
+  mustChangePassword: boolean;
 }
 
 // Shift DTOs — Story 2.1

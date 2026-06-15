@@ -13,11 +13,13 @@ const ROLE_DEFAULT_ROUTES: Record<UserRole, string> = {
 interface ProtectedRouteProps {
   allowedRoles: UserRole[];
   redirectTo?: string;
+  skipForceChangeCheck?: boolean;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   allowedRoles,
   redirectTo = '/login',
+  skipForceChangeCheck = false,
 }) => {
   const [hasHydrated, setHasHydrated] = useState(useAuthStore.persist.hasHydrated());
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
@@ -43,6 +45,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   if (!allowedRoles.includes(user.role)) {
     return <Navigate to={ROLE_DEFAULT_ROUTES[user.role]} replace />;
+  }
+
+  if (!skipForceChangeCheck && user.mustChangePassword) {
+    return <Navigate to="/change-password" replace />;
   }
 
   return <Outlet />;

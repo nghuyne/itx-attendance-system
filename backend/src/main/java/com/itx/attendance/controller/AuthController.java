@@ -69,4 +69,15 @@ public class AuthController {
                 .header(HttpHeaders.SET_COOKIE, clearCookie.toString())
                 .body(Map.of("message", "Đăng xuất thành công"));
     }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<Map<String, String>> changePassword(
+            @Valid @RequestBody com.itx.attendance.dto.request.ChangePasswordRequest request) {
+        String username = com.itx.attendance.security.SecurityUtil.getCurrentUsername();
+        if (username == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "UNAUTHORIZED"));
+        }
+        authService.changePassword(username, request.oldPassword(), request.newPassword());
+        return ResponseEntity.ok(Map.of("message", "Đổi mật khẩu thành công"));
+    }
 }

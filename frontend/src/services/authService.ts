@@ -15,4 +15,8 @@ export const authService = {
     const { data } = await api.post<{ accessToken: string }>('/auth/refresh');
     return data;
   },
+
+  changePassword: async (oldPassword: string, newPassword: string): Promise<void> => {
+    await api.post('/auth/change-password', { oldPassword, newPassword });
+  },
 };

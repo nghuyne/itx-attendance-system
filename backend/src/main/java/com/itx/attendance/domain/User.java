@@ -43,6 +43,10 @@ public class User {
     @Builder.Default
     private boolean active = true;
 
+    @Column(name = "must_change_password", nullable = false)
+    @Builder.Default
+    private boolean mustChangePassword = false;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "leader_id", nullable = true)
     private User leader;

@@ -39,4 +39,10 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
         LocalDateTime from, List<AttendanceStatus> statuses);
 
     List<AttendanceRecord> findByEmployeeIdInAndDate(List<String> employeeIds, LocalDate date);
+
+    List<AttendanceRecord> findByDateBetweenOrderByDateDesc(LocalDate from, LocalDate to);
+
+    List<AttendanceRecord> findByEmployeeIdInAndDateBetweenOrderByDateDesc(List<String> employeeIds, LocalDate from, LocalDate to);
+
+    List<AttendanceRecord> findByEmployeeIdAndDateBetweenOrderByDateDesc(String employeeId, LocalDate from, LocalDate to);
 }

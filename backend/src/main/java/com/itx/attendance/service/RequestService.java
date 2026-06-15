@@ -19,6 +19,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 
 import com.itx.attendance.util.TimeUtil;
 import java.time.Instant;
@@ -227,6 +229,11 @@ public class RequestService {
         return toAdjustmentRequestDto(savedRequest);
     }
 
+    @Retryable(
+        retryFor = ObjectOptimisticLockingFailureException.class,
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 200)
+    )
     public RequestSummaryDto approveRequest(String requestId, User reviewer) {
         Optional<ExceptionRequest> exOpt = exceptionRequestRepository.findByIdForUpdate(requestId);
         if (exOpt.isPresent()) {
@@ -239,6 +246,11 @@ public class RequestService {
         throw new BusinessException("Request not found", HttpStatus.NOT_FOUND, "REQUEST_NOT_FOUND");
     }
 
+    @Retryable(
+        retryFor = ObjectOptimisticLockingFailureException.class,
+        maxAttempts = 3,
+        backoff = @Backoff(delay = 200)
+    )
     public RequestSummaryDto rejectRequest(String requestId, String reason, User reviewer) {
         Optional<ExceptionRequest> exOpt = exceptionRequestRepository.findByIdForUpdate(requestId);
         if (exOpt.isPresent()) {
@@ -299,11 +311,7 @@ public class RequestService {
         AttendanceRecord record = request.getAttendanceRecord();
         record.setAttendanceStatus(AttendanceStatus.EXCUSED);
         record.setApprovalSubStatus(ApprovalSubStatus.APPROVED);
-        try {
-            attendanceRecordRepository.save(record);
-        } catch (ObjectOptimisticLockingFailureException e) {
-            throw new BusinessException("Record was modified concurrently — please retry", HttpStatus.CONFLICT, "CONCURRENT_UPDATE");
-        }
+        attendanceRecordRepository.saveAndFlush(record);
 
         notificationService.sendRequestApprovedNotification(
             request.getEmployee(), request.getId(), "ngoại lệ");
@@ -336,11 +344,7 @@ public class RequestService {
         record.setAttendanceStatus(attendanceService.computeFinalStatus(
             record.getCheckInTime(), proposedCheckoutUtc, record.getShift()));
         record.setApprovalSubStatus(ApprovalSubStatus.APPROVED);
-        try {
-            attendanceRecordRepository.save(record);
-        } catch (ObjectOptimisticLockingFailureException e) {
-            throw new BusinessException("Record was modified concurrently — please retry", HttpStatus.CONFLICT, "CONCURRENT_UPDATE");
-        }
+        attendanceRecordRepository.saveAndFlush(record);
 
         if (record.getAttendanceStatus() != AttendanceStatus.INCOMPLETE
                 && record.getAttendanceStatus() != AttendanceStatus.ABSENT) {
@@ -367,11 +371,7 @@ public class RequestService {
 
         AttendanceRecord record = request.getAttendanceRecord();
         record.setApprovalSubStatus(ApprovalSubStatus.REJECTED);
-        try {
-            attendanceRecordRepository.save(record);
-        } catch (ObjectOptimisticLockingFailureException e) {
-            throw new BusinessException("Record was modified concurrently — please retry", HttpStatus.CONFLICT, "CONCURRENT_UPDATE");
-        }
+        attendanceRecordRepository.saveAndFlush(record);
 
         notificationService.sendRequestRejectedNotification(
             request.getEmployee(), request.getId(), "ngoại lệ " + request.getRequestType(), reason);
@@ -393,11 +393,7 @@ public class RequestService {
 
         AttendanceRecord record = request.getAttendanceRecord();
         record.setApprovalSubStatus(ApprovalSubStatus.REJECTED);
-        try {
-            attendanceRecordRepository.save(record);
-        } catch (ObjectOptimisticLockingFailureException e) {
-            throw new BusinessException("Record was modified concurrently — please retry", HttpStatus.CONFLICT, "CONCURRENT_UPDATE");
-        }
+        attendanceRecordRepository.saveAndFlush(record);
 
         notificationService.sendRequestRejectedNotification(
             request.getEmployee(), request.getId(), "điều chỉnh", reason);
