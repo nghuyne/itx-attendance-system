@@ -45,4 +45,9 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
     List<AttendanceRecord> findByEmployeeIdInAndDateBetweenOrderByDateDesc(List<String> employeeIds, LocalDate from, LocalDate to);
 
     List<AttendanceRecord> findByEmployeeIdAndDateBetweenOrderByDateDesc(String employeeId, LocalDate from, LocalDate to);
+
+    List<AttendanceRecord> findByDateAndCheckInTimeIsNotNullAndCheckOutTimeIsNullAndAttendanceStatusNot(
+        LocalDate date, AttendanceStatus excludedStatus);
+
+    boolean existsByEmployeeIdAndDateAndCheckInTimeIsNotNull(String employeeId, LocalDate date);
 }
