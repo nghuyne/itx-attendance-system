@@ -19,7 +19,8 @@ const REQUEST_CATEGORY_LABEL: Record<string, string> = {
 
 function formatDatetime(isoString: string | null): string {
   if (!isoString) return '—';
-  return new Date(isoString).toLocaleString('vi-VN', {
+  const s = isoString.endsWith('Z') || isoString.includes('+') ? isoString : isoString + 'Z';
+  return new Date(s).toLocaleString('vi-VN', {
     timeZone: 'Asia/Ho_Chi_Minh',
     day: '2-digit',
     month: '2-digit',

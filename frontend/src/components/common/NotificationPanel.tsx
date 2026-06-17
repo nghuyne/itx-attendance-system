@@ -88,7 +88,7 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-neutral-800 line-clamp-3">{n.message}</p>
                     <p className="text-xs text-neutral-500 mt-1">
-                      {new Date(n.createdAt).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
+                      {new Date(n.createdAt + 'Z').toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
                     </p>
                   </div>
                   {!n.isRead && (

@@ -1,6 +1,8 @@
 package com.itx.attendance.controller;
 
+import com.itx.attendance.dto.request.ForgotPasswordRequest;
 import com.itx.attendance.dto.request.LoginRequest;
+import com.itx.attendance.dto.request.ResetPasswordRequest;
 import com.itx.attendance.dto.response.AuthResponse;
 import com.itx.attendance.service.AuthService;
 import jakarta.validation.Valid;
@@ -68,6 +70,18 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, clearCookie.toString())
                 .body(Map.of("message", "Đăng xuất thành công"));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<Map<String, String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request.email());
+        return ResponseEntity.ok(Map.of("message", "Nếu email tồn tại, bạn sẽ nhận được hướng dẫn"));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<Map<String, String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request.token(), request.newPassword());
+        return ResponseEntity.ok(Map.of("message", "Đặt lại mật khẩu thành công"));
     }
 
     @PostMapping("/change-password")

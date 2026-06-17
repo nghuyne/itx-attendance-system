@@ -11,7 +11,7 @@ const createAdjustmentSchema = (checkInTime: string) => z.object({
   proposedCheckoutTime: z.string()
     .min(1, 'Vui lòng chọn thời gian checkout')
     .refine((val) => !isNaN(new Date(val).getTime()), 'Định dạng thời gian không hợp lệ')
-    .refine((val) => new Date(val).getTime() > new Date(checkInTime).getTime(), 'Phải sau thời gian check-in'),
+    .refine((val) => new Date(val).getTime() > new Date(checkInTime + 'Z').getTime(), 'Phải sau thời gian check-in'),
   reason: z.string().min(10, 'Lý do phải có ít nhất 10 ký tự').max(500, 'Lý do không được vượt quá 500 ký tự'),
 });
 
@@ -118,14 +118,14 @@ export const AdjustmentRequestForm: React.FC<AdjustmentRequestFormProps> = ({ re
             <input
               id="proposedCheckoutTime"
               type="datetime-local"
-              min={record.checkInTime ? new Date(record.checkInTime).toLocaleString('sv').slice(0, 16) : undefined}
+              min={record.checkInTime ? new Date(record.checkInTime + 'Z').toLocaleString('sv', { timeZone: 'Asia/Ho_Chi_Minh' }).slice(0, 16) : undefined}
               {...register('proposedCheckoutTime')}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
             />
             {errors.proposedCheckoutTime && <p className="text-red-500 text-xs mt-1">{errors.proposedCheckoutTime.message}</p>}
             {record.checkInTime && (
               <p className="text-xs text-slate-500 mt-1">
-                Check-in: {new Date(record.checkInTime).toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
+                Check-in: {new Date(record.checkInTime + 'Z').toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
               </p>
             )}
           </div>

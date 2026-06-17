@@ -16,7 +16,7 @@ public class AsyncConfig {
         executor.setCorePoolSize(5);
         executor.setMaxPoolSize(20);
         executor.setQueueCapacity(100);
-        executor.setThreadNamePrefix("photo-upload-");
+        executor.setThreadNamePrefix("async-task-");
         executor.initialize();
         return executor;
     }

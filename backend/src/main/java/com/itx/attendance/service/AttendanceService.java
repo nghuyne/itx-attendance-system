@@ -15,6 +15,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.context.annotation.Lazy;
@@ -47,6 +48,9 @@ public class AttendanceService {
     private final PhotoService photoService;
     private final OtCalculationService otCalculationService;
 
+    @Value("${app.ip-check.enabled:true}")
+    private boolean ipCheckEnabled;
+
     // Self-reference via proxy so @Transactional on persistCheckIn / getPresignedPhotoUrl is honoured.
     // @Lazy breaks the circular dependency during bean construction.
     @Autowired @Lazy
@@ -76,7 +80,7 @@ public class AttendanceService {
 
         String clientIp = extractClientIp(httpRequest);
 
-        if (!request.isClientSite()) {
+        if (ipCheckEnabled && !request.isClientSite()) {
             boolean companyValid = validIpRepository
                 .existsByIpAddressAndScopeAndEmployeeIsNullAndActiveTrue(clientIp, IpScope.COMPANY);
             boolean individualValid = validIpRepository
@@ -216,7 +220,7 @@ public class AttendanceService {
 
         String checkOutIp = extractClientIp(httpRequest);
 
-        if (!existing.isClientSite()) {
+        if (ipCheckEnabled && !existing.isClientSite()) {
             boolean companyValid = validIpRepository
                 .existsByIpAddressAndScopeAndEmployeeIsNullAndActiveTrue(checkOutIp, IpScope.COMPANY);
             boolean individualValid = validIpRepository

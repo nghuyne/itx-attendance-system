@@ -1,10 +1,12 @@
 package com.itx.attendance.service;
 
+import com.itx.attendance.domain.PasswordResetToken;
 import com.itx.attendance.domain.RevokedToken;
 import com.itx.attendance.domain.User;
 import com.itx.attendance.dto.request.LoginRequest;
 import com.itx.attendance.dto.response.AuthResponse;
 import com.itx.attendance.exception.BusinessException;
+import com.itx.attendance.repository.PasswordResetTokenRepository;
 import com.itx.attendance.repository.RevokedTokenRepository;
 import com.itx.attendance.repository.UserRepository;
 import com.itx.attendance.security.JwtTokenProvider;
@@ -14,11 +16,14 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.LocalDateTime;
 import java.util.HexFormat;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +33,8 @@ public class AuthService {
     private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final RevokedTokenRepository revokedTokenRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final EmailService emailService;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     public LoginResult login(LoginRequest request) {
@@ -127,6 +134,40 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setMustChangePassword(false);
         userRepository.save(user);
+    }
+
+    @Transactional
+    public void forgotPassword(String email) {
+        userRepository.findByEmail(email).ifPresent(user -> {
+            passwordResetTokenRepository.deleteByUserId(user.getId());
+            String token = UUID.randomUUID().toString();
+            passwordResetTokenRepository.save(PasswordResetToken.builder()
+                    .user(user)
+                    .token(token)
+                    .expiresAt(LocalDateTime.now().plusMinutes(30))
+                    .build());
+            String body = "Link đặt lại mật khẩu (hết hạn sau 30 phút):\n" +
+                    "http://localhost:5173/reset-password?token=" + token + "\n\n" +
+                    "Nếu bạn không yêu cầu, hãy bỏ qua email này.";
+            emailService.sendEmailAsync(user, "[ITX] Đặt lại mật khẩu", body);
+        });
+    }
+
+    @Transactional
+    public void resetPassword(String token, String newPassword) {
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(token)
+                .orElseThrow(() -> new BusinessException("Link không hợp lệ", HttpStatus.BAD_REQUEST, "TOKEN_INVALID"));
+        if (resetToken.isUsed()) {
+            throw new BusinessException("Link đã được sử dụng", HttpStatus.BAD_REQUEST, "TOKEN_USED");
+        }
+        if (resetToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new BusinessException("Link đã hết hạn", HttpStatus.BAD_REQUEST, "TOKEN_EXPIRED");
+        }
+        User user = resetToken.getUser();
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        resetToken.setUsed(true);
+        passwordResetTokenRepository.save(resetToken);
     }
 
     public record LoginResult(AuthResponse authResponse, String refreshToken) {}

@@ -11,9 +11,9 @@ const formatDate = (dateStr: string) =>
   new Date(dateStr + 'T00:00:00').toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
 const formatTimeVN = (utcStr: string | null) =>
-  utcStr ? new Date(utcStr).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }) : '—';
+  utcStr ? new Date(utcStr + 'Z').toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }) : '—';
 
-const toIsoDate = (d: Date) => d.toISOString().slice(0, 10);
+const toIsoDate = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
 
 function HistoryCard({
   record,

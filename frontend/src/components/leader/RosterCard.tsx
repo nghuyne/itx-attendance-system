@@ -18,7 +18,8 @@ const BORDER_COLOR: Record<string, string> = {
 
 function formatTime(isoString: string | null): string {
   if (!isoString) return '--:--';
-  return new Date(isoString).toLocaleTimeString('vi-VN', {
+  const s = isoString.endsWith('Z') || isoString.includes('+') ? isoString : isoString + 'Z';
+  return new Date(s).toLocaleTimeString('vi-VN', {
     timeZone: 'Asia/Ho_Chi_Minh',
     hour: '2-digit',
     minute: '2-digit',

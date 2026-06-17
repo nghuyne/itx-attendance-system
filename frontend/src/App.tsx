@@ -20,6 +20,8 @@ import { AdminAttendancePage } from './pages/Admin/AttendancePage';
 import { AdminRequestsPage } from './pages/Admin/RequestsPage';
 import { AuditPage } from './pages/Admin/AuditPage';
 import { ForceChangePasswordPage } from './pages/ForceChangePasswordPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { useAuthStore } from './store/authStore';
 import { UserRole } from './types/domain';
 
@@ -50,6 +52,8 @@ function App() {
         <Routes>
           {/* Public */}
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           {/* Force change password — auth-only, no role or mustChangePassword restriction */}
           <Route element={<ProtectedRoute allowedRoles={[UserRole.EMPLOYEE, UserRole.LEADER, UserRole.ADMIN]} skipForceChangeCheck />}>

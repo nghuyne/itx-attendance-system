@@ -12,7 +12,7 @@ const getToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/
 
 const formatVN = (isoStr: string | null): string => {
   if (!isoStr) return '—';
-  return new Date(isoStr).toLocaleTimeString('vi-VN', {
+  return new Date(isoStr + 'Z').toLocaleTimeString('vi-VN', {
     timeZone: 'Asia/Ho_Chi_Minh',
     hour: '2-digit',
     minute: '2-digit',

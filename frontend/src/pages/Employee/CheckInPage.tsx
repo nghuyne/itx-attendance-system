@@ -127,7 +127,7 @@ export const CheckInPage: React.FC = () => {
 
   if (todayRecord) {
     const formatVN = (utcStr: string | null) =>
-      utcStr ? new Date(utcStr).toLocaleTimeString('vi-VN', {
+      utcStr ? new Date(utcStr + 'Z').toLocaleTimeString('vi-VN', {
         hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh',
       }) : '—';
 

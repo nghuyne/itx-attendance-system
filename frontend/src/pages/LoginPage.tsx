@@ -112,6 +112,16 @@ export const LoginPage: React.FC = () => {
               'Đăng nhập'
             )}
           </button>
+
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={() => navigate('/forgot-password')}
+              className="text-sm text-primary hover:underline"
+            >
+              Quên mật khẩu?
+            </button>
+          </div>
         </form>
       </div>
     </div>
