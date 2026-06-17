@@ -13,6 +13,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+
 @Service
 @RequiredArgsConstructor
 public class HolidayService {
@@ -58,6 +61,18 @@ public class HolidayService {
                 "Ngày lễ không tồn tại",
                 HttpStatus.NOT_FOUND, "HOLIDAY_NOT_FOUND"));
         holidayRepository.delete(holiday);
+    }
+
+    public int countBusinessDays(LocalDate start, LocalDate end) {
+        int count = 0;
+        for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
+            DayOfWeek day = date.getDayOfWeek();
+            if (day != DayOfWeek.SATURDAY && day != DayOfWeek.SUNDAY
+                    && !holidayRepository.existsByDate(date)) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private HolidayDto toDto(Holiday h) {

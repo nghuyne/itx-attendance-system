@@ -28,6 +28,12 @@ function formatDatetime(isoString: string | null): string {
 const REQUEST_CATEGORY_LABEL: Record<string, string> = {
   EXCEPTION: 'Ngoại lệ',
   ADJUSTMENT: 'Điều chỉnh',
+  LEAVE: 'Nghỉ phép',
+};
+
+const LEAVE_TYPE_LABEL: Record<string, string> = {
+  ANNUAL: 'Phép năm',
+  SICK: 'Phép ốm',
 };
 
 const REQUEST_TYPE_LABEL: Record<string, string> = {
@@ -98,7 +104,9 @@ export const RequestDetailModal = ({ isOpen, request, onClose, onApproved }: Req
 
   const requestTypeLabel = request.requestCategory === 'ADJUSTMENT'
     ? 'Điều chỉnh giờ ra'
-    : (REQUEST_TYPE_LABEL[request.requestType ?? ''] ?? request.requestType);
+    : request.requestCategory === 'LEAVE'
+      ? (request.leaveType ? LEAVE_TYPE_LABEL[request.leaveType] ?? request.leaveType : 'Nghỉ phép')
+      : (REQUEST_TYPE_LABEL[request.requestType ?? ''] ?? request.requestType);
 
   return (
     <div
@@ -134,18 +142,37 @@ export const RequestDetailModal = ({ isOpen, request, onClose, onApproved }: Req
               <dt className="text-slate-500">Loại yêu cầu</dt>
               <dd className="font-medium">{REQUEST_CATEGORY_LABEL[request.requestCategory]} — {requestTypeLabel}</dd>
             </div>
-            <div className="flex justify-between">
-              <dt className="text-slate-500">Ngày chấm công</dt>
-              <dd className="font-medium">{request.attendanceDate}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-slate-500">Giờ vào</dt>
-              <dd className="font-medium">{formatDatetime(request.checkInTime)}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-slate-500">Giờ ra thực tế</dt>
-              <dd className="font-medium">{formatDatetime(request.checkOutTime)}</dd>
-            </div>
+            {request.requestCategory === 'LEAVE' ? (
+              <>
+                <div className="flex justify-between">
+                  <dt className="text-slate-500">Ngày bắt đầu</dt>
+                  <dd className="font-medium">{request.startDate ?? '—'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-slate-500">Ngày kết thúc</dt>
+                  <dd className="font-medium">{request.endDate ?? '—'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-slate-500">Tổng ngày nghỉ</dt>
+                  <dd className="font-medium">{request.totalDays != null ? `${request.totalDays} ngày` : '—'}</dd>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex justify-between">
+                  <dt className="text-slate-500">Ngày chấm công</dt>
+                  <dd className="font-medium">{request.attendanceDate ?? '—'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-slate-500">Giờ vào</dt>
+                  <dd className="font-medium">{formatDatetime(request.checkInTime)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-slate-500">Giờ ra thực tế</dt>
+                  <dd className="font-medium">{formatDatetime(request.checkOutTime)}</dd>
+                </div>
+              </>
+            )}
             <div className="flex justify-between">
               <dt className="text-slate-500">Lý do</dt>
               <dd className="font-medium text-right max-w-[60%]">{request.reason}</dd>

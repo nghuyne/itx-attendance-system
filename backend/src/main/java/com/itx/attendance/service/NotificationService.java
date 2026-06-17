@@ -93,6 +93,49 @@ public class NotificationService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void sendLeaveRequestNotification(LeaveRequest request) {
+        User leader = request.getEmployee().getLeader();
+        if (leader == null) {
+            log.warn("Employee {} has no leader assigned — skipping leader notification for leave request {}",
+                    request.getEmployee().getId(), request.getId());
+        }
+
+        List<User> admins = userRepository.findByRole(UserRole.ADMIN);
+
+        Set<String> recipientIds = new HashSet<>();
+        List<User> recipients = new ArrayList<>();
+        if (leader != null && recipientIds.add(leader.getId())) {
+            recipients.add(leader);
+        }
+        for (User admin : admins) {
+            if (recipientIds.add(admin.getId())) {
+                recipients.add(admin);
+            }
+        }
+
+        if (recipients.isEmpty()) {
+            log.warn("No recipients found for leave request {} — skipping notification", request.getId());
+            return;
+        }
+
+        String message = String.format(
+                "Nhân viên %s đã gửi đơn xin %s từ %s đến %s (%d ngày). Lý do: %s",
+                request.getEmployee().getFullName(),
+                request.getLeaveType(),
+                request.getStartDate(),
+                request.getEndDate(),
+                request.getTotalDays(),
+                request.getReason()
+        );
+        String subject = "[ITX] Đơn nghỉ phép từ " + request.getEmployee().getFullName();
+        String referenceId = String.valueOf(request.getId());
+
+        for (User recipient : recipients) {
+            sendNotificationToRecipient(recipient, NotificationType.LEAVE_REQUEST, referenceId, message, subject);
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void sendRequestApprovedNotification(User employee, String requestId, String requestInfo) {
         String message = "Yêu cầu " + requestInfo + " của bạn đã được duyệt.";
         String subject = "[ITX] Yêu cầu đã được duyệt";

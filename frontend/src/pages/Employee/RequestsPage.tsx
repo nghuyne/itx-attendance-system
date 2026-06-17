@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { requestService } from '../../services/requestService';
 import { SkeletonCard } from '../../components/common/SkeletonCard';
-import type { RequestSummaryDto, RequestStatus } from '../../types/api';
+import { LeaveRequestModal } from '../../components/employee/LeaveRequestModal';
+import type { LeaveBalanceDto, LeaveType, RequestSummaryDto, RequestStatus } from '../../types/api';
 
 const REQUEST_TYPE_LABEL: Record<string, string> = {
   LATE_IN: 'Đi trễ',
   EARLY_OUT: 'Về sớm',
   HALF_DAY: 'Nửa ngày',
   LATE_IN_EARLY_OUT: 'Đi trễ & về sớm',
+};
+
+const LEAVE_TYPE_LABEL: Record<LeaveType, string> = {
+  ANNUAL: 'Phép năm',
+  SICK: 'Phép ốm',
 };
 
 const STATUS_CONFIG: Record<RequestStatus, { label: string; className: string }> = {
@@ -24,12 +30,14 @@ const FILTER_TABS: { key: 'ALL' | RequestStatus; label: string }[] = [
   { key: 'REJECTED', label: 'Từ chối' },
 ];
 
-const formatDate = (dateStr: string) =>
-  new Date(dateStr + 'T00:00:00').toLocaleDateString('vi-VN', {
+const formatDate = (dateStr: string | null) => {
+  if (!dateStr) return '—';
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('vi-VN', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   });
+};
 
 const formatTimeVN = (utcStr: string | null) =>
   utcStr
@@ -40,20 +48,79 @@ const formatTimeVN = (utcStr: string | null) =>
       })
     : null;
 
+function LeaveBalanceCard({ balances }: { balances: LeaveBalanceDto[] }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {balances.map(b => {
+        const used = b.usedDays;
+        const total = b.totalDays;
+        const pct = total > 0 ? Math.round((used / total) * 100) : 0;
+        return (
+          <div key={b.id} className="bg-base-100 rounded-xl border border-base-200 shadow-sm p-4">
+            <p className="text-xs text-slate-500 mb-1">{LEAVE_TYPE_LABEL[b.leaveType]}</p>
+            <p className="text-sm font-semibold text-neutral">
+              {used} / {total} ngày đã dùng
+            </p>
+            <div className="mt-2 h-1.5 rounded-full bg-base-200 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary transition-all"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function LeaveBalanceSkeleton() {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {[1, 2].map(i => (
+        <div key={i} className="bg-base-100 rounded-xl border border-base-200 shadow-sm p-4 animate-pulse">
+          <div className="h-3 bg-slate-200 rounded w-1/2 mb-2" />
+          <div className="h-4 bg-slate-200 rounded w-3/4 mb-2" />
+          <div className="h-1.5 bg-slate-200 rounded" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function RequestCard({ req }: { req: RequestSummaryDto }) {
   const status = STATUS_CONFIG[req.status];
   const isAdjustment = req.requestCategory === 'ADJUSTMENT';
+  const isLeave = req.requestCategory === 'LEAVE';
 
   return (
     <div className="bg-base-100 rounded-xl border border-base-200 shadow-sm p-4 space-y-2">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-sm font-semibold text-neutral">{formatDate(req.attendanceDate)}</p>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {isAdjustment
-              ? 'Điều chỉnh giờ ra'
-              : `Ngoại lệ — ${req.requestType ? REQUEST_TYPE_LABEL[req.requestType] ?? req.requestType : '—'}`}
-          </p>
+          {isLeave ? (
+            <>
+              <p className="text-sm font-semibold text-neutral">
+                {req.startDate ? formatDate(req.startDate) : '—'}
+                {req.endDate && req.endDate !== req.startDate && ` – ${formatDate(req.endDate)}`}
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                NGHỈ PHÉP —{' '}
+                {req.leaveType ? LEAVE_TYPE_LABEL[req.leaveType] : '—'}
+                {req.totalDays != null && ` · ${req.totalDays} ngày`}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-neutral">
+                {req.attendanceDate ? formatDate(req.attendanceDate) : '—'}
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isAdjustment
+                  ? 'Điều chỉnh giờ ra'
+                  : `Ngoại lệ — ${req.requestType ? REQUEST_TYPE_LABEL[req.requestType] ?? req.requestType : '—'}`}
+              </p>
+            </>
+          )}
         </div>
         <span className={`shrink-0 text-xs font-medium px-2.5 py-1 rounded-full ${status.className}`}>
           {status.label}
@@ -85,6 +152,8 @@ function RequestCard({ req }: { req: RequestSummaryDto }) {
 
 export const EmployeeRequestsPage: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<'ALL' | RequestStatus>('ALL');
+  const [leaveModalOpen, setLeaveModalOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['myRequests'],
@@ -92,12 +161,32 @@ export const EmployeeRequestsPage: React.FC = () => {
     staleTime: 30_000,
   });
 
+  const { data: balanceData, isLoading: isBalanceLoading } = useQuery({
+    queryKey: ['leaveBalance'],
+    queryFn: requestService.getLeaveBalance,
+    staleTime: 60_000,
+  });
+
   const filtered =
     activeFilter === 'ALL' ? (data ?? []) : (data ?? []).filter(r => r.status === activeFilter);
 
   return (
     <main className="p-4 space-y-4">
-      <h1 className="text-2xl font-bold text-neutral">Yêu cầu của tôi</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold text-neutral">Yêu cầu của tôi</h1>
+        <button
+          onClick={() => setLeaveModalOpen(true)}
+          className="shrink-0 min-h-[48px] px-4 bg-primary text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+        >
+          Xin nghỉ phép
+        </button>
+      </div>
+
+      {/* Leave balance cards */}
+      {isBalanceLoading && <LeaveBalanceSkeleton />}
+      {!isBalanceLoading && balanceData && balanceData.length > 0 && (
+        <LeaveBalanceCard balances={balanceData} />
+      )}
 
       {/* Filter tabs */}
       <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -148,7 +237,7 @@ export const EmployeeRequestsPage: React.FC = () => {
             {activeFilter === 'ALL' ? 'Chưa có yêu cầu nào' : 'Không có yêu cầu nào trong mục này'}
           </p>
           <p className="text-xs text-slate-400 mt-1">
-            Gửi yêu cầu từ trang Lịch sử chấm công
+            Gửi yêu cầu từ trang Lịch sử chấm công hoặc dùng nút "Xin nghỉ phép"
           </p>
         </div>
       )}
@@ -160,6 +249,15 @@ export const EmployeeRequestsPage: React.FC = () => {
           ))}
         </div>
       )}
+
+      <LeaveRequestModal
+        isOpen={leaveModalOpen}
+        onClose={() => setLeaveModalOpen(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['myRequests'] });
+          queryClient.invalidateQueries({ queryKey: ['leaveBalance'] });
+        }}
+      />
     </main>
   );
 };

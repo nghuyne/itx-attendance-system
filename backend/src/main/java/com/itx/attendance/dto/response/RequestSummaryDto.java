@@ -1,6 +1,7 @@
 package com.itx.attendance.dto.response;
 
 import com.itx.attendance.domain.ExceptionRequestType;
+import com.itx.attendance.domain.LeaveType;
 import com.itx.attendance.domain.RequestStatus;
 import lombok.Builder;
 
@@ -25,5 +26,9 @@ public record RequestSummaryDto(
         String reviewedBy,
         String reviewReason,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        LeaveType leaveType,
+        LocalDate startDate,
+        LocalDate endDate,
+        Integer totalDays
 ) {}

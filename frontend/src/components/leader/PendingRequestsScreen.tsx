@@ -15,6 +15,12 @@ const TAB_LABEL: Record<Tab, string> = {
 const REQUEST_CATEGORY_LABEL: Record<string, string> = {
   EXCEPTION: 'Ngoại lệ',
   ADJUSTMENT: 'Điều chỉnh',
+  LEAVE: 'Nghỉ phép',
+};
+
+const LEAVE_TYPE_LABEL: Record<string, string> = {
+  ANNUAL: 'Phép năm',
+  SICK: 'Phép ốm',
 };
 
 function formatDatetime(isoString: string | null): string {
@@ -113,9 +119,19 @@ export const PendingRequestsScreen = () => {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="font-semibold text-neutral">{req.employeeName}</p>
-                  <p className="text-sm text-slate-500 mt-0.5">
-                    {REQUEST_CATEGORY_LABEL[req.requestCategory]} · {req.attendanceDate}
-                  </p>
+                  {req.requestCategory === 'LEAVE' ? (
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      {REQUEST_CATEGORY_LABEL[req.requestCategory]}
+                      {req.leaveType ? ` · ${LEAVE_TYPE_LABEL[req.leaveType] ?? req.leaveType}` : ''}
+                      {req.startDate ? ` · ${req.startDate}` : ''}
+                      {req.endDate && req.endDate !== req.startDate ? ` – ${req.endDate}` : ''}
+                      {req.totalDays != null ? ` · ${req.totalDays} ngày` : ''}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      {REQUEST_CATEGORY_LABEL[req.requestCategory] ?? req.requestCategory} · {req.attendanceDate}
+                    </p>
+                  )}
                   <p className="text-sm text-slate-600 mt-1 line-clamp-2">{req.reason}</p>
                 </div>
                 <p className="text-xs text-slate-400 whitespace-nowrap flex-shrink-0">

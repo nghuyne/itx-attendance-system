@@ -4,6 +4,9 @@ import type {
   ExceptionRequestDto,
   AdjustmentRequestCreateDto,
   AdjustmentRequestDto,
+  LeaveRequestCreateDto,
+  LeaveRequestDto,
+  LeaveBalanceDto,
   RequestSummaryDto,
 } from '../types/api';
 
@@ -13,6 +16,12 @@ export const requestService = {
 
   submitAdjustmentRequest: (data: AdjustmentRequestCreateDto): Promise<AdjustmentRequestDto> =>
     api.post<AdjustmentRequestDto>('/requests/adjustment', data).then(r => r.data),
+
+  submitLeaveRequest: (data: LeaveRequestCreateDto): Promise<LeaveRequestDto> =>
+    api.post<LeaveRequestDto>('/requests/leave', data).then(r => r.data),
+
+  getLeaveBalance: (): Promise<LeaveBalanceDto[]> =>
+    api.get<LeaveBalanceDto[]>('/requests/leave-balance').then(r => r.data),
 
   getMyRequests: (): Promise<RequestSummaryDto[]> =>
     api.get<RequestSummaryDto[]>('/requests/me').then(r => r.data),

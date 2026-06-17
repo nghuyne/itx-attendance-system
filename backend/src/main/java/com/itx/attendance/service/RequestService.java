@@ -3,13 +3,18 @@ package com.itx.attendance.service;
 import com.itx.attendance.domain.*;
 import com.itx.attendance.dto.request.AdjustmentRequestCreateDto;
 import com.itx.attendance.dto.request.ExceptionRequestCreateDto;
+import com.itx.attendance.dto.request.LeaveRequestCreateDto;
 import com.itx.attendance.dto.response.AdjustmentRequestDto;
 import com.itx.attendance.dto.response.ExceptionRequestDto;
+import com.itx.attendance.dto.response.LeaveBalanceDto;
+import com.itx.attendance.dto.response.LeaveRequestDto;
 import com.itx.attendance.dto.response.RequestSummaryDto;
 import com.itx.attendance.exception.BusinessException;
 import com.itx.attendance.repository.AdjustmentRequestRepository;
 import com.itx.attendance.repository.AttendanceRecordRepository;
 import com.itx.attendance.repository.ExceptionRequestRepository;
+import com.itx.attendance.repository.LeaveBalanceRepository;
+import com.itx.attendance.repository.LeaveRequestRepository;
 import com.itx.attendance.repository.UserRepository;
 import com.itx.attendance.security.SecurityUtil;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +29,7 @@ import org.springframework.retry.annotation.Retryable;
 
 import com.itx.attendance.util.TimeUtil;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -39,11 +45,14 @@ public class RequestService {
 
     private final ExceptionRequestRepository exceptionRequestRepository;
     private final AdjustmentRequestRepository adjustmentRequestRepository;
+    private final LeaveRequestRepository leaveRequestRepository;
+    private final LeaveBalanceRepository leaveBalanceRepository;
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final AttendanceService attendanceService;
     private final OtCalculationService otCalculationService;
+    private final HolidayService holidayService;
 
     public ExceptionRequestDto submitExceptionRequest(ExceptionRequestCreateDto request) {
         String username = SecurityUtil.getCurrentUsername();
@@ -243,6 +252,13 @@ public class RequestService {
         if (adjOpt.isPresent()) {
             return approveAdjustmentRequest(adjOpt.get(), reviewer);
         }
+        try {
+            Long leaveId = Long.parseLong(requestId);
+            Optional<LeaveRequest> leaveOpt = leaveRequestRepository.findById(leaveId);
+            if (leaveOpt.isPresent()) {
+                return approveLeaveRequest(leaveOpt.get(), reviewer);
+            }
+        } catch (NumberFormatException ignored) {}
         throw new BusinessException("Request not found", HttpStatus.NOT_FOUND, "REQUEST_NOT_FOUND");
     }
 
@@ -260,16 +276,25 @@ public class RequestService {
         if (adjOpt.isPresent()) {
             return rejectAdjustmentRequest(adjOpt.get(), reason, reviewer);
         }
+        try {
+            Long leaveId = Long.parseLong(requestId);
+            Optional<LeaveRequest> leaveOpt = leaveRequestRepository.findById(leaveId);
+            if (leaveOpt.isPresent()) {
+                return rejectLeaveRequest(leaveOpt.get(), reason, reviewer);
+            }
+        } catch (NumberFormatException ignored) {}
         throw new BusinessException("Request not found", HttpStatus.NOT_FOUND, "REQUEST_NOT_FOUND");
     }
 
     public List<RequestSummaryDto> getMyRequests(User employee) {
         List<ExceptionRequest> exceptions = exceptionRequestRepository.findByEmployeeId(employee.getId());
         List<AdjustmentRequest> adjustments = adjustmentRequestRepository.findByEmployeeId(employee.getId());
+        List<LeaveRequest> leaves = leaveRequestRepository.findByEmployeeId(employee.getId());
 
         List<RequestSummaryDto> result = new ArrayList<>();
         exceptions.forEach(e -> result.add(toRequestSummaryDto(e)));
         adjustments.forEach(a -> result.add(toRequestSummaryDto(a)));
+        leaves.forEach(l -> result.add(toRequestSummaryDto(l)));
         result.sort(Comparator.comparing(RequestSummaryDto::createdAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed());
         return result;
     }
@@ -277,10 +302,12 @@ public class RequestService {
     public List<RequestSummaryDto> getPendingRequests(User currentUser) {
         List<ExceptionRequest> exceptions;
         List<AdjustmentRequest> adjustments;
+        List<LeaveRequest> leaves;
 
         if (currentUser.getRole() == UserRole.ADMIN) {
             exceptions = exceptionRequestRepository.findByStatus(RequestStatus.PENDING);
             adjustments = adjustmentRequestRepository.findByStatus(RequestStatus.PENDING);
+            leaves = leaveRequestRepository.findByStatus(RequestStatus.PENDING);
         } else {
             List<String> employeeIds = userRepository.findByLeaderId(currentUser.getId())
                 .stream().map(User::getId).toList();
@@ -289,11 +316,13 @@ public class RequestService {
             }
             exceptions = exceptionRequestRepository.findByEmployeeIdInAndStatus(employeeIds, RequestStatus.PENDING);
             adjustments = adjustmentRequestRepository.findByEmployeeIdInAndStatus(employeeIds, RequestStatus.PENDING);
+            leaves = leaveRequestRepository.findByEmployeeIdInAndStatus(employeeIds, RequestStatus.PENDING);
         }
 
         List<RequestSummaryDto> result = new ArrayList<>();
         exceptions.forEach(e -> result.add(toRequestSummaryDto(e)));
         adjustments.forEach(a -> result.add(toRequestSummaryDto(a)));
+        leaves.forEach(l -> result.add(toRequestSummaryDto(l)));
         result.sort(Comparator.comparing(RequestSummaryDto::createdAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed());
         return result;
     }
@@ -415,23 +444,190 @@ public class RequestService {
     public List<RequestSummaryDto> getRequestsByStatus(User currentUser, RequestStatus status) {
         List<ExceptionRequest> exceptions;
         List<AdjustmentRequest> adjustments;
+        List<LeaveRequest> leaves;
 
         if (currentUser.getRole() == UserRole.ADMIN) {
             exceptions = exceptionRequestRepository.findByStatus(status);
             adjustments = adjustmentRequestRepository.findByStatus(status);
+            leaves = leaveRequestRepository.findByStatus(status);
         } else {
             List<String> employeeIds = userRepository.findByLeaderId(currentUser.getId())
                 .stream().map(User::getId).toList();
             if (employeeIds.isEmpty()) return List.of();
             exceptions = exceptionRequestRepository.findByEmployeeIdInAndStatus(employeeIds, status);
             adjustments = adjustmentRequestRepository.findByEmployeeIdInAndStatus(employeeIds, status);
+            leaves = leaveRequestRepository.findByEmployeeIdInAndStatus(employeeIds, status);
         }
 
         List<RequestSummaryDto> result = new ArrayList<>();
         exceptions.forEach(e -> result.add(toRequestSummaryDto(e)));
         adjustments.forEach(a -> result.add(toRequestSummaryDto(a)));
+        leaves.forEach(l -> result.add(toRequestSummaryDto(l)));
         result.sort(Comparator.comparing(RequestSummaryDto::createdAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed());
         return result;
+    }
+
+    public LeaveRequestDto submitLeaveRequest(LeaveRequestCreateDto request) {
+        String username = SecurityUtil.getCurrentUsername();
+        if (username == null) {
+            throw new BusinessException("Security context not found", HttpStatus.UNAUTHORIZED, "SECURITY_CONTEXT_MISSING");
+        }
+        User employee = userRepository.findByUsername(username)
+            .orElseThrow(() -> new BusinessException("Employee not found", HttpStatus.NOT_FOUND, "EMPLOYEE_NOT_FOUND"));
+
+        LocalDate startDate = request.startDate();
+        LocalDate endDate = request.endDate();
+
+        if (startDate.isBefore(LocalDate.now())) {
+            throw new BusinessException("Start date cannot be in the past", HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE");
+        }
+        if (startDate.isAfter(endDate)) {
+            throw new BusinessException("Start date must be before or equal to end date", HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE");
+        }
+
+        int totalDays = holidayService.countBusinessDays(startDate, endDate);
+        if (totalDays == 0) {
+            throw new BusinessException("No business days in the selected range", HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE");
+        }
+
+        if (leaveRequestRepository.countOverlapping(employee.getId(), startDate, endDate) > 0) {
+            throw new BusinessException("Leave dates overlap with an existing request", HttpStatus.CONFLICT, "LEAVE_DATE_CONFLICT");
+        }
+
+        LeaveBalance balance = getOrCreateBalance(employee, LocalDate.now().getYear(), request.leaveType());
+        int remaining = balance.getTotalDays() - balance.getUsedDays();
+        if (remaining < totalDays) {
+            throw new BusinessException("Quỹ phép không đủ", HttpStatus.BAD_REQUEST, "INSUFFICIENT_LEAVE_BALANCE");
+        }
+
+        LeaveRequest leaveRequest = LeaveRequest.builder()
+            .employee(employee)
+            .leaveType(request.leaveType())
+            .startDate(startDate)
+            .endDate(endDate)
+            .totalDays(totalDays)
+            .reason(request.reason())
+            .status(RequestStatus.PENDING)
+            .build();
+
+        LeaveRequest saved;
+        try {
+            saved = leaveRequestRepository.save(leaveRequest);
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException("Leave dates overlap with an existing request", HttpStatus.CONFLICT, "LEAVE_DATE_CONFLICT");
+        }
+
+        notificationService.sendLeaveRequestNotification(saved);
+
+        log.info("Leave request created: id={}, employee={}, type={}, days={}", saved.getId(), employee.getId(), request.leaveType(), totalDays);
+
+        return toLeaveRequestDto(saved);
+    }
+
+    private RequestSummaryDto approveLeaveRequest(LeaveRequest request, User reviewer) {
+        if (request.getStatus() != RequestStatus.PENDING) {
+            throw new BusinessException("Request is not pending", HttpStatus.BAD_REQUEST, "REQUEST_NOT_PENDING");
+        }
+        checkLeaderAuthorization(reviewer, request.getEmployee());
+
+        request.setStatus(RequestStatus.APPROVED);
+        request.setApprover(reviewer);
+        leaveRequestRepository.save(request);
+
+        LeaveBalance balance = getOrCreateBalance(request.getEmployee(), request.getStartDate().getYear(), request.getLeaveType());
+        balance.setUsedDays(balance.getUsedDays() + request.getTotalDays());
+        leaveBalanceRepository.save(balance);
+
+        notificationService.sendRequestApprovedNotification(
+            request.getEmployee(), String.valueOf(request.getId()), "nghỉ phép");
+
+        log.info("Leave request approved: id={}, reviewer={}", request.getId(), reviewer.getId());
+        return toRequestSummaryDto(request);
+    }
+
+    private RequestSummaryDto rejectLeaveRequest(LeaveRequest request, String reason, User reviewer) {
+        if (request.getStatus() != RequestStatus.PENDING) {
+            throw new BusinessException("Request is not pending", HttpStatus.BAD_REQUEST, "REQUEST_NOT_PENDING");
+        }
+        checkLeaderAuthorization(reviewer, request.getEmployee());
+
+        request.setStatus(RequestStatus.REJECTED);
+        request.setRejectionReason(reason);
+        leaveRequestRepository.save(request);
+
+        notificationService.sendRequestRejectedNotification(
+            request.getEmployee(), String.valueOf(request.getId()), "nghỉ phép", reason);
+
+        log.info("Leave request rejected: id={}, reviewer={}", request.getId(), reviewer.getId());
+        return toRequestSummaryDto(request);
+    }
+
+    public List<LeaveBalanceDto> getLeaveBalance() {
+        String username = SecurityUtil.getCurrentUsername();
+        if (username == null) {
+            throw new BusinessException("Security context not found", HttpStatus.UNAUTHORIZED, "SECURITY_CONTEXT_MISSING");
+        }
+        User employee = userRepository.findByUsername(username)
+            .orElseThrow(() -> new BusinessException("Employee not found", HttpStatus.NOT_FOUND, "EMPLOYEE_NOT_FOUND"));
+
+        int year = LocalDate.now().getYear();
+        List<LeaveBalance> balances = leaveBalanceRepository.findByEmployeeIdAndYear(employee.getId(), year);
+
+        if (balances.isEmpty()) {
+            LeaveBalance annual = getOrCreateBalance(employee, year, LeaveType.ANNUAL);
+            LeaveBalance sick = getOrCreateBalance(employee, year, LeaveType.SICK);
+            balances = List.of(annual, sick);
+        }
+
+        return balances.stream().map(this::toLeaveBalanceDto).toList();
+    }
+
+    private LeaveBalance getOrCreateBalance(User employee, int year, LeaveType type) {
+        return leaveBalanceRepository.findByEmployeeIdAndYearAndLeaveType(employee.getId(), year, type)
+            .orElseGet(() -> {
+                int defaultDays = type == LeaveType.ANNUAL ? 12 : 5;
+                LeaveBalance balance = LeaveBalance.builder()
+                    .employee(employee)
+                    .year(year)
+                    .leaveType(type)
+                    .totalDays(defaultDays)
+                    .usedDays(0)
+                    .build();
+                try {
+                    return leaveBalanceRepository.save(balance);
+                } catch (DataIntegrityViolationException e) {
+                    return leaveBalanceRepository.findByEmployeeIdAndYearAndLeaveType(employee.getId(), year, type)
+                        .orElseThrow(() -> new BusinessException("Balance creation failed", HttpStatus.INTERNAL_SERVER_ERROR, "BALANCE_ERROR"));
+                }
+            });
+    }
+
+    private LeaveRequestDto toLeaveRequestDto(LeaveRequest request) {
+        return LeaveRequestDto.builder()
+            .id(request.getId())
+            .employeeId(request.getEmployee().getId())
+            .leaveType(request.getLeaveType())
+            .startDate(request.getStartDate())
+            .endDate(request.getEndDate())
+            .totalDays(request.getTotalDays())
+            .reason(request.getReason())
+            .status(request.getStatus())
+            .approverId(request.getApprover() != null ? request.getApprover().getId() : null)
+            .rejectionReason(request.getRejectionReason())
+            .createdAt(request.getCreatedAt())
+            .updatedAt(request.getUpdatedAt())
+            .build();
+    }
+
+    private LeaveBalanceDto toLeaveBalanceDto(LeaveBalance balance) {
+        return LeaveBalanceDto.builder()
+            .id(balance.getId())
+            .employeeId(balance.getEmployee().getId())
+            .year(balance.getYear())
+            .leaveType(balance.getLeaveType())
+            .totalDays(balance.getTotalDays())
+            .usedDays(balance.getUsedDays())
+            .build();
     }
 
     private RequestSummaryDto toRequestSummaryDto(ExceptionRequest request) {
@@ -453,6 +649,10 @@ public class RequestService {
             .reviewReason(request.getReviewReason())
             .createdAt(request.getCreatedAt())
             .updatedAt(request.getUpdatedAt())
+            .leaveType(null)
+            .startDate(null)
+            .endDate(null)
+            .totalDays(null)
             .build();
     }
 
@@ -475,6 +675,35 @@ public class RequestService {
             .reviewReason(request.getReviewReason())
             .createdAt(request.getCreatedAt())
             .updatedAt(request.getUpdatedAt())
+            .leaveType(null)
+            .startDate(null)
+            .endDate(null)
+            .totalDays(null)
+            .build();
+    }
+
+    private RequestSummaryDto toRequestSummaryDto(LeaveRequest request) {
+        return RequestSummaryDto.builder()
+            .id(String.valueOf(request.getId()))
+            .requestCategory("LEAVE")
+            .employeeId(request.getEmployee().getId())
+            .employeeName(request.getEmployee().getFullName())
+            .attendanceRecordId(null)
+            .attendanceDate(null)
+            .requestType(null)
+            .proposedCheckoutTime(null)
+            .checkInTime(null)
+            .checkOutTime(null)
+            .reason(request.getReason())
+            .status(request.getStatus())
+            .reviewedBy(request.getApprover() != null ? request.getApprover().getId() : null)
+            .reviewReason(request.getRejectionReason())
+            .createdAt(request.getCreatedAt())
+            .updatedAt(request.getUpdatedAt())
+            .leaveType(request.getLeaveType())
+            .startDate(request.getStartDate())
+            .endDate(request.getEndDate())
+            .totalDays(request.getTotalDays())
             .build();
     }
 

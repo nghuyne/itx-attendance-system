@@ -196,16 +196,50 @@ export interface AdjustmentRequestDto {
   updatedAt: string;
 }
 
+// Leave Request DTOs — Story 6.1
+export type LeaveType = 'ANNUAL' | 'SICK';
+
+export interface LeaveRequestCreateDto {
+  leaveType: LeaveType;
+  startDate: string;
+  endDate: string;
+  reason: string;
+}
+
+export interface LeaveRequestDto {
+  id: number;
+  employeeId: string;
+  leaveType: LeaveType;
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  reason: string;
+  status: RequestStatus;
+  approverId: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LeaveBalanceDto {
+  id: number;
+  employeeId: string;
+  year: number;
+  leaveType: LeaveType;
+  totalDays: number;
+  usedDays: number;
+}
+
 // Leader/Request DTOs — Story 4.3
-export type RequestCategory = 'EXCEPTION' | 'ADJUSTMENT';
+export type RequestCategory = 'EXCEPTION' | 'ADJUSTMENT' | 'LEAVE';
 
 export interface RequestSummaryDto {
   id: string;
   requestCategory: RequestCategory;
   employeeId: string;
   employeeName: string;
-  attendanceRecordId: string;
-  attendanceDate: string;
+  attendanceRecordId: string | null;
+  attendanceDate: string | null;
   requestType: ExceptionRequestType | null;
   proposedCheckoutTime: string | null;
   checkInTime: string | null;
@@ -216,6 +250,10 @@ export interface RequestSummaryDto {
   reviewReason: string | null;
   createdAt: string;
   updatedAt: string;
+  leaveType: LeaveType | null;
+  startDate: string | null;
+  endDate: string | null;
+  totalDays: number | null;
 }
 
 export interface TeamRosterItemDto {
@@ -235,7 +273,7 @@ export interface TeamRosterItemDto {
 }
 
 // Notification DTOs — Story 4.2
-export type NotificationType = 'EXCEPTION_REQUEST' | 'ADJUSTMENT_REQUEST' | 'REQUEST_APPROVED' | 'REQUEST_REJECTED' | 'INCOMPLETE_RECORD';
+export type NotificationType = 'EXCEPTION_REQUEST' | 'ADJUSTMENT_REQUEST' | 'REQUEST_APPROVED' | 'REQUEST_REJECTED' | 'INCOMPLETE_RECORD' | 'LEAVE_REQUEST';
 
 export interface NotificationDto {
   id: string;

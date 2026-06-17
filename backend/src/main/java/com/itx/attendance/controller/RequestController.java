@@ -5,9 +5,12 @@ import com.itx.attendance.domain.User;
 import com.itx.attendance.exception.BusinessException;
 import com.itx.attendance.dto.request.AdjustmentRequestCreateDto;
 import com.itx.attendance.dto.request.ExceptionRequestCreateDto;
+import com.itx.attendance.dto.request.LeaveRequestCreateDto;
 import com.itx.attendance.dto.request.RequestRejectDto;
 import com.itx.attendance.dto.response.AdjustmentRequestDto;
 import com.itx.attendance.dto.response.ExceptionRequestDto;
+import com.itx.attendance.dto.response.LeaveBalanceDto;
+import com.itx.attendance.dto.response.LeaveRequestDto;
 import com.itx.attendance.dto.response.RequestSummaryDto;
 import com.itx.attendance.service.CurrentUserService;
 import com.itx.attendance.service.RequestService;
@@ -91,6 +94,20 @@ public class RequestController {
             @Valid @RequestBody RequestRejectDto body) {
         User reviewer = currentUserService.getCurrentUser();
         return ResponseEntity.ok(requestService.rejectRequest(id, body.reason(), reviewer));
+    }
+
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    @PostMapping("/leave")
+    public ResponseEntity<LeaveRequestDto> submitLeaveRequest(
+            @Valid @RequestBody LeaveRequestCreateDto request) {
+        log.info("Leave request submission: type={}, start={}, end={}", request.leaveType(), request.startDate(), request.endDate());
+        return ResponseEntity.status(HttpStatus.CREATED).body(requestService.submitLeaveRequest(request));
+    }
+
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    @GetMapping("/leave-balance")
+    public ResponseEntity<List<LeaveBalanceDto>> getLeaveBalance() {
+        return ResponseEntity.ok(requestService.getLeaveBalance());
     }
 
 }
