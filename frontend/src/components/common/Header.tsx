@@ -5,6 +5,12 @@ import { useAuthStore } from '../../store/authStore';
 import { useUiStore } from '../../store/uiStore';
 import { NotificationBell } from './NotificationBell';
 
+const LockIcon = () => (
+  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+  </svg>
+);
+
 interface HeaderProps {
   title: string;
   onMenuClick?: () => void;
@@ -50,6 +56,15 @@ export const Header: React.FC<HeaderProps> = ({ title, onMenuClick }) => {
       <span className="text-sm text-slate-500 hidden sm:block truncate max-w-[120px]">
         {user?.fullName}
       </span>
+
+      <button
+        onClick={() => navigate('/change-password')}
+        aria-label="Đổi mật khẩu"
+        title="Đổi mật khẩu"
+        className="min-w-[48px] min-h-[48px] flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-600"
+      >
+        <LockIcon />
+      </button>
 
       <button
         onClick={handleLogout}

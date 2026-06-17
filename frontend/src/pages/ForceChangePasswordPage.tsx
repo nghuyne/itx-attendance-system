@@ -42,13 +42,16 @@ export const ForceChangePasswordPage: React.FC = () => {
     formState: { errors },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
+  const isForced = user?.mustChangePassword ?? false;
+  const backRoute = user ? ROLE_DEFAULT_ROUTES[user.role] : '/login';
+
   const onSubmit = handleSubmit(async (data) => {
     setLoading(true);
     try {
       await authService.changePassword(data.oldPassword, data.newPassword);
       clearMustChangePassword();
       showToast({ type: 'success', message: 'Đổi mật khẩu thành công' });
-      navigate(user ? ROLE_DEFAULT_ROUTES[user.role] : '/login', { replace: true });
+      navigate(backRoute, { replace: true });
     } catch {
       showToast({
         type: 'error',
@@ -63,10 +66,26 @@ export const ForceChangePasswordPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="bg-white max-w-sm w-full rounded-lg shadow-md p-8">
+        {!isForced && (
+          <button
+            onClick={() => navigate(backRoute)}
+            className="flex items-center gap-1 text-sm text-slate-500 hover:text-primary mb-4 -ml-1"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Quay lại
+          </button>
+        )}
         <h1 className="text-2xl font-bold text-primary text-center mb-2">ITX Attendance</h1>
-        <p className="text-sm text-slate-500 text-center mb-6">
-          Tài khoản của bạn cần đổi mật khẩu trước khi tiếp tục.
-        </p>
+        {isForced && (
+          <p className="text-sm text-slate-500 text-center mb-6">
+            Tài khoản của bạn cần đổi mật khẩu trước khi tiếp tục.
+          </p>
+        )}
+        {!isForced && (
+          <p className="text-sm text-slate-500 text-center mb-6">Đổi mật khẩu tài khoản</p>
+        )}
 
         <form onSubmit={onSubmit} noValidate>
           <div className="mb-4">

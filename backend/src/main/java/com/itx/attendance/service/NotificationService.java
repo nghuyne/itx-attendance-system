@@ -28,15 +28,34 @@ public class NotificationService {
     public void sendExceptionRequestNotification(ExceptionRequest request) {
         User leader = request.getEmployee().getLeader();
         if (leader == null) {
-            log.warn("Employee {} has no leader assigned — skipping notification for request {}",
+            log.warn("Employee {} has no leader assigned — skipping leader notification for exception request {}",
                     request.getEmployee().getId(), request.getId());
+        }
+
+        List<User> admins = userRepository.findByRole(UserRole.ADMIN);
+
+        Set<String> recipientIds = new HashSet<>();
+        List<User> recipients = new ArrayList<>();
+        if (leader != null && recipientIds.add(leader.getId())) {
+            recipients.add(leader);
+        }
+        for (User admin : admins) {
+            if (recipientIds.add(admin.getId())) {
+                recipients.add(admin);
+            }
+        }
+
+        if (recipients.isEmpty()) {
+            log.warn("No recipients found for exception request {} — skipping notification", request.getId());
             return;
         }
 
         String message = buildExceptionRequestMessage(request);
         String subject = "[ITX] Yêu cầu ngoại lệ mới từ " + request.getEmployee().getFullName();
 
-        sendNotificationToRecipient(leader, NotificationType.EXCEPTION_REQUEST, request.getId(), message, subject);
+        for (User recipient : recipients) {
+            sendNotificationToRecipient(recipient, NotificationType.EXCEPTION_REQUEST, request.getId(), message, subject);
+        }
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
