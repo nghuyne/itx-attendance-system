@@ -13,11 +13,11 @@ interface LeaveRequestModalProps {
   onSuccess: () => void;
 }
 
-const today = new Date().toISOString().split('T')[0];
+const getToday = () => new Date().toISOString().split('T')[0];
 
 const schema = z.object({
   leaveType: z.enum(['ANNUAL', 'SICK']),
-  startDate: z.string().min(1, 'Vui lòng chọn ngày bắt đầu').refine(d => d >= today, {
+  startDate: z.string().min(1, 'Vui lòng chọn ngày bắt đầu').refine(d => d >= getToday(), {
     message: 'Ngày bắt đầu không được trong quá khứ',
   }),
   endDate: z.string().min(1, 'Vui lòng chọn ngày kết thúc'),
@@ -170,7 +170,7 @@ export const LeaveRequestModal = ({ isOpen, onClose, onSuccess }: LeaveRequestMo
                 <input
                   type="date"
                   {...register('startDate')}
-                  min={today}
+                  min={getToday()}
                   className="w-full border border-base-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
                 {errors.startDate && (
@@ -182,7 +182,7 @@ export const LeaveRequestModal = ({ isOpen, onClose, onSuccess }: LeaveRequestMo
                 <input
                   type="date"
                   {...register('endDate')}
-                  min={startDate || today}
+                  min={startDate || getToday()}
                   className="w-full border border-base-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                 />
                 {errors.endDate && (
@@ -220,7 +220,7 @@ export const LeaveRequestModal = ({ isOpen, onClose, onSuccess }: LeaveRequestMo
 
             <button
               type="submit"
-              disabled={!isValid || isBalanceInsufficient || mutation.isPending}
+              disabled={!isValid || mutation.isPending}
               className="w-full min-h-[48px] bg-primary text-white rounded-lg font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
             >
               {mutation.isPending ? 'Đang gửi...' : 'Gửi đơn nghỉ phép'}

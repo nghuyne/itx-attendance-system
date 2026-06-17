@@ -103,11 +103,15 @@ function RequestCard({ req }: { req: RequestSummaryDto }) {
                 {req.startDate ? formatDate(req.startDate) : '—'}
                 {req.endDate && req.endDate !== req.startDate && ` – ${formatDate(req.endDate)}`}
               </p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                NGHỈ PHÉP —{' '}
-                {req.leaveType ? LEAVE_TYPE_LABEL[req.leaveType] : '—'}
-                {req.totalDays != null && ` · ${req.totalDays} ngày`}
-              </p>
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                  NGHỈ PHÉP
+                </span>
+                <span className="text-xs text-slate-500">
+                  {req.leaveType ? LEAVE_TYPE_LABEL[req.leaveType] : '—'}
+                  {req.totalDays != null && ` · ${req.totalDays} ngày`}
+                </span>
+              </div>
             </>
           ) : (
             <>

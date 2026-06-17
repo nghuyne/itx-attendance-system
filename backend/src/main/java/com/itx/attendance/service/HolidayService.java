@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -64,11 +65,12 @@ public class HolidayService {
     }
 
     public int countBusinessDays(LocalDate start, LocalDate end) {
+        if (start.isAfter(end)) return 0;
+        Set<LocalDate> holidays = holidayRepository.findHolidayDatesBetween(start, end);
         int count = 0;
         for (LocalDate date = start; !date.isAfter(end); date = date.plusDays(1)) {
             DayOfWeek day = date.getDayOfWeek();
-            if (day != DayOfWeek.SATURDAY && day != DayOfWeek.SUNDAY
-                    && !holidayRepository.existsByDate(date)) {
+            if (day != DayOfWeek.SATURDAY && day != DayOfWeek.SUNDAY && !holidays.contains(date)) {
                 count++;
             }
         }

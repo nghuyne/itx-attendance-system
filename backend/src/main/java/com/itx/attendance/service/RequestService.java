@@ -254,7 +254,7 @@ public class RequestService {
         }
         try {
             Long leaveId = Long.parseLong(requestId);
-            Optional<LeaveRequest> leaveOpt = leaveRequestRepository.findById(leaveId);
+            Optional<LeaveRequest> leaveOpt = leaveRequestRepository.findByIdForUpdate(leaveId);
             if (leaveOpt.isPresent()) {
                 return approveLeaveRequest(leaveOpt.get(), reviewer);
             }
@@ -278,7 +278,7 @@ public class RequestService {
         }
         try {
             Long leaveId = Long.parseLong(requestId);
-            Optional<LeaveRequest> leaveOpt = leaveRequestRepository.findById(leaveId);
+            Optional<LeaveRequest> leaveOpt = leaveRequestRepository.findByIdForUpdate(leaveId);
             if (leaveOpt.isPresent()) {
                 return rejectLeaveRequest(leaveOpt.get(), reason, reviewer);
             }
@@ -494,7 +494,7 @@ public class RequestService {
             throw new BusinessException("Leave dates overlap with an existing request", HttpStatus.CONFLICT, "LEAVE_DATE_CONFLICT");
         }
 
-        LeaveBalance balance = getOrCreateBalance(employee, LocalDate.now().getYear(), request.leaveType());
+        LeaveBalance balance = getOrCreateBalance(employee, startDate.getYear(), request.leaveType());
         int remaining = balance.getTotalDays() - balance.getUsedDays();
         if (remaining < totalDays) {
             throw new BusinessException("Quỹ phép không đủ", HttpStatus.BAD_REQUEST, "INSUFFICIENT_LEAVE_BALANCE");
@@ -552,6 +552,7 @@ public class RequestService {
         checkLeaderAuthorization(reviewer, request.getEmployee());
 
         request.setStatus(RequestStatus.REJECTED);
+        request.setApprover(reviewer);
         request.setRejectionReason(reason);
         leaveRequestRepository.save(request);
 
@@ -573,10 +574,13 @@ public class RequestService {
         int year = LocalDate.now().getYear();
         List<LeaveBalance> balances = leaveBalanceRepository.findByEmployeeIdAndYear(employee.getId(), year);
 
-        if (balances.isEmpty()) {
-            LeaveBalance annual = getOrCreateBalance(employee, year, LeaveType.ANNUAL);
-            LeaveBalance sick = getOrCreateBalance(employee, year, LeaveType.SICK);
-            balances = List.of(annual, sick);
+        boolean hasAnnual = balances.stream().anyMatch(b -> b.getLeaveType() == LeaveType.ANNUAL);
+        boolean hasSick = balances.stream().anyMatch(b -> b.getLeaveType() == LeaveType.SICK);
+        if (!hasAnnual || !hasSick) {
+            List<LeaveBalance> mutable = new ArrayList<>(balances);
+            if (!hasAnnual) mutable.add(getOrCreateBalance(employee, year, LeaveType.ANNUAL));
+            if (!hasSick) mutable.add(getOrCreateBalance(employee, year, LeaveType.SICK));
+            balances = mutable;
         }
 
         return balances.stream().map(this::toLeaveBalanceDto).toList();
