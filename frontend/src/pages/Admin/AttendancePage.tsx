@@ -23,13 +23,21 @@ export const AdminAttendancePage: React.FC = () => {
   const [from, setFrom] = useState(getToday);
   const [to, setTo] = useState(getToday);
   const [page, setPage] = useState(0);
+  const [employeeId, setEmployeeId] = useState<string>('');
+  const [isExporting, setIsExporting] = useState(false);
   const [overridingRecord, setOverridingRecord] = useState<AdminAttendanceRecordDto | null>(null);
   const queryClient = useQueryClient();
   const showToast = useUiStore((s) => s.showToast);
 
+  const { data: employees } = useQuery({
+    queryKey: ['admin', 'employees'],
+    queryFn: () => adminService.getEmployees(),
+    staleTime: 10 * 60 * 1000,
+  });
+
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['admin', 'attendance', from, to, page],
-    queryFn: () => adminService.searchAttendance(from, to, page, 20),
+    queryKey: ['admin', 'attendance', from, to, page, employeeId],
+    queryFn: () => adminService.searchAttendance(from, to, page, 20, employeeId || undefined),
   });
 
   const records = data?.content ?? [];
@@ -40,10 +48,14 @@ export const AdminAttendancePage: React.FC = () => {
   };
 
   const handleExport = async () => {
+    setIsExporting(true);
     try {
-      await reportService.exportAttendance(from, to);
+      await reportService.exportAttendance(from, to, employeeId || undefined);
+      showToast({ type: 'success', message: 'Đang tải xuống báo cáo...' });
     } catch {
       showToast({ type: 'error', message: 'Có lỗi xảy ra khi xuất báo cáo!' });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -53,12 +65,26 @@ export const AdminAttendancePage: React.FC = () => {
         <h1 className="text-2xl font-bold text-slate-700">Chấm công</h1>
         <button
           onClick={handleExport}
-          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+          disabled={isExporting}
+          className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors min-h-[48px]"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          Xuất Excel
+          {isExporting ? (
+            <>
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Đang tải...
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Xuất Excel
+            </>
+          )}
         </button>
       </div>
       <div className="flex flex-wrap gap-3 mb-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
@@ -81,6 +107,22 @@ export const AdminAttendancePage: React.FC = () => {
             onChange={(e) => { setTo(e.target.value); setPage(0); }}
             className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
           />
+        </div>
+        <div>
+          <label htmlFor="employee" className="block text-xs font-medium text-slate-600 mb-1">
+            Nhân viên
+          </label>
+          <select
+            id="employee"
+            value={employeeId}
+            onChange={(e) => { setEmployeeId(e.target.value); setPage(0); }}
+            className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600"
+          >
+            <option value="">Tất cả nhân viên</option>
+            {employees?.map((emp) => (
+              <option key={emp.id} value={emp.id}>{emp.fullName}</option>
+            ))}
+          </select>
         </div>
       </div>
 

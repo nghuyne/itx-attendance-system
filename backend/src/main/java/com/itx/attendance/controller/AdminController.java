@@ -15,6 +15,7 @@ import com.itx.attendance.dto.response.ShiftDto;
 import com.itx.attendance.dto.response.ValidIpDto;
 import com.itx.attendance.security.SecurityUtil;
 import com.itx.attendance.service.AdminOverrideService;
+import com.itx.attendance.service.AttendanceExportService;
 import com.itx.attendance.service.AuditLogService;
 import com.itx.attendance.service.CurrentUserService;
 import com.itx.attendance.service.HolidayService;
@@ -28,7 +29,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -51,6 +54,7 @@ public class AdminController {
     private final CurrentUserService currentUserService;
     private final AuditLogService auditLogService;
     private final OfficeLocationService officeLocationService;
+    private final AttendanceExportService attendanceExportService;
 
     // ── Shift endpoints ───────────────────────────────────────────────────────
 
@@ -158,6 +162,20 @@ public class AdminController {
             adminOverrideService.searchAttendance(from, to, employeeId, PageRequest.of(page, size)));
     }
 
+    @GetMapping("/attendance/export")
+    public ResponseEntity<byte[]> exportAttendance(
+            @RequestParam LocalDate from,
+            @RequestParam LocalDate to,
+            @RequestParam(required = false) String employeeId) {
+        byte[] bytes = attendanceExportService.exportToExcel(from, to, employeeId);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment",
+            "attendance-" + from + "-" + to + ".xlsx");
+        return ResponseEntity.ok().headers(headers).body(bytes);
+    }
+
     // ── Audit log endpoints (Story 5.2) ──────────────────────────────────────
 
     @GetMapping("/audit-logs")
@@ -188,20 +206,20 @@ public class AdminController {
     }
 
     @GetMapping("/office-locations")
-    public List<OfficeLocationDto> getOfficeLocations() {
-        return officeLocationService.findAll();
+    public ResponseEntity<List<OfficeLocationDto>> getOfficeLocations() {
+        return ResponseEntity.ok(officeLocationService.findAll());
     }
 
     @PutMapping("/office-locations/{id}")
-    public OfficeLocationDto updateOfficeLocation(
+    public ResponseEntity<OfficeLocationDto> updateOfficeLocation(
             @PathVariable Long id,
             @Valid @RequestBody CreateOfficeLocationRequest request) {
-        return officeLocationService.update(id, request);
+        return ResponseEntity.ok(officeLocationService.update(id, request));
     }
 
     @DeleteMapping("/office-locations/{id}")
     public ResponseEntity<Void> deleteOfficeLocation(@PathVariable Long id) {
         officeLocationService.delete(id);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 }

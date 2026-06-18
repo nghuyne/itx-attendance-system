@@ -44,4 +44,7 @@ export const adminService = {
 
   getAdmins: (): Promise<EmployeeDto[]> =>
     api.get<EmployeeDto[]>('/admin/admins').then(r => r.data),
+
+  getEmployees: (): Promise<EmployeeDto[]> =>
+    api.get<EmployeeDto[]>('/admin/employees').then(r => r.data),
 };
