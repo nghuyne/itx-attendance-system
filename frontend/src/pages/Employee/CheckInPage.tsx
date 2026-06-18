@@ -68,6 +68,7 @@ export const CheckInPage: React.FC = () => {
         errorCode === 'NO_SHIFT_ASSIGNED' ? 'Bạn chưa được gán ca làm việc. Liên hệ HR để cập nhật.' :
         errorCode === 'GPS_REQUIRED' ? 'GPS bắt buộc khi chấm công ngoài văn phòng.' :
         errorCode === 'INVALID_IP' ? (errorData?.message || 'Không nhận diện được mạng văn phòng. Kiểm tra kết nối.') :
+        errorCode === 'OUT_OF_OFFICE_RADIUS' ? (errorData?.message || 'Vị trí của bạn không nằm trong phạm vi văn phòng.') :
         errorCode === 'ALREADY_CHECKED_IN' ? 'Bạn đã chấm công rồi hôm nay.' :
         errorCode === 'PHOTO_UPLOAD_FAILED' ? 'Lỗi tải ảnh. Vui lòng thử lại.' :
         errorCode === 'PHOTO_TOO_LARGE' ? 'Ảnh quá lớn (>500KB). Vui lòng chụp lại.' :

@@ -317,6 +317,25 @@ export interface AttendanceOverrideRequest {
   auditReason: string;
 }
 
+// Office Location DTOs — Story 7.1
+export interface OfficeLocationDto {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface CreateOfficeLocationRequest {
+  name: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  isActive?: boolean;
+}
+
 // Audit Log DTOs — Story 5.2
 export interface AuditLogDto {
   id: number;

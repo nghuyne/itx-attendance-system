@@ -2,6 +2,7 @@ package com.itx.attendance.controller;
 
 import com.itx.attendance.dto.request.AttendanceOverrideRequest;
 import com.itx.attendance.dto.request.CreateHolidayRequest;
+import com.itx.attendance.dto.request.CreateOfficeLocationRequest;
 import com.itx.attendance.dto.request.CreateShiftRequest;
 import com.itx.attendance.dto.request.CreateValidIpRequest;
 import com.itx.attendance.dto.response.AdminAttendanceRecordDto;
@@ -9,6 +10,7 @@ import com.itx.attendance.dto.response.AttendanceRecordDto;
 import com.itx.attendance.dto.response.AuditLogDto;
 import com.itx.attendance.dto.response.EmployeeDto;
 import com.itx.attendance.dto.response.HolidayDto;
+import com.itx.attendance.dto.response.OfficeLocationDto;
 import com.itx.attendance.dto.response.ShiftDto;
 import com.itx.attendance.dto.response.ValidIpDto;
 import com.itx.attendance.security.SecurityUtil;
@@ -16,6 +18,7 @@ import com.itx.attendance.service.AdminOverrideService;
 import com.itx.attendance.service.AuditLogService;
 import com.itx.attendance.service.CurrentUserService;
 import com.itx.attendance.service.HolidayService;
+import com.itx.attendance.service.OfficeLocationService;
 import com.itx.attendance.service.ShiftService;
 import com.itx.attendance.service.ValidIpService;
 import jakarta.validation.Valid;
@@ -47,6 +50,7 @@ public class AdminController {
     private final AdminOverrideService adminOverrideService;
     private final CurrentUserService currentUserService;
     private final AuditLogService auditLogService;
+    private final OfficeLocationService officeLocationService;
 
     // ── Shift endpoints ───────────────────────────────────────────────────────
 
@@ -172,5 +176,32 @@ public class AdminController {
     @GetMapping("/admins")
     public ResponseEntity<List<EmployeeDto>> getAdmins() {
         return ResponseEntity.ok(auditLogService.getAdminUsers());
+    }
+
+    // ── Office location endpoints (Story 7.1) ────────────────────────────────
+
+    @PostMapping("/office-locations")
+    public ResponseEntity<OfficeLocationDto> createOfficeLocation(
+            @Valid @RequestBody CreateOfficeLocationRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(officeLocationService.create(request));
+    }
+
+    @GetMapping("/office-locations")
+    public List<OfficeLocationDto> getOfficeLocations() {
+        return officeLocationService.findAll();
+    }
+
+    @PutMapping("/office-locations/{id}")
+    public OfficeLocationDto updateOfficeLocation(
+            @PathVariable Long id,
+            @Valid @RequestBody CreateOfficeLocationRequest request) {
+        return officeLocationService.update(id, request);
+    }
+
+    @DeleteMapping("/office-locations/{id}")
+    public ResponseEntity<Void> deleteOfficeLocation(@PathVariable Long id) {
+        officeLocationService.delete(id);
+        return ResponseEntity.ok().build();
     }
 }

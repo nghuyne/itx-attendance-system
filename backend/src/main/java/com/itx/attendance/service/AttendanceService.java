@@ -47,6 +47,7 @@ public class AttendanceService {
     private final ValidIpRepository validIpRepository;
     private final PhotoService photoService;
     private final OtCalculationService otCalculationService;
+    private final OfficeLocationService officeLocationService;
 
     @Value("${app.ip-check.enabled:true}")
     private boolean ipCheckEnabled;
@@ -97,6 +98,10 @@ public class AttendanceService {
             throw new BusinessException(
                 "Yêu cầu GPS để chấm công ngoài văn phòng",
                 HttpStatus.BAD_REQUEST, "GPS_REQUIRED");
+        }
+
+        if (!request.isClientSite() && request.lat() != null && request.lng() != null) {
+            officeLocationService.validateRadius(request.lat(), request.lng());
         }
 
         // Decode and validate photo synchronously before the async upload

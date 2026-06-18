@@ -1,0 +1,13 @@
+CREATE TABLE office_locations (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  latitude DECIMAL(10,8) NOT NULL,
+  longitude DECIMAL(11,8) NOT NULL,
+  radius_meters INT NOT NULL DEFAULT 200,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT INTO office_locations (name, latitude, longitude, radius_meters, is_active)
+VALUES ('Văn phòng chính', 10.77695000, 106.70070000, 200, TRUE);
