@@ -52,8 +52,9 @@ export const AdminAttendancePage: React.FC = () => {
     try {
       await reportService.exportAttendance(from, to, employeeId || undefined);
       showToast({ type: 'success', message: 'Đang tải xuống báo cáo...' });
-    } catch {
-      showToast({ type: 'error', message: 'Có lỗi xảy ra khi xuất báo cáo!' });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Có lỗi xảy ra khi xuất báo cáo!';
+      showToast({ type: 'error', message: msg });
     } finally {
       setIsExporting(false);
     }

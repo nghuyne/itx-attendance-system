@@ -3,6 +3,7 @@ package com.itx.attendance.service;
 import com.itx.attendance.domain.*;
 import com.itx.attendance.repository.NotificationRepository;
 import com.itx.attendance.repository.UserRepository;
+import com.itx.attendance.util.TimeUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -10,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -187,6 +190,41 @@ public class NotificationService {
         String message = "Yêu cầu " + requestInfo + " của bạn đã bị từ chối. Lý do: " + rejectionReason;
         String subject = "[ITX] Yêu cầu đã bị từ chối";
         sendNotificationToRecipient(employee, NotificationType.REQUEST_REJECTED, requestId, message, subject);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void sendSuspiciousLocationNotification(User employee, LocalDateTime checkInUtc, double distKm, String recordId) {
+        List<User> admins = userRepository.findByRole(UserRole.ADMIN);
+        if (admins.isEmpty()) {
+            log.warn("No ADMIN users found for suspicious location notification, recordId={}", recordId);
+            return;
+        }
+
+        String checkInVN = TimeUtil.toUtcPlus7(checkInUtc)
+                .format(DateTimeFormatter.ofPattern("HH:mm"));
+        String distStr = String.format("%.1f", distKm);
+        String message = String.format(
+                "⚠ Cảnh báo: %s check-in lúc %s từ vị trí bất thường (%skm)",
+                employee.getFullName(), checkInVN, distStr);
+
+        for (User admin : admins) {
+            if (notificationRepository.existsByRecipientIdAndTypeAndReferenceId(
+                    admin.getId(), NotificationType.SUSPICIOUS_LOCATION, recordId)) {
+                continue;
+            }
+            Notification notification = Notification.builder()
+                    .recipient(admin)
+                    .type(NotificationType.SUSPICIOUS_LOCATION)
+                    .referenceId(recordId)
+                    .message(message)
+                    .build();
+            try {
+                notificationRepository.save(notification);
+            } catch (DataIntegrityViolationException e) {
+                log.info("Concurrent save detected for suspicious location notification adminId={}, recordId={}",
+                        admin.getId(), recordId);
+            }
+        }
     }
 
     private void sendNotificationToRecipient(User recipient, NotificationType type, String referenceId,

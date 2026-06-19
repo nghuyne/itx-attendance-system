@@ -7,5 +7,6 @@ public enum NotificationType {
     REQUEST_REJECTED,
     INCOMPLETE_RECORD,
     LEAVE_REQUEST,
-    OT_REQUEST
+    OT_REQUEST,
+    SUSPICIOUS_LOCATION
 }

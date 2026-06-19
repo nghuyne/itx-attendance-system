@@ -34,6 +34,8 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import org.springframework.core.task.TaskExecutor;
 
 @Slf4j
 @Service
@@ -56,6 +58,13 @@ public class AttendanceService {
     // @Lazy breaks the circular dependency during bean construction.
     @Autowired @Lazy
     private AttendanceService self;
+
+    @Autowired
+    private NotificationService notificationService;
+
+    @Autowired
+    @org.springframework.beans.factory.annotation.Qualifier("taskExecutor")
+    private TaskExecutor taskExecutor;
 
     // Not @Transactional: releases DB connection before MinIO I/O so the connection pool
     // is not held during network upload latency.
@@ -116,6 +125,7 @@ public class AttendanceService {
         String checkInObjectKey = objectKey;
 
         boolean suspiciousLocation = false;
+        double suspiciousDistKm = 0.0;
         if (request.lat() != null && request.lng() != null) {
             LocalDateTime since = LocalDateTime.now(ZoneOffset.UTC).minusHours(24);
             Optional<AttendanceRecord> prevOpt = attendanceRecordRepository
@@ -133,12 +143,28 @@ public class AttendanceService {
                         prev.getCheckInTime(), LocalDateTime.now(ZoneOffset.UTC));
                     if (distKm > 50.0 && minutesDelta < 60) {
                         suspiciousLocation = true;
+                        suspiciousDistKm = distKm;
                     }
                 }
             }
         }
 
-        return self.persistCheckIn(employee, shift, today, clientIp, request, checkInObjectKey, suspiciousLocation);
+        AttendanceRecordDto dto = self.persistCheckIn(employee, shift, today, clientIp, request, checkInObjectKey, suspiciousLocation);
+        if (suspiciousLocation) {
+            final String recordId = dto.id();
+            final double capturedDistKm = suspiciousDistKm;
+            final LocalDateTime capturedCheckInUtc = LocalDateTime.now(ZoneOffset.UTC);
+            final User capturedEmployee = employee;
+            CompletableFuture.runAsync(() -> {
+                try {
+                    notificationService.sendSuspiciousLocationNotification(
+                            capturedEmployee, capturedCheckInUtc, capturedDistKm, recordId);
+                } catch (Exception ex) {
+                    log.warn("Suspicious location notification failed for record {}: {}", recordId, ex.getMessage());
+                }
+            }, taskExecutor);
+        }
+        return dto;
     }
 
     @Transactional

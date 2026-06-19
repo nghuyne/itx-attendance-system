@@ -282,7 +282,7 @@ export interface TeamRosterItemDto {
 }
 
 // Notification DTOs — Story 4.2
-export type NotificationType = 'EXCEPTION_REQUEST' | 'ADJUSTMENT_REQUEST' | 'REQUEST_APPROVED' | 'REQUEST_REJECTED' | 'INCOMPLETE_RECORD' | 'LEAVE_REQUEST' | 'OT_REQUEST';
+export type NotificationType = 'EXCEPTION_REQUEST' | 'ADJUSTMENT_REQUEST' | 'REQUEST_APPROVED' | 'REQUEST_REJECTED' | 'INCOMPLETE_RECORD' | 'LEAVE_REQUEST' | 'OT_REQUEST' | 'SUSPICIOUS_LOCATION';
 
 export interface NotificationDto {
   id: string;

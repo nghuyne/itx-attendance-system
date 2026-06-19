@@ -88,7 +88,7 @@ public class AttendanceExportService {
 
         if (record.getCheckInTime() != null && record.getCheckOutTime() != null) {
             double hours = Duration.between(record.getCheckInTime(), record.getCheckOutTime()).toMinutes() / 60.0;
-            row.createCell(8).setCellValue(String.format("%.1f", hours));
+            row.createCell(8).setCellValue(hours > 0 ? String.format("%.1f", hours) : "—");
         } else {
             row.createCell(8).setCellValue("—");
         }
@@ -114,7 +114,7 @@ public class AttendanceExportService {
             case HALF_DAY -> "Nửa ngày";
             case ABSENT -> "Vắng mặt";
             case INCOMPLETE -> "Thiếu checkout";
-            default -> status.name();
+            case EXCUSED -> "Được miễn";
         };
     }
 

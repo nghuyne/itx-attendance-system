@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { NotificationDto, NotificationType } from '../../types/api';
 
 const TYPE_ICONS: Record<NotificationType, string> = {
@@ -7,6 +8,20 @@ const TYPE_ICONS: Record<NotificationType, string> = {
   REQUEST_APPROVED: '✅',
   REQUEST_REJECTED: '❌',
   INCOMPLETE_RECORD: '🔔',
+  LEAVE_REQUEST: '📋',
+  OT_REQUEST: '⏱️',
+  SUSPICIOUS_LOCATION: '⚠️',
+};
+
+const getItemBorderClass = (type: NotificationType, isRead: boolean): string => {
+  if (isRead) return '';
+  if (type === 'SUSPICIOUS_LOCATION') return 'border-l-4 border-l-amber-500';
+  return 'border-l-4 border-l-primary';
+};
+
+const getItemBgClass = (type: NotificationType, isRead: boolean): string => {
+  if (!isRead && type === 'SUSPICIOUS_LOCATION') return 'bg-amber-50';
+  return '';
 };
 
 interface NotificationPanelProps {
@@ -24,6 +39,16 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
   onMarkAsRead,
   onMarkAllAsRead,
 }) => {
+  const navigate = useNavigate();
+
+  const handleNotificationClick = (n: NotificationDto) => {
+    if (!n.isRead) onMarkAsRead(n.id);
+    if (n.type === 'SUSPICIOUS_LOCATION') {
+      navigate('/admin/attendance');
+      onClose();
+    }
+  };
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -79,10 +104,8 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
               {notifications.map((n) => (
                 <li
                   key={n.id}
-                  onClick={() => !n.isRead && onMarkAsRead(n.id)}
-                  className={`px-4 py-3 border-b border-neutral-100 cursor-pointer hover:bg-neutral-50 flex gap-3 ${
-                    !n.isRead ? 'border-l-4 border-l-primary' : ''
-                  }`}
+                  onClick={() => handleNotificationClick(n)}
+                  className={`px-4 py-3 border-b border-neutral-100 cursor-pointer hover:bg-neutral-50 flex gap-3 ${getItemBorderClass(n.type, n.isRead)} ${getItemBgClass(n.type, n.isRead)}`}
                 >
                   <span className="text-lg flex-shrink-0">{TYPE_ICONS[n.type]}</span>
                   <div className="min-w-0 flex-1">

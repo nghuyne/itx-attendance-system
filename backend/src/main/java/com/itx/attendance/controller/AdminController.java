@@ -29,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -171,8 +172,9 @@ public class AdminController {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-        headers.setContentDispositionFormData("attachment",
-            "attendance-" + from + "-" + to + ".xlsx");
+        headers.setContentDisposition(ContentDisposition.attachment()
+            .filename("attendance-" + from + "-" + to + ".xlsx")
+            .build());
         return ResponseEntity.ok().headers(headers).body(bytes);
     }
 

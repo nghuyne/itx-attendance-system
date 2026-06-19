@@ -1,0 +1,11 @@
+ALTER TABLE notifications
+    MODIFY COLUMN type ENUM(
+        'EXCEPTION_REQUEST',
+        'ADJUSTMENT_REQUEST',
+        'REQUEST_APPROVED',
+        'REQUEST_REJECTED',
+        'INCOMPLETE_RECORD',
+        'LEAVE_REQUEST',
+        'OT_REQUEST',
+        'SUSPICIOUS_LOCATION'
+    ) NOT NULL;
