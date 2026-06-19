@@ -21,10 +21,13 @@ public class OfficeLocation {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
     private String name;
 
+    @Column(nullable = false)
     private BigDecimal latitude;
 
+    @Column(nullable = false)
     private BigDecimal longitude;
 
     @Column(name = "radius_meters")

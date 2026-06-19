@@ -21,6 +21,7 @@ public class OfficeLocationService {
 
     @Transactional
     public OfficeLocationDto create(CreateOfficeLocationRequest req) {
+        validateRadiusBounds(req.radiusMeters());
         OfficeLocation location = OfficeLocation.builder()
             .name(req.name().strip())
             .latitude(req.latitude())
@@ -40,6 +41,7 @@ public class OfficeLocationService {
 
     @Transactional
     public OfficeLocationDto update(Long id, CreateOfficeLocationRequest req) {
+        validateRadiusBounds(req.radiusMeters());
         OfficeLocation location = officeLocationRepository.findById(id)
             .orElseThrow(() -> new BusinessException(
                 "Office location not found", HttpStatus.NOT_FOUND, "OFFICE_LOCATION_NOT_FOUND"));
@@ -73,10 +75,18 @@ public class OfficeLocationService {
             if (distKm <= loc.getRadiusMeters() / 1000.0) return;
             if (distKm < minDistKm) minDistKm = distKm;
         }
-        int distM = (int) Math.round(minDistKm * 1000);
+        long distM = Math.round(minDistKm * 1000);
         throw new BusinessException(
             "Vị trí của bạn không nằm trong phạm vi văn phòng (" + distM + "m)",
             HttpStatus.BAD_REQUEST, "OUT_OF_OFFICE_RADIUS");
+    }
+
+    private void validateRadiusBounds(Integer radiusMeters) {
+        if (radiusMeters != null && (radiusMeters < 50 || radiusMeters > 5000)) {
+            throw new BusinessException(
+                "Bán kính không hợp lệ (phải từ 50 đến 5000 mét)",
+                HttpStatus.BAD_REQUEST, "INVALID_RADIUS");
+        }
     }
 
     private OfficeLocationDto toDto(OfficeLocation loc) {

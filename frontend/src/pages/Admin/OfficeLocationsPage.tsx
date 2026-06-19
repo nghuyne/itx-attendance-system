@@ -327,8 +327,9 @@ export const OfficeLocationsPage: React.FC = () => {
                       </button>
                       <button
                         onClick={() => toggleMutation.mutate(loc)}
+                        disabled={toggleMutation.isPending}
                         aria-label={loc.active ? `Tắt ${loc.name}` : `Bật ${loc.name}`}
-                        className="p-1 text-slate-400 hover:text-blue-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
+                        className="p-1 text-slate-400 hover:text-blue-600 min-w-[36px] min-h-[36px] flex items-center justify-center disabled:opacity-40"
                       >
                         {loc.active ? '🔴' : '🟢'}
                       </button>
