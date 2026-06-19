@@ -5,6 +5,7 @@ import com.itx.attendance.domain.LeaveType;
 import com.itx.attendance.domain.RequestStatus;
 import lombok.Builder;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -30,5 +31,7 @@ public record RequestSummaryDto(
         LeaveType leaveType,
         LocalDate startDate,
         LocalDate endDate,
-        Integer totalDays
+        Integer totalDays,
+        LocalDate plannedDate,
+        BigDecimal plannedOtHours
 ) {}

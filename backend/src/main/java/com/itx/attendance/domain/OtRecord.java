@@ -45,6 +45,10 @@ public class OtRecord {
     @Column(name = "ot_multiplier", nullable = false, precision = 3, scale = 1)
     private BigDecimal otMultiplier;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ot_request_id")
+    private OtRequest otRequest;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

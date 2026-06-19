@@ -136,6 +136,46 @@ public class NotificationService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void sendOtRequestNotification(OtRequest request) {
+        User leader = request.getEmployee().getLeader();
+        if (leader == null) {
+            log.warn("Employee {} has no leader assigned — skipping leader notification for OT request {}",
+                    request.getEmployee().getId(), request.getId());
+        }
+
+        List<User> admins = userRepository.findByRole(UserRole.ADMIN);
+
+        Set<String> recipientIds = new HashSet<>();
+        List<User> recipients = new ArrayList<>();
+        if (leader != null && recipientIds.add(leader.getId())) {
+            recipients.add(leader);
+        }
+        for (User admin : admins) {
+            if (recipientIds.add(admin.getId())) {
+                recipients.add(admin);
+            }
+        }
+
+        if (recipients.isEmpty()) {
+            log.warn("No recipients found for OT request {} — skipping notification", request.getId());
+            return;
+        }
+
+        String message = String.format(
+                "Nhân viên %s đã gửi yêu cầu làm thêm giờ ngày %s (%s giờ). Lý do: %s",
+                request.getEmployee().getFullName(),
+                request.getPlannedDate(),
+                request.getPlannedOtHours(),
+                request.getReason()
+        );
+        String subject = "[ITX] Yêu cầu OT từ " + request.getEmployee().getFullName();
+
+        for (User recipient : recipients) {
+            sendNotificationToRecipient(recipient, NotificationType.OT_REQUEST, request.getId(), message, subject);
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void sendRequestApprovedNotification(User employee, String requestId, String requestInfo) {
         String message = "Yêu cầu " + requestInfo + " của bạn đã được duyệt.";
         String subject = "[ITX] Yêu cầu đã được duyệt";

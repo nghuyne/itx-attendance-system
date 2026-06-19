@@ -3,6 +3,7 @@ package com.itx.attendance.service;
 import com.itx.attendance.domain.*;
 import com.itx.attendance.repository.HolidayRepository;
 import com.itx.attendance.repository.OtRecordRepository;
+import com.itx.attendance.repository.OtRequestRepository;
 import com.itx.attendance.util.TimeUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +23,7 @@ import java.util.Optional;
 public class OtCalculationService {
 
     private final OtRecordRepository otRecordRepository;
+    private final OtRequestRepository otRequestRepository;
     private final HolidayRepository holidayRepository;
 
     @Transactional
@@ -51,6 +53,11 @@ public class OtCalculationService {
         DayType dayType = determineDayType(date);
         BigDecimal multiplier = getMultiplier(dayType);
 
+        OtRequest linkedRequest = otRequestRepository
+            .findFirstByEmployeeIdAndPlannedDateAndStatus(
+                record.getEmployee().getId(), date, RequestStatus.APPROVED)
+            .orElse(null);
+
         OtRecord otRecord = OtRecord.builder()
             .employee(record.getEmployee())
             .attendanceRecord(record)
@@ -58,6 +65,7 @@ public class OtCalculationService {
             .otDurationMinutes((int) otMinutes)
             .dayType(dayType)
             .otMultiplier(multiplier)
+            .otRequest(linkedRequest)
             .build();
 
         OtRecord saved = otRecordRepository.save(otRecord);

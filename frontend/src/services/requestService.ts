@@ -7,6 +7,7 @@ import type {
   LeaveRequestCreateDto,
   LeaveRequestDto,
   LeaveBalanceDto,
+  OtRequestCreateDto,
   RequestSummaryDto,
 } from '../types/api';
 
@@ -19,6 +20,9 @@ export const requestService = {
 
   submitLeaveRequest: (data: LeaveRequestCreateDto): Promise<LeaveRequestDto> =>
     api.post<LeaveRequestDto>('/requests/leave', data).then(r => r.data),
+
+  submitOtRequest: (data: OtRequestCreateDto): Promise<RequestSummaryDto> =>
+    api.post<RequestSummaryDto>('/requests/ot', data).then(r => r.data),
 
   getLeaveBalance: (): Promise<LeaveBalanceDto[]> =>
     api.get<LeaveBalanceDto[]>('/requests/leave-balance').then(r => r.data),

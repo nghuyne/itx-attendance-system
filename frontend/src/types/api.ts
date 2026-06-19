@@ -231,7 +231,7 @@ export interface LeaveBalanceDto {
 }
 
 // Leader/Request DTOs — Story 4.3
-export type RequestCategory = 'EXCEPTION' | 'ADJUSTMENT' | 'LEAVE';
+export type RequestCategory = 'EXCEPTION' | 'ADJUSTMENT' | 'LEAVE' | 'OT';
 
 export interface RequestSummaryDto {
   id: string;
@@ -254,6 +254,15 @@ export interface RequestSummaryDto {
   startDate: string | null;
   endDate: string | null;
   totalDays: number | null;
+  plannedDate: string | null;
+  plannedOtHours: number | null;
+}
+
+// OT Request DTOs — Story 8.1
+export interface OtRequestCreateDto {
+  plannedDate: string;
+  plannedOtHours: number;
+  reason: string;
 }
 
 export interface TeamRosterItemDto {
@@ -273,7 +282,7 @@ export interface TeamRosterItemDto {
 }
 
 // Notification DTOs — Story 4.2
-export type NotificationType = 'EXCEPTION_REQUEST' | 'ADJUSTMENT_REQUEST' | 'REQUEST_APPROVED' | 'REQUEST_REJECTED' | 'INCOMPLETE_RECORD' | 'LEAVE_REQUEST';
+export type NotificationType = 'EXCEPTION_REQUEST' | 'ADJUSTMENT_REQUEST' | 'REQUEST_APPROVED' | 'REQUEST_REJECTED' | 'INCOMPLETE_RECORD' | 'LEAVE_REQUEST' | 'OT_REQUEST';
 
 export interface NotificationDto {
   id: string;

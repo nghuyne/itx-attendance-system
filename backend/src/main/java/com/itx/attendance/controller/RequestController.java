@@ -6,11 +6,13 @@ import com.itx.attendance.exception.BusinessException;
 import com.itx.attendance.dto.request.AdjustmentRequestCreateDto;
 import com.itx.attendance.dto.request.ExceptionRequestCreateDto;
 import com.itx.attendance.dto.request.LeaveRequestCreateDto;
+import com.itx.attendance.dto.request.OtRequestCreateDto;
 import com.itx.attendance.dto.request.RequestRejectDto;
 import com.itx.attendance.dto.response.AdjustmentRequestDto;
 import com.itx.attendance.dto.response.ExceptionRequestDto;
 import com.itx.attendance.dto.response.LeaveBalanceDto;
 import com.itx.attendance.dto.response.LeaveRequestDto;
+import com.itx.attendance.dto.response.OtRequestDto;
 import com.itx.attendance.dto.response.RequestSummaryDto;
 import com.itx.attendance.service.CurrentUserService;
 import com.itx.attendance.service.RequestService;
@@ -102,6 +104,14 @@ public class RequestController {
             @Valid @RequestBody LeaveRequestCreateDto request) {
         log.info("Leave request submission: type={}, start={}, end={}", request.leaveType(), request.startDate(), request.endDate());
         return ResponseEntity.status(HttpStatus.CREATED).body(requestService.submitLeaveRequest(request));
+    }
+
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    @PostMapping("/ot")
+    public ResponseEntity<OtRequestDto> submitOtRequest(
+            @Valid @RequestBody OtRequestCreateDto request) {
+        log.info("OT request submission: date={}, hours={}", request.plannedDate(), request.plannedOtHours());
+        return ResponseEntity.status(HttpStatus.CREATED).body(requestService.submitOtRequest(request));
     }
 
     @PreAuthorize("hasRole('EMPLOYEE')")

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { requestService } from '../../services/requestService';
 import { SkeletonCard } from '../../components/common/SkeletonCard';
 import { LeaveRequestModal } from '../../components/employee/LeaveRequestModal';
+import { OtRequestModal } from '../../components/employee/OtRequestModal';
 import type { LeaveBalanceDto, LeaveType, RequestSummaryDto, RequestStatus } from '../../types/api';
 
 const REQUEST_TYPE_LABEL: Record<string, string> = {
@@ -92,6 +93,7 @@ function RequestCard({ req }: { req: RequestSummaryDto }) {
   const status = STATUS_CONFIG[req.status];
   const isAdjustment = req.requestCategory === 'ADJUSTMENT';
   const isLeave = req.requestCategory === 'LEAVE';
+  const isOt = req.requestCategory === 'OT';
 
   return (
     <div className="bg-base-100 rounded-xl border border-base-200 shadow-sm p-4 space-y-2">
@@ -111,6 +113,20 @@ function RequestCard({ req }: { req: RequestSummaryDto }) {
                   {req.leaveType ? LEAVE_TYPE_LABEL[req.leaveType] : '—'}
                   {req.totalDays != null && ` · ${req.totalDays} ngày`}
                 </span>
+              </div>
+            </>
+          ) : isOt ? (
+            <>
+              <p className="text-sm font-semibold text-neutral">
+                {req.plannedDate ? formatDate(req.plannedDate) : '—'}
+              </p>
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                  OT
+                </span>
+                {req.plannedOtHours != null && (
+                  <span className="text-xs text-slate-500">{req.plannedOtHours} giờ</span>
+                )}
               </div>
             </>
           ) : (
@@ -157,6 +173,7 @@ function RequestCard({ req }: { req: RequestSummaryDto }) {
 export const EmployeeRequestsPage: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<'ALL' | RequestStatus>('ALL');
   const [leaveModalOpen, setLeaveModalOpen] = useState(false);
+  const [otModalOpen, setOtModalOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useQuery({
@@ -178,12 +195,20 @@ export const EmployeeRequestsPage: React.FC = () => {
     <main className="p-4 space-y-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-neutral">Yêu cầu của tôi</h1>
-        <button
-          onClick={() => setLeaveModalOpen(true)}
-          className="shrink-0 min-h-[48px] px-4 bg-primary text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
-        >
-          Xin nghỉ phép
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setOtModalOpen(true)}
+            className="shrink-0 min-h-[48px] px-4 bg-base-200 text-neutral rounded-xl text-sm font-medium hover:bg-base-300 transition-colors"
+          >
+            Xin OT
+          </button>
+          <button
+            onClick={() => setLeaveModalOpen(true)}
+            className="shrink-0 min-h-[48px] px-4 bg-primary text-white rounded-xl text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            Xin nghỉ phép
+          </button>
+        </div>
       </div>
 
       {/* Leave balance cards */}
@@ -260,6 +285,14 @@ export const EmployeeRequestsPage: React.FC = () => {
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['myRequests'] });
           queryClient.invalidateQueries({ queryKey: ['leaveBalance'] });
+        }}
+      />
+
+      <OtRequestModal
+        isOpen={otModalOpen}
+        onClose={() => setOtModalOpen(false)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['myRequests'] });
         }}
       />
     </main>

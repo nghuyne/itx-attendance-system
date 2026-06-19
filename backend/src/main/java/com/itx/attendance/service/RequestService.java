@@ -4,10 +4,12 @@ import com.itx.attendance.domain.*;
 import com.itx.attendance.dto.request.AdjustmentRequestCreateDto;
 import com.itx.attendance.dto.request.ExceptionRequestCreateDto;
 import com.itx.attendance.dto.request.LeaveRequestCreateDto;
+import com.itx.attendance.dto.request.OtRequestCreateDto;
 import com.itx.attendance.dto.response.AdjustmentRequestDto;
 import com.itx.attendance.dto.response.ExceptionRequestDto;
 import com.itx.attendance.dto.response.LeaveBalanceDto;
 import com.itx.attendance.dto.response.LeaveRequestDto;
+import com.itx.attendance.dto.response.OtRequestDto;
 import com.itx.attendance.dto.response.RequestSummaryDto;
 import com.itx.attendance.exception.BusinessException;
 import com.itx.attendance.repository.AdjustmentRequestRepository;
@@ -15,6 +17,7 @@ import com.itx.attendance.repository.AttendanceRecordRepository;
 import com.itx.attendance.repository.ExceptionRequestRepository;
 import com.itx.attendance.repository.LeaveBalanceRepository;
 import com.itx.attendance.repository.LeaveRequestRepository;
+import com.itx.attendance.repository.OtRequestRepository;
 import com.itx.attendance.repository.UserRepository;
 import com.itx.attendance.security.SecurityUtil;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +31,7 @@ import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 
 import com.itx.attendance.util.TimeUtil;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -47,6 +51,7 @@ public class RequestService {
     private final AdjustmentRequestRepository adjustmentRequestRepository;
     private final LeaveRequestRepository leaveRequestRepository;
     private final LeaveBalanceRepository leaveBalanceRepository;
+    private final OtRequestRepository otRequestRepository;
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
@@ -252,6 +257,10 @@ public class RequestService {
         if (adjOpt.isPresent()) {
             return approveAdjustmentRequest(adjOpt.get(), reviewer);
         }
+        Optional<OtRequest> otOpt = otRequestRepository.findByIdForUpdate(requestId);
+        if (otOpt.isPresent()) {
+            return approveOtRequest(otOpt.get(), reviewer);
+        }
         try {
             Long leaveId = Long.parseLong(requestId);
             Optional<LeaveRequest> leaveOpt = leaveRequestRepository.findByIdForUpdate(leaveId);
@@ -276,6 +285,10 @@ public class RequestService {
         if (adjOpt.isPresent()) {
             return rejectAdjustmentRequest(adjOpt.get(), reason, reviewer);
         }
+        Optional<OtRequest> otOpt = otRequestRepository.findByIdForUpdate(requestId);
+        if (otOpt.isPresent()) {
+            return rejectOtRequest(otOpt.get(), reason, reviewer);
+        }
         try {
             Long leaveId = Long.parseLong(requestId);
             Optional<LeaveRequest> leaveOpt = leaveRequestRepository.findByIdForUpdate(leaveId);
@@ -290,11 +303,13 @@ public class RequestService {
         List<ExceptionRequest> exceptions = exceptionRequestRepository.findByEmployeeId(employee.getId());
         List<AdjustmentRequest> adjustments = adjustmentRequestRepository.findByEmployeeId(employee.getId());
         List<LeaveRequest> leaves = leaveRequestRepository.findByEmployeeId(employee.getId());
+        List<OtRequest> otRequests = otRequestRepository.findByEmployeeId(employee.getId());
 
         List<RequestSummaryDto> result = new ArrayList<>();
         exceptions.forEach(e -> result.add(toRequestSummaryDto(e)));
         adjustments.forEach(a -> result.add(toRequestSummaryDto(a)));
         leaves.forEach(l -> result.add(toRequestSummaryDto(l)));
+        otRequests.forEach(o -> result.add(toRequestSummaryDto(o)));
         result.sort(Comparator.comparing(RequestSummaryDto::createdAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed());
         return result;
     }
@@ -303,11 +318,13 @@ public class RequestService {
         List<ExceptionRequest> exceptions;
         List<AdjustmentRequest> adjustments;
         List<LeaveRequest> leaves;
+        List<OtRequest> otRequests;
 
         if (currentUser.getRole() == UserRole.ADMIN) {
             exceptions = exceptionRequestRepository.findByStatus(RequestStatus.PENDING);
             adjustments = adjustmentRequestRepository.findByStatus(RequestStatus.PENDING);
             leaves = leaveRequestRepository.findByStatus(RequestStatus.PENDING);
+            otRequests = otRequestRepository.findByStatus(RequestStatus.PENDING);
         } else {
             List<String> employeeIds = userRepository.findByLeaderId(currentUser.getId())
                 .stream().map(User::getId).toList();
@@ -317,12 +334,14 @@ public class RequestService {
             exceptions = exceptionRequestRepository.findByEmployeeIdInAndStatus(employeeIds, RequestStatus.PENDING);
             adjustments = adjustmentRequestRepository.findByEmployeeIdInAndStatus(employeeIds, RequestStatus.PENDING);
             leaves = leaveRequestRepository.findByEmployeeIdInAndStatus(employeeIds, RequestStatus.PENDING);
+            otRequests = otRequestRepository.findByEmployeeIdInAndStatus(employeeIds, RequestStatus.PENDING);
         }
 
         List<RequestSummaryDto> result = new ArrayList<>();
         exceptions.forEach(e -> result.add(toRequestSummaryDto(e)));
         adjustments.forEach(a -> result.add(toRequestSummaryDto(a)));
         leaves.forEach(l -> result.add(toRequestSummaryDto(l)));
+        otRequests.forEach(o -> result.add(toRequestSummaryDto(o)));
         result.sort(Comparator.comparing(RequestSummaryDto::createdAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed());
         return result;
     }
@@ -445,11 +464,13 @@ public class RequestService {
         List<ExceptionRequest> exceptions;
         List<AdjustmentRequest> adjustments;
         List<LeaveRequest> leaves;
+        List<OtRequest> otRequests;
 
         if (currentUser.getRole() == UserRole.ADMIN) {
             exceptions = exceptionRequestRepository.findByStatus(status);
             adjustments = adjustmentRequestRepository.findByStatus(status);
             leaves = leaveRequestRepository.findByStatus(status);
+            otRequests = otRequestRepository.findByStatus(status);
         } else {
             List<String> employeeIds = userRepository.findByLeaderId(currentUser.getId())
                 .stream().map(User::getId).toList();
@@ -457,12 +478,14 @@ public class RequestService {
             exceptions = exceptionRequestRepository.findByEmployeeIdInAndStatus(employeeIds, status);
             adjustments = adjustmentRequestRepository.findByEmployeeIdInAndStatus(employeeIds, status);
             leaves = leaveRequestRepository.findByEmployeeIdInAndStatus(employeeIds, status);
+            otRequests = otRequestRepository.findByEmployeeIdInAndStatus(employeeIds, status);
         }
 
         List<RequestSummaryDto> result = new ArrayList<>();
         exceptions.forEach(e -> result.add(toRequestSummaryDto(e)));
         adjustments.forEach(a -> result.add(toRequestSummaryDto(a)));
         leaves.forEach(l -> result.add(toRequestSummaryDto(l)));
+        otRequests.forEach(o -> result.add(toRequestSummaryDto(o)));
         result.sort(Comparator.comparing(RequestSummaryDto::createdAt, Comparator.nullsLast(Comparator.naturalOrder())).reversed());
         return result;
     }
@@ -634,6 +657,86 @@ public class RequestService {
             .build();
     }
 
+    public OtRequestDto submitOtRequest(OtRequestCreateDto dto) {
+        String username = SecurityUtil.getCurrentUsername();
+        if (username == null) {
+            throw new BusinessException("Security context not found", HttpStatus.UNAUTHORIZED, "SECURITY_CONTEXT_MISSING");
+        }
+        User employee = userRepository.findByUsername(username)
+            .orElseThrow(() -> new BusinessException("Employee not found", HttpStatus.NOT_FOUND, "EMPLOYEE_NOT_FOUND"));
+
+        if (dto.plannedDate().isBefore(LocalDate.now(TimeUtil.UTC_PLUS_7))) {
+            throw new BusinessException("Ngày OT không được là ngày trong quá khứ",
+                HttpStatus.BAD_REQUEST, "INVALID_DATE");
+        }
+        if (dto.plannedOtHours().compareTo(BigDecimal.valueOf(0.5)) < 0
+                || dto.plannedOtHours().compareTo(BigDecimal.valueOf(8.0)) > 0) {
+            throw new BusinessException("Số giờ OT phải trong khoảng 0.5–8.0",
+                HttpStatus.BAD_REQUEST, "INVALID_OT_HOURS");
+        }
+        if (otRequestRepository.existsByEmployeeIdAndPlannedDateAndStatus(
+                employee.getId(), dto.plannedDate(), RequestStatus.PENDING)) {
+            throw new BusinessException("Đã có yêu cầu OT PENDING cho ngày này",
+                HttpStatus.CONFLICT, "DUPLICATE_OT_REQUEST");
+        }
+
+        OtRequest saved;
+        try {
+            saved = otRequestRepository.save(OtRequest.builder()
+                .employee(employee)
+                .plannedDate(dto.plannedDate())
+                .plannedOtHours(dto.plannedOtHours())
+                .reason(dto.reason())
+                .status(RequestStatus.PENDING)
+                .build());
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException("Đã có yêu cầu OT PENDING cho ngày này",
+                HttpStatus.CONFLICT, "DUPLICATE_OT_REQUEST");
+        }
+
+        notificationService.sendOtRequestNotification(saved);
+
+        log.info("OT request created: id={}, employee={}, date={}, hours={}",
+            saved.getId(), employee.getId(), dto.plannedDate(), dto.plannedOtHours());
+
+        return toOtRequestDto(saved);
+    }
+
+    private RequestSummaryDto approveOtRequest(OtRequest request, User reviewer) {
+        if (request.getStatus() != RequestStatus.PENDING) {
+            throw new BusinessException("Request is not pending", HttpStatus.BAD_REQUEST, "REQUEST_NOT_PENDING");
+        }
+        checkLeaderAuthorization(reviewer, request.getEmployee());
+
+        request.setStatus(RequestStatus.APPROVED);
+        request.setApprover(reviewer);
+        otRequestRepository.save(request);
+
+        notificationService.sendRequestApprovedNotification(
+            request.getEmployee(), request.getId(), "OT");
+
+        log.info("OT request approved: id={}, reviewer={}", request.getId(), reviewer.getId());
+        return toRequestSummaryDto(request);
+    }
+
+    private RequestSummaryDto rejectOtRequest(OtRequest request, String reason, User reviewer) {
+        if (request.getStatus() != RequestStatus.PENDING) {
+            throw new BusinessException("Request is not pending", HttpStatus.BAD_REQUEST, "REQUEST_NOT_PENDING");
+        }
+        checkLeaderAuthorization(reviewer, request.getEmployee());
+
+        request.setStatus(RequestStatus.REJECTED);
+        request.setApprover(reviewer);
+        request.setRejectionReason(reason);
+        otRequestRepository.save(request);
+
+        notificationService.sendRequestRejectedNotification(
+            request.getEmployee(), request.getId(), "OT", reason);
+
+        log.info("OT request rejected: id={}, reviewer={}", request.getId(), reviewer.getId());
+        return toRequestSummaryDto(request);
+    }
+
     private RequestSummaryDto toRequestSummaryDto(ExceptionRequest request) {
         AttendanceRecord record = request.getAttendanceRecord();
         return RequestSummaryDto.builder()
@@ -657,6 +760,8 @@ public class RequestService {
             .startDate(null)
             .endDate(null)
             .totalDays(null)
+            .plannedDate(null)
+            .plannedOtHours(null)
             .build();
     }
 
@@ -683,6 +788,8 @@ public class RequestService {
             .startDate(null)
             .endDate(null)
             .totalDays(null)
+            .plannedDate(null)
+            .plannedOtHours(null)
             .build();
     }
 
@@ -708,6 +815,51 @@ public class RequestService {
             .startDate(request.getStartDate())
             .endDate(request.getEndDate())
             .totalDays(request.getTotalDays())
+            .plannedDate(null)
+            .plannedOtHours(null)
+            .build();
+    }
+
+    private RequestSummaryDto toRequestSummaryDto(OtRequest request) {
+        return RequestSummaryDto.builder()
+            .id(request.getId())
+            .requestCategory("OT")
+            .employeeId(request.getEmployee().getId())
+            .employeeName(request.getEmployee().getFullName())
+            .attendanceRecordId(null)
+            .attendanceDate(null)
+            .requestType(null)
+            .proposedCheckoutTime(null)
+            .checkInTime(null)
+            .checkOutTime(null)
+            .reason(request.getReason())
+            .status(request.getStatus())
+            .reviewedBy(request.getApprover() != null ? request.getApprover().getId() : null)
+            .reviewReason(request.getRejectionReason())
+            .createdAt(request.getCreatedAt())
+            .updatedAt(request.getUpdatedAt())
+            .leaveType(null)
+            .startDate(null)
+            .endDate(null)
+            .totalDays(null)
+            .plannedDate(request.getPlannedDate())
+            .plannedOtHours(request.getPlannedOtHours())
+            .build();
+    }
+
+    private OtRequestDto toOtRequestDto(OtRequest request) {
+        return OtRequestDto.builder()
+            .id(request.getId())
+            .employeeId(request.getEmployee().getId())
+            .employeeName(request.getEmployee().getFullName())
+            .plannedDate(request.getPlannedDate())
+            .plannedOtHours(request.getPlannedOtHours())
+            .reason(request.getReason())
+            .status(request.getStatus())
+            .approverId(request.getApprover() != null ? request.getApprover().getId() : null)
+            .rejectionReason(request.getRejectionReason())
+            .createdAt(request.getCreatedAt())
+            .updatedAt(request.getUpdatedAt())
             .build();
     }
 
