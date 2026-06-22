@@ -358,3 +358,26 @@ export interface AuditLogDto {
   reason: string;
   createdAt: string; // ISO datetime string (UTC)
 }
+
+// Department DTOs — Story 9.1
+export interface DepartmentDto {
+  id: number;
+  name: string;
+  description: string | null;
+  employeeCount: number;
+}
+
+export interface CreateDepartmentRequest {
+  name: string;
+  description?: string;
+}
+
+export interface EmployeeWithDeptDto {
+  id: string;
+  fullName: string;
+  username: string;
+  shiftId: string | null;
+  shiftName: string | null;
+  departmentId: number | null;
+  departmentName: string | null;
+}

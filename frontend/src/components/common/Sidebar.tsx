@@ -24,6 +24,7 @@ const ADMIN_LINKS: SidebarLink[] = [
   { to: '/admin/attendance', label: 'Chấm công', icon: '📋' },
   { to: '/admin/requests', label: 'Yêu cầu', icon: '📝' },
   { to: '/admin/audit', label: 'Audit Logs', icon: '🔍' },
+  { to: '/admin/departments', label: 'Phòng ban', icon: '🏢' },
 ];
 
 interface SidebarProps {

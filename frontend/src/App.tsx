@@ -20,6 +20,7 @@ import { AdminAttendancePage } from './pages/Admin/AttendancePage';
 import { AdminRequestsPage } from './pages/Admin/RequestsPage';
 import { AuditPage } from './pages/Admin/AuditPage';
 import { OfficeLocationsPage } from './pages/Admin/OfficeLocationsPage';
+import { DepartmentsPage } from './pages/Admin/DepartmentsPage';
 import { ForceChangePasswordPage } from './pages/ForceChangePasswordPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
@@ -89,6 +90,7 @@ function App() {
               <Route path="/admin/requests" element={<AdminRequestsPage />} />
               <Route path="/admin/audit" element={<AuditPage />} />
               <Route path="/admin/office-locations" element={<OfficeLocationsPage />} />
+              <Route path="/admin/departments" element={<DepartmentsPage />} />
             </Route>
           </Route>
 

@@ -55,6 +55,10 @@ public class User {
     @JoinColumn(name = "shift_id", nullable = true)
     private Shift shift;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "department_id", nullable = true)
+    private Department department;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

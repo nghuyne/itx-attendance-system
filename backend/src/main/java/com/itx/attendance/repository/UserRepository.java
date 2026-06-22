@@ -25,5 +25,9 @@ public interface UserRepository extends JpaRepository<User, String> {
 
     long countByShiftId(String shiftId);
 
+    long countByDepartmentId(Long departmentId);
+
+    List<User> findByDepartmentId(Long departmentId);
+
     List<User> findByRoleAndActiveTrueAndShiftIsNotNull(UserRole role);
 }
