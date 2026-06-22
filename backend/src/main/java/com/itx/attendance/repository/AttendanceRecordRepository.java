@@ -50,4 +50,10 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
         LocalDate date, AttendanceStatus excludedStatus);
 
     boolean existsByEmployeeIdAndDateAndCheckInTimeIsNotNull(String employeeId, LocalDate date);
+
+    Page<AttendanceRecord> findByDateBetweenAndAttendanceStatusIn(
+        LocalDate from, LocalDate to, List<AttendanceStatus> statuses, Pageable pageable);
+
+    Page<AttendanceRecord> findByEmployeeIdAndDateBetweenAndAttendanceStatusIn(
+        String employeeId, LocalDate from, LocalDate to, List<AttendanceStatus> statuses, Pageable pageable);
 }

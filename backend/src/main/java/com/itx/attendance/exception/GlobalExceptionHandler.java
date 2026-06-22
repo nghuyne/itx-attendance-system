@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
@@ -72,6 +73,20 @@ public class GlobalExceptionHandler {
                 .status(400)
                 .error("INVALID_DATE_FORMAT")
                 .message("Invalid date format. Expected: YYYY-MM-DD")
+                .path(request.getRequestURI())
+                .build());
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(
+            MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        log.warn("Type mismatch at {}: {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(400)
+                .error("INVALID_STATUS")
+                .message("Giá trị trạng thái không hợp lệ: " + ex.getValue())
                 .path(request.getRequestURI())
                 .build());
     }

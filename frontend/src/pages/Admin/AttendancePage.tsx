@@ -19,11 +19,22 @@ const formatVN = (isoStr: string | null): string => {
   });
 };
 
+const STATUS_OPTIONS: { value: AttendanceStatus; label: string }[] = [
+  { value: AttendanceStatus.ON_TIME, label: 'Đúng giờ' },
+  { value: AttendanceStatus.LATE_IN, label: 'Đi muộn' },
+  { value: AttendanceStatus.EARLY_OUT, label: 'Về sớm' },
+  { value: AttendanceStatus.LATE_IN_EARLY_OUT, label: 'Muộn & Sớm' },
+  { value: AttendanceStatus.HALF_DAY, label: 'Nửa ngày' },
+  { value: AttendanceStatus.ABSENT, label: 'Vắng mặt' },
+  { value: AttendanceStatus.INCOMPLETE, label: 'Thiếu checkout' },
+];
+
 export const AdminAttendancePage: React.FC = () => {
   const [from, setFrom] = useState(getToday);
   const [to, setTo] = useState(getToday);
   const [page, setPage] = useState(0);
   const [employeeId, setEmployeeId] = useState<string>('');
+  const [selectedStatuses, setSelectedStatuses] = useState<AttendanceStatus[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [overridingRecord, setOverridingRecord] = useState<AdminAttendanceRecordDto | null>(null);
   const queryClient = useQueryClient();
@@ -36,8 +47,12 @@ export const AdminAttendancePage: React.FC = () => {
   });
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['admin', 'attendance', from, to, page, employeeId],
-    queryFn: () => adminService.searchAttendance(from, to, page, 20, employeeId || undefined),
+    queryKey: ['admin', 'attendance', from, to, page, employeeId, selectedStatuses],
+    queryFn: () => adminService.searchAttendance(
+      from, to, page, 20,
+      employeeId || undefined,
+      selectedStatuses.length > 0 ? selectedStatuses : undefined
+    ),
   });
 
   const records = data?.content ?? [];
@@ -58,6 +73,18 @@ export const AdminAttendancePage: React.FC = () => {
     } finally {
       setIsExporting(false);
     }
+  };
+
+  const handleStatusToggle = (status: AttendanceStatus, checked: boolean) => {
+    setPage(0);
+    setSelectedStatuses((prev) =>
+      checked ? [...prev, status] : prev.filter((s) => s !== status)
+    );
+  };
+
+  const handleClearStatuses = () => {
+    setPage(0);
+    setSelectedStatuses([]);
   };
 
   return (
@@ -125,7 +152,50 @@ export const AdminAttendancePage: React.FC = () => {
             ))}
           </select>
         </div>
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Trạng thái</label>
+          <div className="flex flex-wrap gap-2">
+            {STATUS_OPTIONS.map((opt) => (
+              <label key={opt.value} className="flex items-center gap-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selectedStatuses.includes(opt.value)}
+                  onChange={(e) => handleStatusToggle(opt.value, e.target.checked)}
+                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-600"
+                />
+                <span className="text-sm text-slate-700">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
       </div>
+
+      {selectedStatuses.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <span className="text-xs text-slate-500">Bộ lọc:</span>
+          {selectedStatuses.map((s) => (
+            <span
+              key={s}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800"
+            >
+              {ATTENDANCE_STATUS_LABEL[s]}
+              <button
+                onClick={() => handleStatusToggle(s, false)}
+                aria-label={`Xóa bộ lọc ${ATTENDANCE_STATUS_LABEL[s]}`}
+                className="ml-0.5 hover:text-emerald-600"
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <button
+            onClick={handleClearStatuses}
+            className="text-xs text-slate-500 hover:text-slate-700 underline"
+          >
+            Xóa bộ lọc
+          </button>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="space-y-3">
@@ -137,11 +207,30 @@ export const AdminAttendancePage: React.FC = () => {
         </div>
       ) : records.length === 0 ? (
         <div className="text-center py-12 text-slate-500">
-          <p className="text-lg">Không có bản ghi nào</p>
-          <p className="text-sm mt-1">Thử chọn khoảng thời gian khác</p>
+          {selectedStatuses.length > 0 ? (
+            <>
+              <p className="text-lg">Không có bản ghi nào phù hợp với bộ lọc đã chọn</p>
+              <button
+                onClick={handleClearStatuses}
+                className="mt-3 text-sm text-emerald-600 hover:text-emerald-700 underline"
+              >
+                Xóa bộ lọc
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-lg">Không có bản ghi nào</p>
+              <p className="text-sm mt-1">Thử chọn khoảng thời gian khác</p>
+            </>
+          )}
         </div>
       ) : (
         <>
+          {selectedStatuses.length > 0 && data && (
+            <p className="text-sm text-slate-500 mb-2">
+              Đang hiển thị {data.totalElements} bản ghi phù hợp với bộ lọc
+            </p>
+          )}
           <div className="overflow-x-auto rounded-lg border border-slate-200">
             <table className="w-full text-sm">
               <thead className="bg-slate-50">

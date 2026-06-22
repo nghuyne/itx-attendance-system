@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -108,14 +109,23 @@ public class AdminOverrideService {
     }
 
     public Page<AdminAttendanceRecordDto> searchAttendance(
-            LocalDate from, LocalDate to, String employeeId, Pageable pageable) {
+            LocalDate from, LocalDate to, String employeeId,
+            List<AttendanceStatus> statuses, Pageable pageable) {
         if (from.isAfter(to)) {
             throw new BusinessException(
                 "Ngày bắt đầu phải trước hoặc bằng ngày kết thúc", HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE");
         }
+        boolean hasEmployee = employeeId != null && !employeeId.isBlank();
+        boolean hasStatusFilter = statuses != null && !statuses.isEmpty();
+
         Page<AttendanceRecord> records;
-        if (employeeId != null && !employeeId.isBlank()) {
+        if (hasEmployee && hasStatusFilter) {
+            records = attendanceRecordRepository
+                .findByEmployeeIdAndDateBetweenAndAttendanceStatusIn(employeeId, from, to, statuses, pageable);
+        } else if (hasEmployee) {
             records = attendanceRecordRepository.findByEmployeeIdAndDateBetween(employeeId, from, to, pageable);
+        } else if (hasStatusFilter) {
+            records = attendanceRecordRepository.findByDateBetweenAndAttendanceStatusIn(from, to, statuses, pageable);
         } else {
             records = attendanceRecordRepository.findByDateBetween(from, to, pageable);
         }

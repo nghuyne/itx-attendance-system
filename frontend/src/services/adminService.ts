@@ -7,6 +7,7 @@ import type {
   EmployeeDto,
   PageResponse,
 } from '../types/api';
+import type { AttendanceStatus } from '../types/domain';
 
 export const adminService = {
   overrideAttendance: (id: string, request: AttendanceOverrideRequest): Promise<AttendanceRecordDto> =>
@@ -17,11 +18,20 @@ export const adminService = {
     to: string,
     page = 0,
     size = 20,
-    employeeId?: string
-  ): Promise<PageResponse<AdminAttendanceRecordDto>> =>
-    api.get<PageResponse<AdminAttendanceRecordDto>>('/admin/attendance', {
-      params: { from, to, page, size, ...(employeeId ? { employeeId } : {}) },
-    }).then(r => r.data),
+    employeeId?: string,
+    statuses?: AttendanceStatus[]
+  ): Promise<PageResponse<AdminAttendanceRecordDto>> => {
+    const params = new URLSearchParams();
+    params.set('from', from);
+    params.set('to', to);
+    params.set('page', String(page));
+    params.set('size', String(size));
+    if (employeeId) params.set('employeeId', employeeId);
+    if (statuses && statuses.length > 0) {
+      statuses.forEach((s) => params.append('status', s));
+    }
+    return api.get<PageResponse<AdminAttendanceRecordDto>>('/admin/attendance', { params }).then(r => r.data);
+  },
 
   getAuditLogs: (
     from: string,

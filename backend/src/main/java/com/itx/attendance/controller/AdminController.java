@@ -1,5 +1,6 @@
 package com.itx.attendance.controller;
 
+import com.itx.attendance.domain.AttendanceStatus;
 import com.itx.attendance.dto.request.AssignDepartmentShiftRequest;
 import com.itx.attendance.dto.request.AssignEmployeeDepartmentRequest;
 import com.itx.attendance.dto.request.AttendanceOverrideRequest;
@@ -165,10 +166,11 @@ public class AdminController {
             @RequestParam LocalDate from,
             @RequestParam LocalDate to,
             @RequestParam(required = false) String employeeId,
+            @RequestParam(required = false) List<AttendanceStatus> status,
             @RequestParam(defaultValue = "0") @Min(0) int page,
             @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
         return ResponseEntity.ok(
-            adminOverrideService.searchAttendance(from, to, employeeId, PageRequest.of(page, size)));
+            adminOverrideService.searchAttendance(from, to, employeeId, status, PageRequest.of(page, size)));
     }
 
     @GetMapping("/attendance/export")
@@ -276,7 +278,7 @@ public class AdminController {
     @PutMapping("/employees/{userId}/department")
     public ResponseEntity<EmployeeWithDeptDto> assignEmployeeDepartment(
             @PathVariable String userId,
-            @RequestBody AssignEmployeeDepartmentRequest request) {
+            @Valid @RequestBody AssignEmployeeDepartmentRequest request) {
         return ResponseEntity.ok(departmentService.assignEmployeeDepartment(userId, request));
     }
 }
