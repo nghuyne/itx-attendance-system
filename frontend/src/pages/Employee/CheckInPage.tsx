@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Capacitor } from '@capacitor/core';
 import { attendanceService } from '../../services/attendanceService';
+import { wifiService } from '../../services/wifiService';
 import { ATTENDANCE_STATUS_COLORS, ATTENDANCE_STATUS_LABEL } from '../../types/domain';
 import { SkeletonCard } from '../../components/common/SkeletonCard';
 import { CameraViewfinder } from '../../components/employee/CameraViewfinder';
@@ -23,6 +25,8 @@ export const CheckInPage: React.FC = () => {
     lng: null,
   });
   const [isClientSite, setIsClientSite] = useState(false);
+  const [bssid, setBssid] = useState<string | null>(null);
+  const [isAndroid, setIsAndroid] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -37,6 +41,14 @@ export const CheckInPage: React.FC = () => {
       () => setCoords({ lat: null, lng: null }),
       { timeout: 10_000, enableHighAccuracy: true }
     );
+  }, []);
+
+  useEffect(() => {
+    const isAndroidPlatform = Capacitor.getPlatform() === 'android';
+    setIsAndroid(isAndroidPlatform);
+    if (isAndroidPlatform) {
+      wifiService.getBssid().then(setBssid);
+    }
   }, []);
 
   const handlePhotoCapture = (base64: string) => {
@@ -58,6 +70,7 @@ export const CheckInPage: React.FC = () => {
         lng: coords.lng,
         photoBase64,
         isClientSite,
+        bssid,
       });
       await queryClient.invalidateQueries({ queryKey: ['attendance', 'today'] });
       showToast({ type: 'success', message: 'Check-in thành công!' });
@@ -67,6 +80,7 @@ export const CheckInPage: React.FC = () => {
       const message =
         errorCode === 'NO_SHIFT_ASSIGNED' ? 'Bạn chưa được gán ca làm việc. Liên hệ HR để cập nhật.' :
         errorCode === 'GPS_REQUIRED' ? 'GPS bắt buộc khi chấm công ngoài văn phòng.' :
+        errorCode === 'INVALID_MAC' ? 'Mạng Wi-Fi không hợp lệ. Vui lòng kết nối vào Wi-Fi văn phòng.' :
         errorCode === 'INVALID_IP' ? (errorData?.message || 'Không nhận diện được mạng văn phòng. Kiểm tra kết nối.') :
         errorCode === 'OUT_OF_OFFICE_RADIUS' ? (errorData?.message || 'Vị trí của bạn không nằm trong phạm vi văn phòng.') :
         errorCode === 'ALREADY_CHECKED_IN' ? 'Bạn đã chấm công rồi hôm nay.' :
@@ -216,6 +230,19 @@ export const CheckInPage: React.FC = () => {
           <p className="text-xs text-amber-500 mb-2">GPS không khả dụng — check-in văn phòng vẫn được phép</p>
         )}
       </div>
+
+      {isAndroid && (
+        <div className={`mx-4 mb-3 px-3 py-2 rounded-lg text-xs font-medium ${
+          bssid
+            ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+            : 'bg-amber-50 border border-amber-200 text-amber-700'
+        }`}>
+          {bssid
+            ? `Wi-Fi văn phòng: ${bssid}`
+            : 'Không đọc được BSSID — sẽ dùng IP để xác thực'
+          }
+        </div>
+      )}
 
       <div className="px-4 mb-3">
         <ClientSiteModeToggle

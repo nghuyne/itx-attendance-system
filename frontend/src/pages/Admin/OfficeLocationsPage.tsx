@@ -11,10 +11,10 @@ import { SkeletonCard } from '../../components/common/SkeletonCard';
 
 const locationSchema = z.object({
   name: z.string().min(1, 'Vui lòng nhập tên vị trí'),
-  latitude: z.number({ invalid_type_error: 'Vĩ độ không hợp lệ' }).min(-90).max(90),
-  longitude: z.number({ invalid_type_error: 'Kinh độ không hợp lệ' }).min(-180).max(180),
+  latitude: z.number({ error: 'Vĩ độ không hợp lệ' }).min(-90).max(90),
+  longitude: z.number({ error: 'Kinh độ không hợp lệ' }).min(-180).max(180),
   radiusMeters: z
-    .number({ invalid_type_error: 'Bán kính không hợp lệ' })
+    .number({ error: 'Bán kính không hợp lệ' })
     .int()
     .min(50, 'Tối thiểu 50m')
     .max(5000, 'Tối đa 5000m'),

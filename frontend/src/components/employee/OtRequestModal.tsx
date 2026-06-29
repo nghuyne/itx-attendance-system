@@ -20,7 +20,7 @@ const schema = z.object({
     'Ngày OT phải từ hôm nay trở đi'
   ),
   plannedOtHours: z
-    .number({ invalid_type_error: 'Vui lòng nhập số giờ' })
+    .number({ error: 'Vui lòng nhập số giờ' })
     .min(0.5, 'Tối thiểu 0.5 giờ')
     .max(8, 'Tối đa 8 giờ'),
   reason: z.string().min(10, 'Lý do tối thiểu 10 ký tự'),

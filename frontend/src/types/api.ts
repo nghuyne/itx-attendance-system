@@ -146,6 +146,7 @@ export interface CheckInRequest {
   lng: number | null;
   photoBase64: string;
   isClientSite: boolean;
+  bssid?: string | null;
 }
 
 export interface CheckOutRequest {

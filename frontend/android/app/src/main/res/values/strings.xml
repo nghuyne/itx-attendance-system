@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ITX Attendance</string>
+    <string name="title_activity_main">ITX Attendance</string>
+    <string name="package_name">com.itx.attendance</string>
+    <string name="custom_url_scheme">com.itx.attendance</string>
+</resources>
