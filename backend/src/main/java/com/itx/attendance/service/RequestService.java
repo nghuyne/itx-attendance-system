@@ -674,6 +674,15 @@ public class RequestService {
             throw new BusinessException("Số giờ OT phải trong khoảng 0.5–8.0",
                 HttpStatus.BAD_REQUEST, "INVALID_OT_HOURS");
         }
+        if (dto.plannedOtHours().remainder(new BigDecimal("0.5")).compareTo(BigDecimal.ZERO) != 0) {
+            throw new BusinessException("Số giờ OT phải là bội số của 0.5",
+                HttpStatus.BAD_REQUEST, "INVALID_OT_HOURS_GRANULARITY");
+        }
+        String trimmedReason = dto.reason().trim();
+        if (trimmedReason.length() < 10) {
+            throw new BusinessException("Lý do phải có ít nhất 10 ký tự có nghĩa",
+                HttpStatus.BAD_REQUEST, "INVALID_REASON_LENGTH");
+        }
         if (otRequestRepository.existsByEmployeeIdAndPlannedDateAndStatus(
                 employee.getId(), dto.plannedDate(), RequestStatus.PENDING)) {
             throw new BusinessException("Đã có yêu cầu OT PENDING cho ngày này",
@@ -686,7 +695,7 @@ public class RequestService {
                 .employee(employee)
                 .plannedDate(dto.plannedDate())
                 .plannedOtHours(dto.plannedOtHours())
-                .reason(dto.reason())
+                .reason(trimmedReason)
                 .status(RequestStatus.PENDING)
                 .build());
         } catch (DataIntegrityViolationException e) {

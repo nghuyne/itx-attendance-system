@@ -20,7 +20,7 @@ public class ValidMacService {
 
     @Transactional(readOnly = true)
     public List<ValidMacDto> getAll() {
-        return validMacRepository.findByActiveTrue().stream()
+        return validMacRepository.findByActiveTrueOrderByCreatedAtDesc().stream()
             .map(this::toDto)
             .toList();
     }
@@ -29,30 +29,38 @@ public class ValidMacService {
     public ValidMacDto add(CreateValidMacRequest request, String adminUsername) {
         String normalizedBssid = request.bssid().strip().toUpperCase();
 
-        if (validMacRepository.existsByBssidAndActiveTrue(normalizedBssid)) {
-            throw new BusinessException(
-                "BSSID này đã tồn tại trong danh sách",
-                HttpStatus.CONFLICT, "DUPLICATE_MAC");
-        }
-
-        ValidMac mac = ValidMac.builder()
-            .bssid(normalizedBssid)
-            .description(request.description())
-            .createdBy(adminUsername)
-            .build();
-
-        try {
-            return toDto(validMacRepository.save(mac));
-        } catch (DataIntegrityViolationException e) {
-            throw new BusinessException(
-                "BSSID này đã tồn tại (duplicate)",
-                HttpStatus.CONFLICT, "DUPLICATE_MAC");
-        }
+        return validMacRepository.findByBssid(normalizedBssid)
+            .map(existing -> {
+                if (existing.isActive()) {
+                    throw new BusinessException(
+                        "BSSID này đã tồn tại trong danh sách",
+                        HttpStatus.CONFLICT, "DUPLICATE_MAC");
+                }
+                existing.setActive(true);
+                existing.setDescription(request.description());
+                existing.setCreatedBy(adminUsername);
+                return toDto(validMacRepository.save(existing));
+            })
+            .orElseGet(() -> {
+                ValidMac mac = ValidMac.builder()
+                    .bssid(normalizedBssid)
+                    .description(request.description())
+                    .createdBy(adminUsername)
+                    .build();
+                try {
+                    return toDto(validMacRepository.saveAndFlush(mac));
+                } catch (DataIntegrityViolationException e) {
+                    throw new BusinessException(
+                        "BSSID này đã tồn tại trong danh sách",
+                        HttpStatus.CONFLICT, "DUPLICATE_MAC");
+                }
+            });
     }
 
     @Transactional
     public void delete(Long id) {
         ValidMac mac = validMacRepository.findById(id)
+            .filter(ValidMac::isActive)
             .orElseThrow(() -> new BusinessException(
                 "MAC không tồn tại", HttpStatus.NOT_FOUND, "MAC_NOT_FOUND"));
         mac.setActive(false);

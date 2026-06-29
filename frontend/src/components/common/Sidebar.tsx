@@ -19,6 +19,7 @@ const LEADER_LINKS: SidebarLink[] = [
 const ADMIN_LINKS: SidebarLink[] = [
   { to: '/admin/shifts', label: 'Ca làm việc', icon: '🕐' },
   { to: '/admin/ips', label: 'Quản lý IP', icon: '🌐' },
+  { to: '/admin/macs', label: 'Quản lý MAC', icon: '📡' },
   { to: '/admin/office-locations', label: 'Vị trí VP', icon: '📍' },
   { to: '/admin/holidays', label: 'Ngày lễ', icon: '📅' },
   { to: '/admin/attendance', label: 'Chấm công', icon: '📋' },

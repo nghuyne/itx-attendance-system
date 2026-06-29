@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { NotificationDto, NotificationType } from '../../types/api';
 
-const TYPE_ICONS: Record<NotificationType, string> = {
+const TYPE_ICONS: Partial<Record<NotificationType, string>> = {
   EXCEPTION_REQUEST: '⚠️',
   ADJUSTMENT_REQUEST: '📝',
   REQUEST_APPROVED: '✅',
@@ -19,8 +19,8 @@ const getItemBorderClass = (type: NotificationType, isRead: boolean): string => 
   return 'border-l-4 border-l-primary';
 };
 
-const getItemBgClass = (type: NotificationType, isRead: boolean): string => {
-  if (!isRead && type === 'SUSPICIOUS_LOCATION') return 'bg-amber-50';
+const getItemBgClass = (type: NotificationType): string => {
+  if (type === 'SUSPICIOUS_LOCATION') return 'bg-amber-50';
   return '';
 };
 
@@ -105,9 +105,9 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
                 <li
                   key={n.id}
                   onClick={() => handleNotificationClick(n)}
-                  className={`px-4 py-3 border-b border-neutral-100 cursor-pointer hover:bg-neutral-50 flex gap-3 ${getItemBorderClass(n.type, n.isRead)} ${getItemBgClass(n.type, n.isRead)}`}
+                  className={`px-4 py-3 border-b border-neutral-100 cursor-pointer hover:bg-neutral-50 flex gap-3 ${getItemBorderClass(n.type, n.isRead)} ${getItemBgClass(n.type)}`}
                 >
-                  <span className="text-lg flex-shrink-0">{TYPE_ICONS[n.type]}</span>
+                  <span className="text-lg flex-shrink-0">{TYPE_ICONS[n.type] ?? '🔔'}</span>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-neutral-800 line-clamp-3">{n.message}</p>
                     <p className="text-xs text-neutral-500 mt-1">

@@ -93,7 +93,7 @@ public class AttendanceService {
         String clientIp = extractClientIp(httpRequest);
 
         if (ipCheckEnabled && !request.isClientSite()) {
-            if (request.bssid() != null) {
+            if (request.bssid() != null && !request.bssid().isBlank()) {
                 if (!validMacRepository.existsByBssidAndActiveTrue(request.bssid().strip().toUpperCase())) {
                     throw new BusinessException(
                         "Không nhận diện được mạng Wi-Fi văn phòng",

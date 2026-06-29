@@ -142,7 +142,7 @@ public class AdminController {
     }
 
     @DeleteMapping("/valid-macs/{id}")
-    public ResponseEntity<Void> deleteValidMac(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteValidMac(@PathVariable @Min(1) Long id) {
         validMacService.delete(id);
         return ResponseEntity.noContent().build();
     }

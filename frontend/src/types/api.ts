@@ -382,3 +382,17 @@ export interface EmployeeWithDeptDto {
   departmentId: number | null;
   departmentName: string | null;
 }
+
+// Valid MAC DTOs — Story 10.4
+export interface ValidMacDto {
+  id: number;
+  bssid: string;
+  description: string | null;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface CreateValidMacRequest {
+  bssid: string;
+  description?: string;
+}

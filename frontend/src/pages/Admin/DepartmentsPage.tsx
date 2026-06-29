@@ -138,6 +138,7 @@ const BulkAssignModal: React.FC<BulkAssignModalProps> = ({ dept, onClose, onSucc
   });
 
   const shifts = shiftsPage?.content ?? [];
+  const hasMoreShifts = shiftsPage != null && shiftsPage.totalElements > shifts.length;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -162,14 +163,21 @@ const BulkAssignModal: React.FC<BulkAssignModalProps> = ({ dept, onClose, onSucc
               <LoadingSpinner size="sm" /> Đang tải...
             </div>
           ) : (
-            <select id="shiftSelect" value={selectedShiftId}
-              onChange={e => setSelectedShiftId(e.target.value)}
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white">
-              <option value="">-- Chọn ca --</option>
-              {shifts.map(s => (
-                <option key={s.id} value={s.id}>{s.name} ({s.startTime}–{s.endTime})</option>
-              ))}
-            </select>
+            <>
+              <select id="shiftSelect" value={selectedShiftId}
+                onChange={e => setSelectedShiftId(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white">
+                <option value="">-- Chọn ca --</option>
+                {shifts.map(s => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.startTime}–{s.endTime})</option>
+                ))}
+              </select>
+              {hasMoreShifts && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Chỉ hiển thị {shifts.length}/{shiftsPage!.totalElements} ca. Liên hệ admin để xem thêm.
+                </p>
+              )}
+            </>
           )}
         </div>
         <div className="flex justify-end gap-3">
@@ -225,17 +233,20 @@ const DeleteDeptConfirm: React.FC<DeleteDeptConfirmProps> = ({ dept, onConfirm, 
 
 interface ChangeDeptModalProps {
   employee: EmployeeWithDeptDto;
-  departments: DepartmentDto[];
   onClose: () => void;
-  onSuccess: () => void;
 }
 
-const ChangeDeptModal: React.FC<ChangeDeptModalProps> = ({ employee, departments, onClose, onSuccess }) => {
+const ChangeDeptModal: React.FC<ChangeDeptModalProps> = ({ employee, onClose }) => {
   const showToast = useUiStore(s => s.showToast);
   const queryClient = useQueryClient();
   const [selectedDeptId, setSelectedDeptId] = useState<string>(
     employee.departmentId !== null ? String(employee.departmentId) : ''
   );
+
+  const { data: departments, isLoading: isLoadingDepts, isError: isDeptError } = useQuery({
+    queryKey: ['admin', 'departments'],
+    queryFn: departmentService.getAll,
+  });
 
   const assignMutation = useMutation({
     mutationFn: () =>
@@ -247,7 +258,6 @@ const ChangeDeptModal: React.FC<ChangeDeptModalProps> = ({ employee, departments
       showToast({ type: 'success', message: 'Cập nhật phòng ban thành công' });
       queryClient.invalidateQueries({ queryKey: ['admin', 'employees-details'] });
       queryClient.invalidateQueries({ queryKey: ['admin', 'departments'] });
-      onSuccess();
       onClose();
     },
     onError: () => {
@@ -272,14 +282,22 @@ const ChangeDeptModal: React.FC<ChangeDeptModalProps> = ({ employee, departments
           <label htmlFor="deptSelect" className="block text-sm font-medium text-slate-700 mb-1">
             Phòng ban
           </label>
+          {isLoadingDepts ? (
+            <div className="flex items-center gap-2 text-sm text-slate-500 py-2">
+              <LoadingSpinner size="sm" /> Đang tải...
+            </div>
+          ) : isDeptError ? (
+            <p className="text-sm text-red-600 py-2">Không thể tải danh sách phòng ban.</p>
+          ) : (
           <select id="deptSelect" value={selectedDeptId}
             onChange={e => setSelectedDeptId(e.target.value)}
             className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white">
             <option value="">Không có phòng ban</option>
-            {departments.map(d => (
+            {(departments ?? []).map(d => (
               <option key={d.id} value={String(d.id)}>{d.name}</option>
             ))}
           </select>
+          )}
         </div>
         <div className="flex justify-end gap-3">
           <button type="button" onClick={onClose}
@@ -287,7 +305,7 @@ const ChangeDeptModal: React.FC<ChangeDeptModalProps> = ({ employee, departments
             Hủy
           </button>
           <button type="button"
-            disabled={assignMutation.isPending}
+            disabled={assignMutation.isPending || isLoadingDepts || isDeptError}
             onClick={() => assignMutation.mutate()}
             className="px-4 py-2 text-sm bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50 min-h-[48px] flex items-center gap-2">
             {assignMutation.isPending && <LoadingSpinner size="sm" />}
@@ -493,9 +511,7 @@ export const DepartmentsPage: React.FC = () => {
       {changingEmpDept && (
         <ChangeDeptModal
           employee={changingEmpDept}
-          departments={deptList}
           onClose={() => setChangingEmpDept(null)}
-          onSuccess={() => {}}
         />
       )}
     </main>

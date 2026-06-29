@@ -32,10 +32,9 @@ public class DepartmentService {
     private final ShiftRepository shiftRepository;
     private final AuditLogRepository auditLogRepository;
 
+    @Transactional(readOnly = true)
     public List<DepartmentDto> getAllDepartments() {
-        return departmentRepository.findAll().stream()
-            .map(this::toDto)
-            .toList();
+        return departmentRepository.findAllWithActiveEmployeeCount();
     }
 
     @Transactional
@@ -45,7 +44,7 @@ public class DepartmentService {
         }
         Department dept = Department.builder()
             .name(request.name().strip())
-            .description(request.description() != null ? request.description().strip() : null)
+            .description(toNullIfBlank(request.description()))
             .build();
         try {
             dept = departmentRepository.save(dept);
@@ -63,7 +62,7 @@ public class DepartmentService {
             throw new BusinessException("Phòng ban đã tồn tại", HttpStatus.CONFLICT, "DEPARTMENT_ALREADY_EXISTS");
         }
         dept.setName(request.name().strip());
-        dept.setDescription(request.description() != null ? request.description().strip() : null);
+        dept.setDescription(toNullIfBlank(request.description()));
         try {
             dept = departmentRepository.save(dept);
         } catch (DataIntegrityViolationException ex) {
@@ -75,7 +74,7 @@ public class DepartmentService {
     @Transactional
     public void deleteDepartment(Long id) {
         Department dept = findByIdOrThrow(id);
-        long employeeCount = userRepository.countByDepartmentId(id);
+        long employeeCount = userRepository.countByDepartmentIdAndActiveTrue(id);
         if (employeeCount > 0) {
             throw new BusinessException("Phòng ban còn nhân viên", HttpStatus.BAD_REQUEST, "DEPARTMENT_HAS_EMPLOYEES");
         }
@@ -88,7 +87,7 @@ public class DepartmentService {
         Shift shift = shiftRepository.findById(shiftId)
             .orElseThrow(() -> new BusinessException("Ca không tồn tại", HttpStatus.NOT_FOUND, "SHIFT_NOT_FOUND"));
 
-        List<User> employees = userRepository.findByDepartmentId(deptId);
+        List<User> employees = userRepository.findByDepartmentIdAndActiveTrue(deptId);
         if (employees.isEmpty()) {
             throw new BusinessException("Phòng ban không có nhân viên", HttpStatus.BAD_REQUEST, "DEPARTMENT_EMPTY");
         }
@@ -110,8 +109,9 @@ public class DepartmentService {
         return new BulkAssignResultDto(count);
     }
 
+    @Transactional(readOnly = true)
     public List<EmployeeWithDeptDto> getEmployeesWithDept() {
-        return userRepository.findByRole(UserRole.EMPLOYEE).stream()
+        return userRepository.findByRoleAndActiveTrue(UserRole.EMPLOYEE).stream()
             .map(this::toEmployeeWithDeptDto)
             .toList();
     }
@@ -137,8 +137,14 @@ public class DepartmentService {
     }
 
     private DepartmentDto toDto(Department dept) {
-        long count = userRepository.countByDepartmentId(dept.getId());
+        long count = userRepository.countByDepartmentIdAndActiveTrue(dept.getId());
         return new DepartmentDto(dept.getId(), dept.getName(), dept.getDescription(), count);
+    }
+
+    private static String toNullIfBlank(String s) {
+        if (s == null) return null;
+        String stripped = s.strip();
+        return stripped.isEmpty() ? null : stripped;
     }
 
     private EmployeeWithDeptDto toEmployeeWithDeptDto(User user) {

@@ -4,9 +4,11 @@ import com.itx.attendance.domain.ValidMac;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ValidMacRepository extends JpaRepository<ValidMac, Long> {
-    List<ValidMac> findByActiveTrue();
+    List<ValidMac> findByActiveTrueOrderByCreatedAtDesc();
     boolean existsByBssidAndActiveTrue(String bssid);
+    Optional<ValidMac> findByBssid(String bssid);
 }

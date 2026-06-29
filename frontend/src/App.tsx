@@ -21,6 +21,7 @@ import { AdminRequestsPage } from './pages/Admin/RequestsPage';
 import { AuditPage } from './pages/Admin/AuditPage';
 import { OfficeLocationsPage } from './pages/Admin/OfficeLocationsPage';
 import { DepartmentsPage } from './pages/Admin/DepartmentsPage';
+import { MacsPage } from './pages/Admin/MacsPage';
 import { ForceChangePasswordPage } from './pages/ForceChangePasswordPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
@@ -85,6 +86,7 @@ function App() {
             <Route element={<AdminLayout />}>
               <Route path="/admin/shifts" element={<ShiftsPage />} />
               <Route path="/admin/ips" element={<IpsPage />} />
+              <Route path="/admin/macs" element={<MacsPage />} />
               <Route path="/admin/holidays" element={<HolidaysPage />} />
               <Route path="/admin/attendance" element={<AdminAttendancePage />} />
               <Route path="/admin/requests" element={<AdminRequestsPage />} />
