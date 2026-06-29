@@ -8,6 +8,7 @@ import com.itx.attendance.exception.BusinessException;
 import com.itx.attendance.repository.AttendanceRecordRepository;
 import com.itx.attendance.repository.UserRepository;
 import com.itx.attendance.repository.ValidIpRepository;
+import com.itx.attendance.repository.ValidMacRepository;
 import com.itx.attendance.security.SecurityUtil;
 import com.itx.attendance.util.HaversineUtil;
 import com.itx.attendance.util.TimeUtil;
@@ -47,6 +48,7 @@ public class AttendanceService {
     private final AttendanceRecordRepository attendanceRecordRepository;
     private final UserRepository userRepository;
     private final ValidIpRepository validIpRepository;
+    private final ValidMacRepository validMacRepository;
     private final PhotoService photoService;
     private final OtCalculationService otCalculationService;
     private final OfficeLocationService officeLocationService;
@@ -91,15 +93,23 @@ public class AttendanceService {
         String clientIp = extractClientIp(httpRequest);
 
         if (ipCheckEnabled && !request.isClientSite()) {
-            boolean companyValid = validIpRepository
-                .existsByIpAddressAndScopeAndEmployeeIsNullAndActiveTrue(clientIp, IpScope.COMPANY);
-            boolean individualValid = validIpRepository
-                .existsByIpAddressAndScopeAndEmployeeIdAndActiveTrue(clientIp, IpScope.INDIVIDUAL, employee.getId());
+            if (request.bssid() != null) {
+                if (!validMacRepository.existsByBssidAndActiveTrue(request.bssid().strip().toUpperCase())) {
+                    throw new BusinessException(
+                        "Không nhận diện được mạng Wi-Fi văn phòng",
+                        HttpStatus.FORBIDDEN, "INVALID_MAC");
+                }
+            } else {
+                boolean companyValid = validIpRepository
+                    .existsByIpAddressAndScopeAndEmployeeIsNullAndActiveTrue(clientIp, IpScope.COMPANY);
+                boolean individualValid = validIpRepository
+                    .existsByIpAddressAndScopeAndEmployeeIdAndActiveTrue(clientIp, IpScope.INDIVIDUAL, employee.getId());
 
-            if (!companyValid && !individualValid) {
-                throw new BusinessException(
-                    "Không nhận diện được mạng văn phòng (IP của bạn: " + clientIp + ")",
-                    HttpStatus.FORBIDDEN, "INVALID_IP");
+                if (!companyValid && !individualValid) {
+                    throw new BusinessException(
+                        "Không nhận diện được mạng văn phòng (IP của bạn: " + clientIp + ")",
+                        HttpStatus.FORBIDDEN, "INVALID_IP");
+                }
             }
         }
 

@@ -6,5 +6,6 @@ public record CheckInRequest(
     Double lat,
     Double lng,
     @NotBlank String photoBase64,
-    boolean isClientSite
+    boolean isClientSite,
+    String bssid
 ) {}

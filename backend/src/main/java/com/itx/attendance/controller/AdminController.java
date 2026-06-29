@@ -9,6 +9,7 @@ import com.itx.attendance.dto.request.CreateHolidayRequest;
 import com.itx.attendance.dto.request.CreateOfficeLocationRequest;
 import com.itx.attendance.dto.request.CreateShiftRequest;
 import com.itx.attendance.dto.request.CreateValidIpRequest;
+import com.itx.attendance.dto.request.CreateValidMacRequest;
 import com.itx.attendance.dto.response.AdminAttendanceRecordDto;
 import com.itx.attendance.dto.response.AttendanceRecordDto;
 import com.itx.attendance.dto.response.AuditLogDto;
@@ -20,6 +21,7 @@ import com.itx.attendance.dto.response.HolidayDto;
 import com.itx.attendance.dto.response.OfficeLocationDto;
 import com.itx.attendance.dto.response.ShiftDto;
 import com.itx.attendance.dto.response.ValidIpDto;
+import com.itx.attendance.dto.response.ValidMacDto;
 import com.itx.attendance.security.SecurityUtil;
 import com.itx.attendance.service.AdminOverrideService;
 import com.itx.attendance.service.AttendanceExportService;
@@ -30,6 +32,7 @@ import com.itx.attendance.service.HolidayService;
 import com.itx.attendance.service.OfficeLocationService;
 import com.itx.attendance.service.ShiftService;
 import com.itx.attendance.service.ValidIpService;
+import com.itx.attendance.service.ValidMacService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -58,6 +61,7 @@ public class AdminController {
 
     private final ShiftService shiftService;
     private final ValidIpService validIpService;
+    private final ValidMacService validMacService;
     private final HolidayService holidayService;
     private final AdminOverrideService adminOverrideService;
     private final CurrentUserService currentUserService;
@@ -120,6 +124,26 @@ public class AdminController {
     @DeleteMapping("/valid-ips/{id}")
     public ResponseEntity<Void> deleteValidIp(@PathVariable Long id) {
         validIpService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ── Valid MACs endpoints (Story 10.2) ─────────────────────────────────────
+
+    @GetMapping("/valid-macs")
+    public ResponseEntity<List<ValidMacDto>> getValidMacs() {
+        return ResponseEntity.ok(validMacService.getAll());
+    }
+
+    @PostMapping("/valid-macs")
+    public ResponseEntity<ValidMacDto> addValidMac(@Valid @RequestBody CreateValidMacRequest request) {
+        String adminUsername = SecurityUtil.getCurrentUsername();
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(validMacService.add(request, adminUsername));
+    }
+
+    @DeleteMapping("/valid-macs/{id}")
+    public ResponseEntity<Void> deleteValidMac(@PathVariable Long id) {
+        validMacService.delete(id);
         return ResponseEntity.noContent().build();
     }
 
