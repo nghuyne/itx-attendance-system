@@ -6,7 +6,9 @@ import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -87,6 +89,32 @@ public class GlobalExceptionHandler {
                 .status(400)
                 .error("INVALID_STATUS")
                 .message("Giá trị trạng thái không hợp lệ: " + ex.getValue())
+                .path(request.getRequestURI())
+                .build());
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingParam(MissingServletRequestParameterException ex, HttpServletRequest request) {
+        log.warn("Missing parameter at {}: {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(400)
+                .error("MISSING_PARAMETER")
+                .message("Thiếu tham số bắt buộc: " + ex.getParameterName())
+                .path(request.getRequestURI())
+                .build());
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
+        log.warn("Access denied at {}: {}", request.getRequestURI(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(ErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(403)
+                .error("FORBIDDEN")
+                .message("Bạn không có quyền thực hiện thao tác này.")
                 .path(request.getRequestURI())
                 .build());
     }

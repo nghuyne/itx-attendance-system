@@ -289,4 +289,20 @@ test.describe('Admin — Quản lý IP hợp lệ (Story 2.2)', () => {
     await expect(page.locator('strong.font-mono', { hasText: '198.51.100.5' })).toBeVisible();
     await expect(page.getByText(/nhân viên: Nguyen Van A/)).toBeVisible();
   });
+
+  test('xóa IP thất bại (API 500) → toast lỗi', async ({ page }) => {
+    await page.route('**/api/admin/valid-ips**', async (route) => {
+      if (route.request().method() === 'DELETE') {
+        await route.fulfill({ status: 500, json: { error: 'INTERNAL_ERROR' } });
+      } else {
+        await route.fulfill({ status: 200, json: MOCK_IP_PAGE });
+      }
+    });
+    await page.goto('/admin/ips');
+
+    await page.getByRole('button', { name: 'Xóa IP 203.0.113.10' }).click();
+    await page.getByRole('button', { name: 'Xóa IP' }).last().click();
+
+    await expect(page.getByText(/thất bại|lỗi|Xóa IP/i)).toBeVisible();
+  });
 });

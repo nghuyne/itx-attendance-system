@@ -67,7 +67,7 @@ public class AttendanceRecord {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "attendance_status", nullable = false,
-            columnDefinition = "ENUM('ON_TIME','LATE_IN','EARLY_OUT','LATE_IN_EARLY_OUT','HALF_DAY','INCOMPLETE','ABSENT')")
+            columnDefinition = "ENUM('ON_TIME','LATE_IN','EARLY_OUT','LATE_IN_EARLY_OUT','HALF_DAY','INCOMPLETE','ABSENT','EXCUSED')")
     private AttendanceStatus attendanceStatus;
 
     @Enumerated(EnumType.STRING)

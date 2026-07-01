@@ -304,4 +304,58 @@ test.describe('Admin — Quản lý Ca làm việc (Story 2.1)', () => {
 
     await expect(page.getByText('Gán ca "Ca Sáng" thành công')).toBeVisible();
   });
+
+  // ── Edit modal validation ──────────────────────────────────────────────
+
+  test('validate trong modal chỉnh sửa: giờ bắt đầu phải nhỏ hơn giờ kết thúc', async ({ page }) => {
+    await page.route('**/api/admin/shifts**', route =>
+      route.fulfill({ status: 200, json: MOCK_PAGE })
+    );
+    await page.goto('/admin/shifts');
+
+    await page.getByText('Ca Sáng').dblclick();
+    await page.locator('#startTime').fill('20:00');
+    await page.locator('#endTime').fill('08:00');
+    await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
+
+    await expect(page.getByText('Giờ bắt đầu phải nhỏ hơn giờ kết thúc')).toBeVisible();
+  });
+
+  // ── API error handling ─────────────────────────────────────────────────
+
+  test('API lỗi 500 khi tạo ca → toast lỗi', async ({ page }) => {
+    await page.route('**/api/admin/shifts**', async (route) => {
+      if (route.request().method() === 'POST') {
+        await route.fulfill({ status: 500, json: { error: 'INTERNAL_ERROR' } });
+      } else {
+        await route.fulfill({ status: 200, json: MOCK_PAGE });
+      }
+    });
+    await page.goto('/admin/shifts');
+
+    await page.getByRole('button', { name: /Tạo ca mới/ }).click();
+    await page.locator('#name').fill('Ca Loi');
+    await page.locator('#startTime').fill('08:00');
+    await page.locator('#endTime').fill('17:00');
+    await page.getByRole('button', { name: 'Tạo ca', exact: true }).click();
+
+    await expect(page.getByText(/thất bại|lỗi/i)).toBeVisible();
+  });
+
+  test('API lỗi 500 khi cập nhật ca → toast lỗi', async ({ page }) => {
+    await page.route('**/api/admin/shifts**', async (route) => {
+      if (route.request().method() === 'PUT' && !route.request().url().includes('/assign/')) {
+        await route.fulfill({ status: 500, json: { error: 'INTERNAL_ERROR' } });
+      } else {
+        await route.fulfill({ status: 200, json: MOCK_PAGE });
+      }
+    });
+    await page.goto('/admin/shifts');
+
+    await page.getByText('Ca Sáng').dblclick();
+    await page.locator('#name').fill('Ca Loi Update');
+    await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
+
+    await expect(page.getByText(/thất bại|lỗi|Cập nhật/i)).toBeVisible();
+  });
 });
