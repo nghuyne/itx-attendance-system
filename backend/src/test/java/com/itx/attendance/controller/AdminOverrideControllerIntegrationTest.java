@@ -401,6 +401,66 @@ class AdminOverrideControllerIntegrationTest {
     }
 
     @Test
+    void searchAttendance_multipleStatuses_returnsRecordsMatchingEitherStatus() throws Exception {
+        attendanceRecordRepository.save(AttendanceRecord.builder()
+            .employee(employee).shift(shift)
+            .date(LocalDate.of(2026, 6, 15))
+            .attendanceStatus(AttendanceStatus.ON_TIME)
+            .build());
+        attendanceRecordRepository.save(AttendanceRecord.builder()
+            .employee(employee).shift(shift)
+            .date(LocalDate.of(2026, 6, 16))
+            .attendanceStatus(AttendanceStatus.LATE_IN)
+            .build());
+        attendanceRecordRepository.save(AttendanceRecord.builder()
+            .employee(employee).shift(shift)
+            .date(LocalDate.of(2026, 6, 17))
+            .attendanceStatus(AttendanceStatus.ABSENT)
+            .build());
+
+        mockMvc.perform(get("/api/admin/attendance")
+                .param("from", "2026-06-15")
+                .param("to", "2026-06-17")
+                .param("status", "LATE_IN", "ABSENT")
+                .header("Authorization", "Bearer " + adminToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content", hasSize(2)))
+            .andExpect(jsonPath("$.content[*].attendanceStatus", containsInAnyOrder("LATE_IN", "ABSENT")));
+    }
+
+    @Test
+    void searchAttendance_noStatusParam_returnsAllStatuses() throws Exception {
+        attendanceRecordRepository.save(AttendanceRecord.builder()
+            .employee(employee).shift(shift)
+            .date(LocalDate.of(2026, 6, 15))
+            .attendanceStatus(AttendanceStatus.ON_TIME)
+            .build());
+        attendanceRecordRepository.save(AttendanceRecord.builder()
+            .employee(employee).shift(shift)
+            .date(LocalDate.of(2026, 6, 16))
+            .attendanceStatus(AttendanceStatus.LATE_IN)
+            .build());
+
+        mockMvc.perform(get("/api/admin/attendance")
+                .param("from", "2026-06-15")
+                .param("to", "2026-06-16")
+                .header("Authorization", "Bearer " + adminToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.content", hasSize(2)));
+    }
+
+    @Test
+    void searchAttendance_invalidStatusValue_returns400WithINVALID_STATUS() throws Exception {
+        mockMvc.perform(get("/api/admin/attendance")
+                .param("from", "2026-06-15")
+                .param("to", "2026-06-16")
+                .param("status", "NOT_A_REAL_STATUS")
+                .header("Authorization", "Bearer " + adminToken))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").value("INVALID_STATUS"));
+    }
+
+    @Test
     void searchAttendance_fromAfterTo_returns400WithINVALID_DATE_RANGE() throws Exception {
         mockMvc.perform(get("/api/admin/attendance")
                 .param("from", "2026-06-16")
