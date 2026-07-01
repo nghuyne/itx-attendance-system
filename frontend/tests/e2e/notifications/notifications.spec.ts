@@ -310,3 +310,109 @@ test.describe('NotificationPanel (Story 4.2)', () => {
     await expect(listItem).not.toHaveClass(/bg-amber-50/);
   });
 });
+
+// ── Admin — Suspicious Location Notification (Story 8.2) ────────────────────
+
+async function seedAdminAuth(page: Page) {
+  await page.addInitScript(
+    (storage: { key: string; value: unknown }) => {
+      localStorage.setItem(storage.key, JSON.stringify(storage.value));
+    },
+    {
+      key: 'itx-auth',
+      value: {
+        state: {
+          user: { id: 'admin-id', username: 'admin', fullName: 'System Administrator', role: 'ADMIN', mustChangePassword: false },
+          isAuthenticated: true,
+        },
+        version: 0,
+      },
+    }
+  );
+}
+
+function makeSuspiciousNotification(id: string, overrides: Record<string, unknown> = {}) {
+  return {
+    id,
+    recipientId: 'admin-id',
+    type: 'SUSPICIOUS_LOCATION',
+    referenceId: 'rec-1',
+    message: '⚠ Cảnh báo: Nguyen Van A check-in lúc 09:15 từ vị trí bất thường (62.3km)',
+    isRead: false,
+    createdAt: '2026-06-30T02:15:00',
+    ...overrides,
+  };
+}
+
+test.describe('Admin — Suspicious Location Notification (Story 8.2)', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedAdminAuth(page);
+    await page.route('**/api/admin/employees**', route =>
+      route.fulfill({ status: 200, json: [] })
+    );
+    await page.route('**/api/admin/attendance?**', route =>
+      route.fulfill({ status: 200, json: { content: [], totalElements: 0, totalPages: 0, size: 20, number: 0 } })
+    );
+  });
+
+  test('icon cảnh báo ⚠️ hiển thị cho thông báo SUSPICIOUS_LOCATION', async ({ page }) => {
+    await page.route('**/api/notifications/pending', route =>
+      route.fulfill({
+        status: 200,
+        json: { notifications: [makeSuspiciousNotification('n-susp')], unreadCount: 1 },
+      })
+    );
+    await page.goto('/admin/attendance');
+
+    await page.getByRole('button', { name: /Thông báo/ }).click();
+
+    const listItem = page.locator('li').filter({ hasText: 'check-in lúc 09:15 từ vị trí bất thường' });
+    await expect(listItem).toBeVisible();
+    await expect(listItem).toContainText('⚠️');
+  });
+
+  test('click thông báo SUSPICIOUS_LOCATION điều hướng đến /admin/attendance và đánh dấu đã đọc', async ({ page }) => {
+    let readCalled = false;
+    await page.route('**/api/notifications/pending', route =>
+      route.fulfill({
+        status: 200,
+        json: { notifications: [makeSuspiciousNotification('n-susp')], unreadCount: 1 },
+      })
+    );
+    await page.route('**/api/notifications/n-susp/read', route => {
+      readCalled = true;
+      route.fulfill({ status: 200, json: { ...makeSuspiciousNotification('n-susp'), isRead: true } });
+    });
+    // Start from a different admin page so the navigation assertion is meaningful.
+    await page.route('**/api/admin/shifts**', route =>
+      route.fulfill({ status: 200, json: [] })
+    );
+    await page.goto('/admin/shifts');
+
+    await page.getByRole('button', { name: /Thông báo/ }).click();
+    await page.locator('li').filter({ hasText: 'check-in lúc 09:15 từ vị trí bất thường' }).click();
+
+    await expect(page).toHaveURL(/\/admin\/attendance$/);
+    expect(readCalled).toBe(true);
+  });
+
+  test('click thông báo SUSPICIOUS_LOCATION đóng NotificationPanel', async ({ page }) => {
+    await page.route('**/api/notifications/pending', route =>
+      route.fulfill({
+        status: 200,
+        json: { notifications: [makeSuspiciousNotification('n-susp')], unreadCount: 1 },
+      })
+    );
+    await page.route('**/api/notifications/n-susp/read', route =>
+      route.fulfill({ status: 200, json: { ...makeSuspiciousNotification('n-susp'), isRead: true } })
+    );
+    await page.goto('/admin/attendance');
+
+    await page.getByRole('button', { name: /Thông báo/ }).click();
+    await expect(page.getByRole('dialog', { name: 'Bảng thông báo' })).toBeVisible();
+
+    await page.locator('li').filter({ hasText: 'check-in lúc 09:15 từ vị trí bất thường' }).click();
+
+    await expect(page.getByRole('dialog', { name: 'Bảng thông báo' })).not.toBeVisible();
+  });
+});

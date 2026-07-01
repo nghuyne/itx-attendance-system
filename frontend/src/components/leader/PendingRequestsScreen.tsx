@@ -16,6 +16,7 @@ const REQUEST_CATEGORY_LABEL: Record<string, string> = {
   EXCEPTION: 'Ngoại lệ',
   ADJUSTMENT: 'Điều chỉnh',
   LEAVE: 'Nghỉ phép',
+  OT: 'OT',
 };
 
 const LEAVE_TYPE_LABEL: Record<string, string> = {
@@ -126,6 +127,12 @@ export const PendingRequestsScreen = () => {
                       {req.startDate ? ` · ${req.startDate}` : ''}
                       {req.endDate && req.endDate !== req.startDate ? ` – ${req.endDate}` : ''}
                       {req.totalDays != null ? ` · ${req.totalDays} ngày` : ''}
+                    </p>
+                  ) : req.requestCategory === 'OT' ? (
+                    <p className="text-sm text-slate-500 mt-0.5">
+                      {REQUEST_CATEGORY_LABEL[req.requestCategory]}
+                      {req.plannedDate ? ` · ${req.plannedDate}` : ''}
+                      {req.plannedOtHours != null ? ` · ${req.plannedOtHours} giờ` : ''}
                     </p>
                   ) : (
                     <p className="text-sm text-slate-500 mt-0.5">

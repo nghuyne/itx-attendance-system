@@ -73,6 +73,19 @@ function makeLeaveRequest(id: string, overrides: Record<string, unknown> = {}) {
   });
 }
 
+function makeOtRequest(id: string, overrides: Record<string, unknown> = {}) {
+  return makeRequest(id, {
+    requestCategory: 'OT',
+    requestType: null,
+    attendanceRecordId: null,
+    attendanceDate: null,
+    reason: 'Hoàn thành báo cáo cuối tháng gấp',
+    plannedDate: '2026-07-05',
+    plannedOtHours: 2.5,
+    ...overrides,
+  });
+}
+
 // ── Leader Requests Page ──────────────────────────────────────────────────
 
 test.describe('Leader — Duyệt Yêu cầu (Story 4.3)', () => {
@@ -356,6 +369,69 @@ test.describe('Leader — Duyệt Yêu cầu (Story 4.3)', () => {
 
   test('từ chối yêu cầu nghỉ phép với lý do → toast success', async ({ page }) => {
     const request = makeLeaveRequest('leave-1');
+    await page.route('**/api/requests/pending', route =>
+      route.fulfill({ status: 200, json: [request] })
+    );
+    await page.route('**/api/requests/*/reject', route =>
+      route.fulfill({ status: 200, json: { ...request, status: 'REJECTED' } })
+    );
+    await page.goto('/leader/requests');
+
+    await page.locator('button').filter({ hasText: 'Nguyen Van A' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Từ chối' }).click();
+    await page.getByRole('textbox', { name: 'Lý do từ chối' }).fill('Không đủ nhân sự trong giai đoạn này');
+    await page.getByRole('button', { name: 'Xác nhận từ chối' }).click();
+
+    await expect(page.getByText('Đã từ chối yêu cầu')).toBeVisible();
+  });
+
+  // ── OT requests (Story 8.1) ─────────────────────────────────────────────
+
+  test('hiển thị yêu cầu OT với loại "OT", ngày dự kiến và số giờ', async ({ page }) => {
+    await page.route('**/api/requests/pending', route =>
+      route.fulfill({ status: 200, json: [makeOtRequest('ot-1')] })
+    );
+    await page.goto('/leader/requests');
+
+    await expect(page.getByText('OT · 2026-07-05 · 2.5 giờ')).toBeVisible();
+  });
+
+  test('RequestDetailModal hiển thị ngày làm OT và số giờ dự kiến', async ({ page }) => {
+    const request = makeOtRequest('ot-1');
+    await page.route('**/api/requests/pending', route =>
+      route.fulfill({ status: 200, json: [request] })
+    );
+    await page.goto('/leader/requests');
+
+    await page.locator('button').filter({ hasText: 'Nguyen Van A' }).click();
+
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText('OT — 2.5 giờ')).toBeVisible();
+    await expect(dialog.getByText('Ngày làm OT')).toBeVisible();
+    await expect(dialog.getByText('2026-07-05')).toBeVisible();
+    await expect(dialog.getByText('Số giờ dự kiến')).toBeVisible();
+  });
+
+  test('duyệt yêu cầu OT từ modal → toast success + modal đóng', async ({ page }) => {
+    const request = makeOtRequest('ot-1');
+    await page.route('**/api/requests/pending', route =>
+      route.fulfill({ status: 200, json: [request] })
+    );
+    await page.route('**/api/requests/*/approve', route =>
+      route.fulfill({ status: 200, json: { ...request, status: 'APPROVED' } })
+    );
+    await page.goto('/leader/requests');
+
+    await page.locator('button').filter({ hasText: 'Nguyen Van A' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Duyệt', exact: true }).click();
+
+    await expect(page.getByText('Đã duyệt yêu cầu thành công')).toBeVisible();
+    await expect(page.getByRole('dialog')).not.toBeVisible();
+  });
+
+  test('từ chối yêu cầu OT với lý do → toast success', async ({ page }) => {
+    const request = makeOtRequest('ot-1');
     await page.route('**/api/requests/pending', route =>
       route.fulfill({ status: 200, json: [request] })
     );

@@ -29,6 +29,7 @@ const REQUEST_CATEGORY_LABEL: Record<string, string> = {
   EXCEPTION: 'Ngoại lệ',
   ADJUSTMENT: 'Điều chỉnh',
   LEAVE: 'Nghỉ phép',
+  OT: 'OT',
 };
 
 const LEAVE_TYPE_LABEL: Record<string, string> = {
@@ -106,7 +107,9 @@ export const RequestDetailModal = ({ isOpen, request, onClose, onApproved }: Req
     ? 'Điều chỉnh giờ ra'
     : request.requestCategory === 'LEAVE'
       ? (request.leaveType ? LEAVE_TYPE_LABEL[request.leaveType] ?? request.leaveType : 'Nghỉ phép')
-      : (REQUEST_TYPE_LABEL[request.requestType ?? ''] ?? request.requestType);
+      : request.requestCategory === 'OT'
+        ? (request.plannedOtHours != null ? `${request.plannedOtHours} giờ` : 'Làm thêm giờ')
+        : (REQUEST_TYPE_LABEL[request.requestType ?? ''] ?? request.requestType);
 
   return (
     <div
@@ -155,6 +158,17 @@ export const RequestDetailModal = ({ isOpen, request, onClose, onApproved }: Req
                 <div className="flex justify-between">
                   <dt className="text-slate-500">Tổng ngày nghỉ</dt>
                   <dd className="font-medium">{request.totalDays != null ? `${request.totalDays} ngày` : '—'}</dd>
+                </div>
+              </>
+            ) : request.requestCategory === 'OT' ? (
+              <>
+                <div className="flex justify-between">
+                  <dt className="text-slate-500">Ngày làm OT</dt>
+                  <dd className="font-medium">{request.plannedDate ?? '—'}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-slate-500">Số giờ dự kiến</dt>
+                  <dd className="font-medium">{request.plannedOtHours != null ? `${request.plannedOtHours} giờ` : '—'}</dd>
                 </div>
               </>
             ) : (
