@@ -1,0 +1,269 @@
+package com.itx.attendance.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.itx.attendance.domain.*;
+import com.itx.attendance.dto.request.CheckInRequest;
+import com.itx.attendance.dto.request.LoginRequest;
+import com.itx.attendance.repository.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.web.servlet.MockMvc;
+import java.time.LocalTime;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+/**
+ * Integration tests for Epic 10 — Story 10.2: Hybrid MAC + IP check-in validation.
+ *
+ * Backend distinguishes mobile (Android/Capacitor) vs web check-in requests by the
+ * presence of the `bssid` field: non-null/non-blank → validate against valid_macs,
+ * null/blank → fall back to the existing IP validation (valid_ips).
+ *
+ * app.ip-check.enabled=true here (opposite of AttendanceControllerIntegrationTest,
+ * which disables it) so both validation branches actually execute.
+ */
+@SpringBootTest
+@AutoConfigureMockMvc
+@TestPropertySource(properties = {
+    "spring.datasource.url=jdbc:h2:mem:attendancehybridtestdb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
+    "spring.datasource.driver-class-name=org.h2.Driver",
+    "spring.flyway.enabled=false",
+    "spring.jpa.hibernate.ddl-auto=create-drop",
+    "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
+    "app.jwt.secret=test-secret-key-minimum-32-characters-abc",
+    "app.jwt.access-token-expiration-ms=900000",
+    "app.jwt.refresh-token-expiration-ms=604800000",
+    "app.ip-check.enabled=true",
+    "minio.endpoint=http://localhost:9000",
+    "minio.access-key=minioadmin",
+    "minio.secret-key=minioadmin",
+    "minio.bucket-name=test-bucket"
+})
+class AttendanceHybridValidationIntegrationTest {
+
+    @Autowired private MockMvc mockMvc;
+    @Autowired private UserRepository userRepository;
+    @Autowired private ShiftRepository shiftRepository;
+    @Autowired private ValidMacRepository validMacRepository;
+    @Autowired private ValidIpRepository validIpRepository;
+    @Autowired private AttendanceRecordRepository attendanceRecordRepository;
+    @Autowired private PasswordEncoder passwordEncoder;
+    @Autowired private ObjectMapper objectMapper;
+
+    private String employeeToken;
+    private User employee;
+    private User admin;
+
+    private static final String FAKE_PHOTO = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2Q==";
+    private static final String VALID_BSSID = "AA:BB:CC:DD:EE:FF";
+    private static final String CLIENT_IP = "203.0.113.10";
+
+    @BeforeEach
+    void setUp() throws Exception {
+        attendanceRecordRepository.deleteAll();
+        validMacRepository.deleteAll();
+        validIpRepository.deleteAll();
+        userRepository.deleteAll();
+        shiftRepository.deleteAll();
+
+        Shift shift = shiftRepository.save(Shift.builder()
+            .name("Ca Sáng")
+            .shiftStartTime(LocalTime.of(8, 0))
+            .shiftEndTime(LocalTime.of(17, 0))
+            .checkInOpenMinutes(30)
+            .lateInThreshold(15)
+            .earlyOutThreshold(15)
+            .halfDayThreshold(240)
+            .otBuffer(30)
+            .build());
+
+        admin = userRepository.save(User.builder()
+            .username("hybrid_admin")
+            .email("hybrid_admin@itx.local")
+            .passwordHash(passwordEncoder.encode("admin123"))
+            .fullName("Hybrid Admin")
+            .role(UserRole.ADMIN)
+            .build());
+
+        employee = userRepository.save(User.builder()
+            .username("hybrid_employee")
+            .email("hybrid_employee@itx.local")
+            .passwordHash(passwordEncoder.encode("emp123"))
+            .fullName("Hybrid Employee")
+            .role(UserRole.EMPLOYEE)
+            .shift(shift)
+            .build());
+
+        employeeToken = loginAndGetToken("hybrid_employee", "emp123");
+    }
+
+    // ── Mobile path: bssid present → validate against valid_macs ────────────
+
+    @Test
+    void checkIn_validBssid_returns201() throws Exception {
+        validMacRepository.save(ValidMac.builder()
+            .bssid(VALID_BSSID)
+            .createdBy("admin")
+            .build());
+
+        String body = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, VALID_BSSID));
+
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isCreated());
+    }
+
+    @Test
+    void checkIn_bssidLowerCase_normalizedAndMatched_returns201() throws Exception {
+        validMacRepository.save(ValidMac.builder()
+            .bssid(VALID_BSSID)
+            .createdBy("admin")
+            .build());
+
+        String body = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, "aa:bb:cc:dd:ee:ff"));
+
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isCreated());
+    }
+
+    @Test
+    void checkIn_unknownBssid_returns403WithINVALID_MAC() throws Exception {
+        String body = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, "11:22:33:44:55:66"));
+
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.error").value("INVALID_MAC"));
+    }
+
+    @Test
+    void checkIn_inactiveBssid_returns403WithINVALID_MAC() throws Exception {
+        validMacRepository.save(ValidMac.builder()
+            .bssid(VALID_BSSID)
+            .createdBy("admin")
+            .active(false)
+            .build());
+
+        String body = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, VALID_BSSID));
+
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.error").value("INVALID_MAC"));
+    }
+
+    @Test
+    void checkIn_validBssidButInvalidClientIp_stillSucceeds_bssidTakesPriority() throws Exception {
+        // No valid_ips configured at all — proves the MAC branch is used exclusively
+        // and IP is never consulted when bssid is present.
+        validMacRepository.save(ValidMac.builder()
+            .bssid(VALID_BSSID)
+            .createdBy("admin")
+            .build());
+
+        String body = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, VALID_BSSID));
+
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + employeeToken)
+                .header("X-Forwarded-For", "1.2.3.4"))
+            .andExpect(status().isCreated());
+    }
+
+    // ── Web path: bssid null/blank → validate against valid_ips (unchanged) ──
+
+    @Test
+    void checkIn_nullBssid_fallsBackToIpValidation_validIp_returns201() throws Exception {
+        validIpRepository.save(ValidIp.builder()
+            .ipAddress(CLIENT_IP)
+            .scope(IpScope.COMPANY)
+            .createdBy(admin)
+            .build());
+
+        String body = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + employeeToken)
+                .header("X-Forwarded-For", CLIENT_IP))
+            .andExpect(status().isCreated());
+    }
+
+    @Test
+    void checkIn_blankBssid_fallsBackToIpValidation_invalidIp_returns403WithINVALID_IP() throws Exception {
+        String body = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, "  "));
+
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + employeeToken)
+                .header("X-Forwarded-For", "9.9.9.9"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.error").value("INVALID_IP"));
+    }
+
+    @Test
+    void checkIn_nullBssid_unknownIp_returns403WithINVALID_IP() throws Exception {
+        String body = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + employeeToken)
+                .header("X-Forwarded-For", "9.9.9.9"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.error").value("INVALID_IP"));
+    }
+
+    // ── Client site mode bypasses both checks entirely ───────────────────────
+
+    @Test
+    void checkIn_clientSiteMode_skipsBothMacAndIpValidation() throws Exception {
+        String body = objectMapper.writeValueAsString(
+            new CheckInRequest(10.77, 106.69, FAKE_PHOTO, true, null));
+
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + employeeToken)
+                .header("X-Forwarded-For", "9.9.9.9"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.isClientSite").value(true));
+    }
+
+    // ── Helper ──────────────────────────────────────────────────────────────
+
+    private String loginAndGetToken(String username, String password) throws Exception {
+        String body = mockMvc.perform(post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new LoginRequest(username, password))))
+            .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(body).get("accessToken").asText();
+    }
+}
