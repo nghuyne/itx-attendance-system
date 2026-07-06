@@ -79,6 +79,12 @@ public class AttendanceRecord {
     @Builder.Default
     private boolean clientSite = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "validation_method", nullable = false,
+            columnDefinition = "ENUM('IP','BSSID','NONE')")
+    @Builder.Default
+    private ValidationMethod validationMethod = ValidationMethod.IP;
+
     @Column(name = "gps_unavailable", nullable = false)
     @Builder.Default
     private boolean gpsUnavailable = false;
