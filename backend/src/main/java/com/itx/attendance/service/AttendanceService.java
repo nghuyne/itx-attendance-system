@@ -91,9 +91,13 @@ public class AttendanceService {
         }
 
         String clientIp = extractClientIp(httpRequest);
+        boolean usingBssid = request.bssid() != null && !request.bssid().isBlank();
+        ValidationMethod validationMethod = request.isClientSite()
+            ? ValidationMethod.NONE
+            : (usingBssid ? ValidationMethod.BSSID : ValidationMethod.IP);
 
         if (ipCheckEnabled && !request.isClientSite()) {
-            if (request.bssid() != null && !request.bssid().isBlank()) {
+            if (usingBssid) {
                 if (!validMacRepository.existsByBssidAndActiveTrue(request.bssid().strip().toUpperCase())) {
                     throw new BusinessException(
                         "Không nhận diện được mạng Wi-Fi văn phòng",
@@ -159,7 +163,7 @@ public class AttendanceService {
             }
         }
 
-        AttendanceRecordDto dto = self.persistCheckIn(employee, shift, today, clientIp, request, checkInObjectKey, suspiciousLocation);
+        AttendanceRecordDto dto = self.persistCheckIn(employee, shift, today, clientIp, request, checkInObjectKey, suspiciousLocation, validationMethod);
         if (suspiciousLocation) {
             final String recordId = dto.id();
             final double capturedDistKm = suspiciousDistKm;
@@ -179,7 +183,8 @@ public class AttendanceService {
 
     @Transactional
     public AttendanceRecordDto persistCheckIn(User employee, Shift shift, LocalDate today,
-            String clientIp, CheckInRequest request, String checkInObjectKey, boolean suspiciousLocation) {
+            String clientIp, CheckInRequest request, String checkInObjectKey, boolean suspiciousLocation,
+            ValidationMethod validationMethod) {
         LocalDateTime checkInUtc = LocalDateTime.now(ZoneOffset.UTC);
         LocalTime checkInVN = TimeUtil.toUtcPlus7(checkInUtc).toLocalTime();
         AttendanceStatus initialStatus = calculateInitialStatus(checkInVN, shift);
@@ -195,6 +200,7 @@ public class AttendanceService {
             .checkInPhotoUrl(checkInObjectKey)
             .attendanceStatus(initialStatus)
             .clientSite(request.isClientSite())
+            .validationMethod(validationMethod)
             .gpsUnavailable(request.lat() == null || request.lng() == null)
             .suspiciousLocation(suspiciousLocation)
             .build();
@@ -262,15 +268,25 @@ public class AttendanceService {
         String checkOutIp = extractClientIp(httpRequest);
 
         if (ipCheckEnabled && !existing.isClientSite()) {
-            boolean companyValid = validIpRepository
-                .existsByIpAddressAndScopeAndEmployeeIsNullAndActiveTrue(checkOutIp, IpScope.COMPANY);
-            boolean individualValid = validIpRepository
-                .existsByIpAddressAndScopeAndEmployeeIdAndActiveTrue(checkOutIp, IpScope.INDIVIDUAL, employee.getId());
+            if (existing.getValidationMethod() == ValidationMethod.BSSID) {
+                String bssid = request.bssid();
+                if (bssid == null || bssid.isBlank()
+                        || !validMacRepository.existsByBssidAndActiveTrue(bssid.strip().toUpperCase())) {
+                    throw new BusinessException(
+                        "Không nhận diện được mạng Wi-Fi văn phòng",
+                        HttpStatus.FORBIDDEN, "INVALID_MAC");
+                }
+            } else {
+                boolean companyValid = validIpRepository
+                    .existsByIpAddressAndScopeAndEmployeeIsNullAndActiveTrue(checkOutIp, IpScope.COMPANY);
+                boolean individualValid = validIpRepository
+                    .existsByIpAddressAndScopeAndEmployeeIdAndActiveTrue(checkOutIp, IpScope.INDIVIDUAL, employee.getId());
 
-            if (!companyValid && !individualValid) {
-                throw new BusinessException(
-                    "Không nhận diện được mạng văn phòng (IP của bạn: " + checkOutIp + ")",
-                    HttpStatus.FORBIDDEN, "INVALID_IP");
+                if (!companyValid && !individualValid) {
+                    throw new BusinessException(
+                        "Không nhận diện được mạng văn phòng (IP của bạn: " + checkOutIp + ")",
+                        HttpStatus.FORBIDDEN, "INVALID_IP");
+                }
             }
         }
 

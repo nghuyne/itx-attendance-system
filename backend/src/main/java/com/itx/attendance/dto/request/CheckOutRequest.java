@@ -5,5 +5,6 @@ import jakarta.validation.constraints.NotBlank;
 public record CheckOutRequest(
     Double lat,
     Double lng,
-    @NotBlank String photoBase64
+    @NotBlank String photoBase64,
+    String bssid
 ) {}
