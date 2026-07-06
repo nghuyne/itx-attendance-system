@@ -12,7 +12,7 @@ import { LoadingSpinner } from '../common/LoadingSpinner';
 const overrideSchema = z.object({
   checkInTime: z.string().optional().nullable(),
   checkOutTime: z.string().optional().nullable(),
-  attendanceStatus: z.nativeEnum(AttendanceStatus).optional().nullable(),
+  attendanceStatus: z.enum(AttendanceStatus).optional().nullable(),
   photoUrl: z.string().optional().nullable(),
   auditReason: z.string().min(10, 'Lý do phải có ít nhất 10 ký tự'),
 });
