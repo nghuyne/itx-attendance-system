@@ -384,6 +384,31 @@ export interface EmployeeWithDeptDto {
   departmentName: string | null;
 }
 
+// Admin User Management DTOs — Phase 3
+export interface AdminUserDto {
+  id: string;
+  username: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+  active: boolean;
+  mustChangePassword: boolean;
+  departmentId: number | null;
+  departmentName: string | null;
+  shiftId: string | null;
+  shiftName: string | null;
+  createdAt: string;
+}
+
+export interface CreateUserRequest {
+  username: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+  departmentId?: number | null;
+  shiftId?: string | null;
+}
+
 // Valid MAC DTOs — Story 10.4
 export interface ValidMacDto {
   id: number;

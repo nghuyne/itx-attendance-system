@@ -17,6 +17,7 @@ const LEADER_LINKS: SidebarLink[] = [
 ];
 
 const ADMIN_LINKS: SidebarLink[] = [
+  { to: '/admin/users', label: 'Tài khoản', icon: '👤' },
   { to: '/admin/shifts', label: 'Ca làm việc', icon: '🕐' },
   { to: '/admin/ips', label: 'Quản lý IP', icon: '🌐' },
   { to: '/admin/macs', label: 'Quản lý MAC', icon: '📡' },

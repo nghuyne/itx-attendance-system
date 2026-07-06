@@ -22,6 +22,7 @@ import { AuditPage } from './pages/Admin/AuditPage';
 import { OfficeLocationsPage } from './pages/Admin/OfficeLocationsPage';
 import { DepartmentsPage } from './pages/Admin/DepartmentsPage';
 import { MacsPage } from './pages/Admin/MacsPage';
+import { UsersPage } from './pages/Admin/UsersPage';
 import { ForceChangePasswordPage } from './pages/ForceChangePasswordPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
@@ -93,6 +94,7 @@ function App() {
               <Route path="/admin/audit" element={<AuditPage />} />
               <Route path="/admin/office-locations" element={<OfficeLocationsPage />} />
               <Route path="/admin/departments" element={<DepartmentsPage />} />
+              <Route path="/admin/users" element={<UsersPage />} />
             </Route>
           </Route>
 
