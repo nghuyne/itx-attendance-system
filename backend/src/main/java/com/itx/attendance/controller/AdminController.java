@@ -8,9 +8,11 @@ import com.itx.attendance.dto.request.CreateDepartmentRequest;
 import com.itx.attendance.dto.request.CreateHolidayRequest;
 import com.itx.attendance.dto.request.CreateOfficeLocationRequest;
 import com.itx.attendance.dto.request.CreateShiftRequest;
+import com.itx.attendance.dto.request.CreateUserRequest;
 import com.itx.attendance.dto.request.CreateValidIpRequest;
 import com.itx.attendance.dto.request.CreateValidMacRequest;
 import com.itx.attendance.dto.response.AdminAttendanceRecordDto;
+import com.itx.attendance.dto.response.AdminUserDto;
 import com.itx.attendance.dto.response.AttendanceRecordDto;
 import com.itx.attendance.dto.response.AuditLogDto;
 import com.itx.attendance.dto.response.BulkAssignResultDto;
@@ -31,6 +33,7 @@ import com.itx.attendance.service.DepartmentService;
 import com.itx.attendance.service.HolidayService;
 import com.itx.attendance.service.OfficeLocationService;
 import com.itx.attendance.service.ShiftService;
+import com.itx.attendance.service.UserManagementService;
 import com.itx.attendance.service.ValidIpService;
 import com.itx.attendance.service.ValidMacService;
 import jakarta.validation.Valid;
@@ -69,6 +72,7 @@ public class AdminController {
     private final OfficeLocationService officeLocationService;
     private final AttendanceExportService attendanceExportService;
     private final DepartmentService departmentService;
+    private final UserManagementService userManagementService;
 
     // ── Shift endpoints ───────────────────────────────────────────────────────
 
@@ -304,5 +308,39 @@ public class AdminController {
             @PathVariable String userId,
             @Valid @RequestBody AssignEmployeeDepartmentRequest request) {
         return ResponseEntity.ok(departmentService.assignEmployeeDepartment(userId, request));
+    }
+
+    // ── User account management (Phase 3 — admin creates employee accounts) ──
+
+    @GetMapping("/users")
+    public ResponseEntity<Page<AdminUserDto>> getUsers(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+        return ResponseEntity.ok(userManagementService.listUsers(
+            PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))));
+    }
+
+    @PostMapping("/users")
+    public ResponseEntity<AdminUserDto> createUser(@Valid @RequestBody CreateUserRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(userManagementService.createUser(request, currentUserService.getCurrentUser()));
+    }
+
+    @PutMapping("/users/{id}/reset-password")
+    public ResponseEntity<Void> resetUserPassword(@PathVariable String id) {
+        userManagementService.resetPassword(id, currentUserService.getCurrentUser());
+        return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/users/{id}/deactivate")
+    public ResponseEntity<AdminUserDto> deactivateUser(@PathVariable String id) {
+        return ResponseEntity.ok(
+            userManagementService.setActive(id, false, currentUserService.getCurrentUser()));
+    }
+
+    @PutMapping("/users/{id}/activate")
+    public ResponseEntity<AdminUserDto> activateUser(@PathVariable String id) {
+        return ResponseEntity.ok(
+            userManagementService.setActive(id, true, currentUserService.getCurrentUser()));
     }
 }
