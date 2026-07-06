@@ -8,6 +8,7 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(properties = {
     "spring.datasource.url=jdbc:h2:mem:ctxloadtestdb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
     "spring.datasource.driver-class-name=org.h2.Driver",
+    "spring.datasource.password=test",
     "spring.flyway.enabled=false",
     "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect",
     "spring.jpa.hibernate.ddl-auto=create-drop",

@@ -42,6 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(properties = {
     "spring.datasource.url=jdbc:h2:mem:attendanceintegtestdb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
     "spring.datasource.driver-class-name=org.h2.Driver",
+    "spring.datasource.password=test",
     "spring.flyway.enabled=false",
     "spring.jpa.hibernate.ddl-auto=create-drop",
     "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
