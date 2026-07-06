@@ -153,6 +153,7 @@ export interface CheckOutRequest {
   lat: number | null;
   lng: number | null;
   photoBase64: string;
+  bssid?: string | null;
 }
 
 // Request DTOs — Story 4.1

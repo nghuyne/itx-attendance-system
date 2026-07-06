@@ -103,14 +103,18 @@ export const CheckInPage: React.FC = () => {
         lat: coords.lat,
         lng: coords.lng,
         photoBase64: checkOutPhoto,
+        bssid,
       } as CheckOutRequest);
       await queryClient.invalidateQueries({ queryKey: ['attendance', 'today'] });
       showToast({ type: 'success', message: 'Check-out thành công!' });
     } catch (err) {
-      const errorCode = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      const errorData = (err as { response?: { data?: { error?: string, message?: string } } })?.response?.data;
+      const errorCode = errorData?.error;
       const message =
         errorCode === 'ALREADY_CHECKED_OUT' ? 'Bạn đã check-out rồi hôm nay.' :
         errorCode === 'NO_CHECKIN_FOUND' ? 'Không tìm thấy bản ghi check-in hôm nay.' :
+        errorCode === 'INVALID_MAC' ? 'Mạng Wi-Fi không hợp lệ. Vui lòng kết nối vào Wi-Fi văn phòng.' :
+        errorCode === 'INVALID_IP' ? (errorData?.message || 'Không nhận diện được mạng văn phòng. Kiểm tra kết nối.') :
         errorCode === 'PHOTO_UPLOAD_FAILED' ? 'Lỗi tải ảnh. Vui lòng thử lại.' :
         'Lỗi không xác định. Vui lòng thử lại.';
       setCheckOutError(message);
