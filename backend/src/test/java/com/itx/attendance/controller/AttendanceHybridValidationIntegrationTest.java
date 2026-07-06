@@ -3,6 +3,7 @@ package com.itx.attendance.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itx.attendance.domain.*;
 import com.itx.attendance.dto.request.CheckInRequest;
+import com.itx.attendance.dto.request.CheckOutRequest;
 import com.itx.attendance.dto.request.LoginRequest;
 import com.itx.attendance.repository.*;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,6 +55,7 @@ class AttendanceHybridValidationIntegrationTest {
     @Autowired private ValidMacRepository validMacRepository;
     @Autowired private ValidIpRepository validIpRepository;
     @Autowired private AttendanceRecordRepository attendanceRecordRepository;
+    @Autowired private OtRecordRepository otRecordRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private ObjectMapper objectMapper;
 
@@ -67,6 +69,9 @@ class AttendanceHybridValidationIntegrationTest {
 
     @BeforeEach
     void setUp() throws Exception {
+        // OT records FK to attendance records — delete first to avoid FK violations when a
+        // check-out test lands after shift-end + otBuffer and creates an OT record.
+        otRecordRepository.deleteAll();
         attendanceRecordRepository.deleteAll();
         validMacRepository.deleteAll();
         validIpRepository.deleteAll();
@@ -255,6 +260,167 @@ class AttendanceHybridValidationIntegrationTest {
                 .header("X-Forwarded-For", "9.9.9.9"))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.isClientSite").value(true));
+    }
+
+    // ── Check-out mirrors the check-in validation path (Epic 10 P0 fix) ──────
+    //
+    // Bug: AttendanceService.checkOut() previously always validated against
+    // valid_ips regardless of how check-in was validated, so an employee who
+    // checked in via BSSID (no valid_ips entry needed) would be wrongly
+    // rejected — or worse, a stale/foreign IP could pass — at check-out.
+    // Fix: the validation method used at check-in is persisted on the record
+    // and re-applied at check-out.
+
+    @Test
+    void checkOut_afterBssidCheckIn_matchingBssid_returns200() throws Exception {
+        validMacRepository.save(ValidMac.builder()
+            .bssid(VALID_BSSID)
+            .createdBy("admin")
+            .build());
+
+        String checkInBody = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, VALID_BSSID));
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(checkInBody)
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isCreated());
+
+        // No valid_ips registered at all — proves check-out used the BSSID path, not IP.
+        String checkOutBody = objectMapper.writeValueAsString(
+            new CheckOutRequest(null, null, FAKE_PHOTO, VALID_BSSID));
+        mockMvc.perform(post("/api/attendance/check-out")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(checkOutBody)
+                .header("Authorization", "Bearer " + employeeToken)
+                .header("X-Forwarded-For", "1.2.3.4"))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void checkOut_afterBssidCheckIn_missingBssid_returns403WithINVALID_MAC() throws Exception {
+        validMacRepository.save(ValidMac.builder()
+            .bssid(VALID_BSSID)
+            .createdBy("admin")
+            .build());
+
+        String checkInBody = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, VALID_BSSID));
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(checkInBody)
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isCreated());
+
+        String checkOutBody = objectMapper.writeValueAsString(
+            new CheckOutRequest(null, null, FAKE_PHOTO, null));
+        mockMvc.perform(post("/api/attendance/check-out")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(checkOutBody)
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.error").value("INVALID_MAC"));
+    }
+
+    @Test
+    void checkOut_afterBssidCheckIn_wrongBssid_returns403WithINVALID_MAC() throws Exception {
+        validMacRepository.save(ValidMac.builder()
+            .bssid(VALID_BSSID)
+            .createdBy("admin")
+            .build());
+
+        String checkInBody = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, VALID_BSSID));
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(checkInBody)
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isCreated());
+
+        String checkOutBody = objectMapper.writeValueAsString(
+            new CheckOutRequest(null, null, FAKE_PHOTO, "11:22:33:44:55:66"));
+        mockMvc.perform(post("/api/attendance/check-out")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(checkOutBody)
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.error").value("INVALID_MAC"));
+    }
+
+    @Test
+    void checkOut_afterIpCheckIn_validIp_returns200() throws Exception {
+        validIpRepository.save(ValidIp.builder()
+            .ipAddress(CLIENT_IP)
+            .scope(IpScope.COMPANY)
+            .createdBy(admin)
+            .build());
+
+        String checkInBody = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(checkInBody)
+                .header("Authorization", "Bearer " + employeeToken)
+                .header("X-Forwarded-For", CLIENT_IP))
+            .andExpect(status().isCreated());
+
+        String checkOutBody = objectMapper.writeValueAsString(
+            new CheckOutRequest(null, null, FAKE_PHOTO, null));
+        mockMvc.perform(post("/api/attendance/check-out")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(checkOutBody)
+                .header("Authorization", "Bearer " + employeeToken)
+                .header("X-Forwarded-For", CLIENT_IP))
+            .andExpect(status().isOk());
+    }
+
+    @Test
+    void checkOut_afterIpCheckIn_unknownIp_returns403WithINVALID_IP() throws Exception {
+        validIpRepository.save(ValidIp.builder()
+            .ipAddress(CLIENT_IP)
+            .scope(IpScope.COMPANY)
+            .createdBy(admin)
+            .build());
+
+        String checkInBody = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(checkInBody)
+                .header("Authorization", "Bearer " + employeeToken)
+                .header("X-Forwarded-For", CLIENT_IP))
+            .andExpect(status().isCreated());
+
+        String checkOutBody = objectMapper.writeValueAsString(
+            new CheckOutRequest(null, null, FAKE_PHOTO, null));
+        mockMvc.perform(post("/api/attendance/check-out")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(checkOutBody)
+                .header("Authorization", "Bearer " + employeeToken)
+                .header("X-Forwarded-For", "9.9.9.9"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.error").value("INVALID_IP"));
+    }
+
+    @Test
+    void checkOut_afterClientSiteCheckIn_skipsBothMacAndIpValidation() throws Exception {
+        String checkInBody = objectMapper.writeValueAsString(
+            new CheckInRequest(10.77, 106.69, FAKE_PHOTO, true, null));
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(checkInBody)
+                .header("Authorization", "Bearer " + employeeToken)
+                .header("X-Forwarded-For", "9.9.9.9"))
+            .andExpect(status().isCreated());
+
+        String checkOutBody = objectMapper.writeValueAsString(
+            new CheckOutRequest(10.77, 106.69, FAKE_PHOTO, null));
+        mockMvc.perform(post("/api/attendance/check-out")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(checkOutBody)
+                .header("Authorization", "Bearer " + employeeToken)
+                .header("X-Forwarded-For", "9.9.9.9"))
+            .andExpect(status().isOk());
     }
 
     // ── Helper ──────────────────────────────────────────────────────────────

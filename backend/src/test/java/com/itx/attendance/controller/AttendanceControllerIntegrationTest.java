@@ -60,6 +60,7 @@ class AttendanceControllerIntegrationTest {
     @Autowired private UserRepository userRepository;
     @Autowired private ShiftRepository shiftRepository;
     @Autowired private AttendanceRecordRepository attendanceRecordRepository;
+    @Autowired private OtRecordRepository otRecordRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private ObjectMapper objectMapper;
 
@@ -73,6 +74,9 @@ class AttendanceControllerIntegrationTest {
 
     @BeforeEach
     void setUp() throws Exception {
+        // Delete OT records first — checking out past shift-end + otBuffer creates an OT
+        // record that FKs to the attendance record, so it must go before the attendance delete.
+        otRecordRepository.deleteAll();
         attendanceRecordRepository.deleteAll();
         userRepository.deleteAll();
         shiftRepository.deleteAll();
@@ -275,7 +279,7 @@ class AttendanceControllerIntegrationTest {
     @Test
     void checkOut_noPriorCheckIn_returns400WithNO_CHECKIN_FOUND() throws Exception {
         String body = objectMapper.writeValueAsString(
-            new CheckOutRequest(null, null, FAKE_PHOTO));
+            new CheckOutRequest(null, null, FAKE_PHOTO, null));
 
         mockMvc.perform(post("/api/attendance/check-out")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -299,7 +303,7 @@ class AttendanceControllerIntegrationTest {
             .build());
 
         String body = objectMapper.writeValueAsString(
-            new CheckOutRequest(null, null, FAKE_PHOTO));
+            new CheckOutRequest(null, null, FAKE_PHOTO, null));
 
         mockMvc.perform(post("/api/attendance/check-out")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -328,7 +332,7 @@ class AttendanceControllerIntegrationTest {
             .build());
 
         String body = objectMapper.writeValueAsString(
-            new CheckOutRequest(null, null, FAKE_PHOTO));
+            new CheckOutRequest(null, null, FAKE_PHOTO, null));
 
         mockMvc.perform(post("/api/attendance/check-out")
                 .contentType(MediaType.APPLICATION_JSON)
