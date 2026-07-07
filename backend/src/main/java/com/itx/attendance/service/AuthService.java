@@ -88,7 +88,21 @@ public class AuthService {
             throw new BusinessException("Tài khoản đã bị vô hiệu hóa",
                     HttpStatus.UNAUTHORIZED, "ACCOUNT_DISABLED");
         }
+        if (isIssuedBeforePasswordChange(refreshToken, user)) {
+            throw new BusinessException("Refresh token đã bị thu hồi",
+                    HttpStatus.UNAUTHORIZED, "TOKEN_REVOKED");
+        }
         return jwtTokenProvider.generateAccessToken(user.getUsername(), user.getRole());
+    }
+
+    private boolean isIssuedBeforePasswordChange(String token, User user) {
+        if (user.getPasswordChangedAt() == null) {
+            return false;
+        }
+        java.time.Instant issuedAt = jwtTokenProvider.extractIssuedAt(token);
+        java.time.Instant changedAt = user.getPasswordChangedAt()
+                .atZone(java.time.ZoneId.systemDefault()).toInstant();
+        return issuedAt.isBefore(changedAt);
     }
 
     public void logout(String accessToken, String refreshToken) {
@@ -133,6 +147,7 @@ public class AuthService {
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setMustChangePassword(false);
+        user.setPasswordChangedAt(LocalDateTime.now());
         userRepository.save(user);
     }
 
@@ -165,6 +180,7 @@ public class AuthService {
         }
         User user = resetToken.getUser();
         user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setPasswordChangedAt(LocalDateTime.now());
         userRepository.save(user);
         resetToken.setUsed(true);
         passwordResetTokenRepository.save(resetToken);

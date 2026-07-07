@@ -1,6 +1,8 @@
 package com.itx.attendance.security;
 
+import com.itx.attendance.domain.User;
 import com.itx.attendance.repository.RevokedTokenRepository;
+import com.itx.attendance.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,6 +19,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.HexFormat;
 
 @Component
@@ -26,6 +30,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;
     private final RevokedTokenRepository revokedTokenRepository;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -48,7 +53,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             if (jwtTokenProvider.isTokenValid(token)) {
                 String username = jwtTokenProvider.extractUsername(token);
-                if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                if (username != null && SecurityContextHolder.getContext().getAuthentication() == null
+                        && !isIssuedBeforePasswordChange(token, username)) {
                     UserDetails userDetails = userDetailsService.loadUserByUsername(username);
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
@@ -61,6 +67,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private boolean isIssuedBeforePasswordChange(String token, String username) {
+        User user = userRepository.findByUsername(username).orElse(null);
+        if (user == null || user.getPasswordChangedAt() == null) {
+            return false;
+        }
+        Instant issuedAt = jwtTokenProvider.extractIssuedAt(token);
+        Instant changedAt = user.getPasswordChangedAt().atZone(ZoneId.systemDefault()).toInstant();
+        return issuedAt.isBefore(changedAt);
     }
 
     private String sha256(String input) {

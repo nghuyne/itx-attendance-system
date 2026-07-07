@@ -47,6 +47,10 @@ public class JwtTokenProvider {
         return extractClaim(token, Claims::getSubject);
     }
 
+    public java.time.Instant extractIssuedAt(String token) {
+        return extractClaim(token, Claims::getIssuedAt).toInstant();
+    }
+
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         return claimsResolver.apply(extractAllClaims(token));
     }

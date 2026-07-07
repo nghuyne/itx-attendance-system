@@ -47,6 +47,9 @@ public class User {
     @Builder.Default
     private boolean mustChangePassword = false;
 
+    @Column(name = "password_changed_at")
+    private LocalDateTime passwordChangedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "leader_id", nullable = true)
     private User leader;
