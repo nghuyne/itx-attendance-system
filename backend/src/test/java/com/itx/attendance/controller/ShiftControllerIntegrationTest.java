@@ -141,6 +141,34 @@ class ShiftControllerIntegrationTest {
     }
 
     @Test
+    void createShift_halfDayThresholdLessThanLateInThreshold_returns400WithINVALID_SHIFT_THRESHOLDS() throws Exception {
+        String body = objectMapper.writeValueAsString(new CreateShiftRequest(
+            "Ca Nguong Sai", LocalTime.of(8, 0), LocalTime.of(17, 0),
+            30, 30, 15, 10, 30));
+
+        mockMvc.perform(post("/api/admin/shifts")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + adminToken))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").value("INVALID_SHIFT_THRESHOLDS"));
+    }
+
+    @Test
+    void createShift_halfDayThresholdLessThanEarlyOutThreshold_returns400WithINVALID_SHIFT_THRESHOLDS() throws Exception {
+        String body = objectMapper.writeValueAsString(new CreateShiftRequest(
+            "Ca Nguong Sai 2", LocalTime.of(8, 0), LocalTime.of(17, 0),
+            30, 15, 30, 10, 30));
+
+        mockMvc.perform(post("/api/admin/shifts")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + adminToken))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").value("INVALID_SHIFT_THRESHOLDS"));
+    }
+
+    @Test
     void createShift_startTimeEqualsEndTime_returns400() throws Exception {
         String body = objectMapper.writeValueAsString(new CreateShiftRequest(
             "Ca Bang Gio", LocalTime.of(8, 0), LocalTime.of(8, 0),

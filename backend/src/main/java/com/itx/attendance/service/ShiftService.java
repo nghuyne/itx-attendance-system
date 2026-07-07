@@ -32,6 +32,7 @@ public class ShiftService {
     @Transactional
     public ShiftDto create(CreateShiftRequest request) {
         validateTime(request.startTime(), request.endTime());
+        validateThresholds(request);
         if (shiftRepository.existsByName(request.name())) {
             throw new BusinessException("Ten ca '" + request.name() + "' da ton tai",
                 HttpStatus.CONFLICT, "SHIFT_NAME_EXISTS");
@@ -56,6 +57,7 @@ public class ShiftService {
             .orElseThrow(() -> new BusinessException("Ca khong ton tai",
                 HttpStatus.NOT_FOUND, "SHIFT_NOT_FOUND"));
         validateTime(request.startTime(), request.endTime());
+        validateThresholds(request);
         if (shiftRepository.existsByNameAndIdNot(request.name(), id)) {
             throw new BusinessException("Ten ca '" + request.name() + "' da ton tai",
                 HttpStatus.CONFLICT, "SHIFT_NAME_EXISTS");
@@ -108,6 +110,15 @@ public class ShiftService {
         if (!start.isBefore(end)) {
             throw new BusinessException("Gio bat dau phai nho hon gio ket thuc",
                 HttpStatus.BAD_REQUEST, "INVALID_SHIFT_TIME");
+        }
+    }
+
+    private void validateThresholds(CreateShiftRequest request) {
+        if (request.halfDayThreshold() < request.lateInThreshold()
+                || request.halfDayThreshold() < request.earlyOutThreshold()) {
+            throw new BusinessException(
+                "Nguong nua ngay phai lon hon hoac bang nguong di muon/ve som",
+                HttpStatus.BAD_REQUEST, "INVALID_SHIFT_THRESHOLDS");
         }
     }
 
