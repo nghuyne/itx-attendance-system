@@ -6,6 +6,8 @@ import com.itx.attendance.dto.request.CheckOutRequest;
 import com.itx.attendance.dto.response.AttendanceRecordDto;
 import com.itx.attendance.exception.BusinessException;
 import com.itx.attendance.repository.AttendanceRecordRepository;
+import com.itx.attendance.repository.HolidayRepository;
+import com.itx.attendance.repository.OtRequestRepository;
 import com.itx.attendance.repository.UserRepository;
 import com.itx.attendance.repository.ValidIpRepository;
 import com.itx.attendance.repository.ValidMacRepository;
@@ -27,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -52,6 +55,8 @@ public class AttendanceService {
     private final PhotoService photoService;
     private final OtCalculationService otCalculationService;
     private final OfficeLocationService officeLocationService;
+    private final OtRequestRepository otRequestRepository;
+    private final HolidayRepository holidayRepository;
 
     @Value("${app.ip-check.enabled:true}")
     private boolean ipCheckEnabled;
@@ -88,6 +93,27 @@ public class AttendanceService {
         if (attendanceRecordRepository.existsByEmployeeIdAndDate(employee.getId(), today)) {
             throw new BusinessException(
                 "Đã chấm công rồi", HttpStatus.CONFLICT, "ALREADY_CHECKED_IN");
+        }
+
+        LocalTime checkInVN = TimeUtil.toUtcPlus7(LocalDateTime.now(ZoneOffset.UTC)).toLocalTime();
+        LocalTime checkInOpensAt = shift.getShiftStartTime().minusMinutes(shift.getCheckInOpenMinutes());
+        if (checkInVN.isBefore(checkInOpensAt)) {
+            throw new BusinessException(
+                "Chưa đến giờ mở chấm công (mở lúc " + checkInOpensAt.format(TIME_FORMATTER) + ")",
+                HttpStatus.BAD_REQUEST, "CHECKIN_NOT_OPEN_YET");
+        }
+
+        DayOfWeek dayOfWeek = today.getDayOfWeek();
+        boolean isSpecialDay = dayOfWeek == DayOfWeek.SATURDAY || dayOfWeek == DayOfWeek.SUNDAY
+            || holidayRepository.existsByDate(today);
+        if (isSpecialDay) {
+            boolean hasApprovedOt = otRequestRepository
+                .existsByEmployeeIdAndPlannedDateAndStatus(employee.getId(), today, RequestStatus.APPROVED);
+            if (!hasApprovedOt) {
+                throw new BusinessException(
+                    "Cần có yêu cầu OT được duyệt để chấm công vào ngày cuối tuần/lễ",
+                    HttpStatus.FORBIDDEN, "NO_APPROVED_OT_REQUEST");
+            }
         }
 
         String clientIp = extractClientIp(httpRequest);

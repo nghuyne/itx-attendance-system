@@ -6,6 +6,7 @@ import com.itx.attendance.dto.request.CheckInRequest;
 import com.itx.attendance.dto.request.CheckOutRequest;
 import com.itx.attendance.dto.request.LoginRequest;
 import com.itx.attendance.repository.*;
+import com.itx.attendance.util.TimeUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -62,6 +64,8 @@ class AttendanceControllerIntegrationTest {
     @Autowired private ShiftRepository shiftRepository;
     @Autowired private AttendanceRecordRepository attendanceRecordRepository;
     @Autowired private OtRecordRepository otRecordRepository;
+    @Autowired private OtRequestRepository otRequestRepository;
+    @Autowired private HolidayRepository holidayRepository;
     @Autowired private PasswordEncoder passwordEncoder;
     @Autowired private ObjectMapper objectMapper;
 
@@ -78,6 +82,8 @@ class AttendanceControllerIntegrationTest {
         // Delete OT records first — checking out past shift-end + otBuffer creates an OT
         // record that FKs to the attendance record, so it must go before the attendance delete.
         otRecordRepository.deleteAll();
+        otRequestRepository.deleteAll();
+        holidayRepository.deleteAll();
         attendanceRecordRepository.deleteAll();
         userRepository.deleteAll();
         shiftRepository.deleteAll();
@@ -193,6 +199,92 @@ class AttendanceControllerIntegrationTest {
                 .content(body)
                 .header("Authorization", "Bearer " + employeeToken))
             .andExpect(status().isBadRequest());
+    }
+
+    // ── POST /api/attendance/check-in — check-in window & weekend/holiday OT guard ──
+
+    @Test
+    void checkIn_beforeWindowOpens_returns400WithCHECKIN_NOT_OPEN_YET() throws Exception {
+        // Shift starts 2h from now with a 0-minute open window → window has not opened yet,
+        // regardless of the wall-clock time the test happens to run at.
+        LocalTime futureStart = LocalTime.now(TimeUtil.UTC_PLUS_7).plusHours(2).withSecond(0).withNano(0);
+        Shift futureShift = shiftRepository.save(Shift.builder()
+            .name("Ca Tuong Lai")
+            .shiftStartTime(futureStart)
+            .shiftEndTime(futureStart.plusHours(8))
+            .checkInOpenMinutes(0)
+            .lateInThreshold(15)
+            .earlyOutThreshold(15)
+            .halfDayThreshold(240)
+            .otBuffer(30)
+            .build());
+        User futureShiftEmp = userRepository.save(User.builder()
+            .username("future_shift_emp")
+            .email("future_shift@itx.local")
+            .passwordHash(passwordEncoder.encode("emp123"))
+            .fullName("Future Shift Employee")
+            .role(UserRole.EMPLOYEE)
+            .shift(futureShift)
+            .build());
+        String token = loginAndGetToken("future_shift_emp", "emp123");
+
+        String body = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").value("CHECKIN_NOT_OPEN_YET"));
+    }
+
+    @Test
+    void checkIn_onHolidayWithoutApprovedOt_returns403WithNO_APPROVED_OT_REQUEST() throws Exception {
+        LocalDate today = LocalDate.now(TimeUtil.UTC_PLUS_7);
+        holidayRepository.save(Holiday.builder()
+            .date(today)
+            .name("Test Holiday")
+            .type(HolidayType.FIXED)
+            .year(today.getYear())
+            .build());
+
+        String body = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.error").value("NO_APPROVED_OT_REQUEST"));
+    }
+
+    @Test
+    void checkIn_onHolidayWithApprovedOt_returns201() throws Exception {
+        LocalDate today = LocalDate.now(TimeUtil.UTC_PLUS_7);
+        holidayRepository.save(Holiday.builder()
+            .date(today)
+            .name("Test Holiday")
+            .type(HolidayType.FIXED)
+            .year(today.getYear())
+            .build());
+        otRequestRepository.save(OtRequest.builder()
+            .employee(employee)
+            .plannedDate(today)
+            .plannedOtHours(new BigDecimal("4.00"))
+            .reason("Cover holiday shift")
+            .status(RequestStatus.APPROVED)
+            .build());
+
+        String body = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isCreated());
     }
 
     @Test
