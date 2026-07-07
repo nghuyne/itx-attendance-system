@@ -11,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
@@ -64,6 +65,11 @@ public class HolidayService {
         holidayRepository.delete(holiday);
     }
 
+    // REQUIRES_NEW: called from RequestService.approveLeaveRequest() while a pessimistic
+    // lock (findByIdForUpdate) is held on the same session — running this SELECT in that
+    // session triggers a Hibernate 6.4 LoadContexts stack bug ("Illegal pop() with
+    // non-matching JdbcValuesSourceProcessingState"). A fresh session sidesteps it.
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
     public int countBusinessDays(LocalDate start, LocalDate end) {
         if (start.isAfter(end)) return 0;
         Set<LocalDate> holidays = holidayRepository.findHolidayDatesBetween(start, end);
