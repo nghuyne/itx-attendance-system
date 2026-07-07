@@ -26,10 +26,8 @@ _bmad-output/
 # BACKEND (Java / Spring Boot / Maven)
 # ========================
 backend/target/
-backend/.mvn/
-backend/mvnw
-backend/mvnw.cmd
 *.jar
+!backend/.mvn/wrapper/maven-wrapper.jar
 *.war
 *.class
 .idea/

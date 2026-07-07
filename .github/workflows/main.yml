@@ -2,9 +2,9 @@ name: CI Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "master" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "master" ]
 
 jobs:
   backend-build:
@@ -17,6 +17,9 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
         cache: maven
+    - name: Run tests
+      working-directory: ./backend
+      run: ./mvnw -B test --file pom.xml
     - name: Build with Maven
       working-directory: ./backend
       run: ./mvnw -B package --file pom.xml -DskipTests
