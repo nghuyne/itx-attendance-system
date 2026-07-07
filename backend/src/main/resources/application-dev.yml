@@ -15,3 +15,5 @@ app:
     allowed-origins: "http://localhost:*"
   ip-check:
     enabled: false
+  jwt:
+    cookie-secure: false

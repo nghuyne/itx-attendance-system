@@ -7,6 +7,7 @@ import com.itx.attendance.dto.response.AuthResponse;
 import com.itx.attendance.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -22,13 +23,16 @@ public class AuthController {
 
     private final AuthService authService;
 
+    @Value("${app.jwt.cookie-secure}")
+    private boolean cookieSecure;
+
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthService.LoginResult result = authService.login(request);
 
         ResponseCookie refreshCookie = ResponseCookie.from("refreshToken", result.refreshToken())
                 .httpOnly(true)
-                .secure(false)
+                .secure(cookieSecure)
                 .path("/")
                 .maxAge(Duration.ofDays(7))
                 .sameSite("Strict")
@@ -62,6 +66,7 @@ public class AuthController {
         authService.logout(accessToken, refreshToken);
         ResponseCookie clearCookie = ResponseCookie.from("refreshToken", "")
                 .httpOnly(true)
+                .secure(cookieSecure)
                 .path("/")
                 .maxAge(0)
                 .sameSite("Strict")
