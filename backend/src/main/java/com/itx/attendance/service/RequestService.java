@@ -38,7 +38,9 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -501,14 +503,15 @@ public class RequestService {
         LocalDate startDate = request.startDate();
         LocalDate endDate = request.endDate();
 
-        if (startDate.isBefore(LocalDate.now())) {
+        if (startDate.isBefore(LocalDate.now(TimeUtil.UTC_PLUS_7))) {
             throw new BusinessException("Start date cannot be in the past", HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE");
         }
         if (startDate.isAfter(endDate)) {
             throw new BusinessException("Start date must be before or equal to end date", HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE");
         }
 
-        int totalDays = holidayService.countBusinessDays(startDate, endDate);
+        Map<Integer, Integer> daysByYear = splitDaysByYear(startDate, endDate);
+        int totalDays = daysByYear.values().stream().mapToInt(Integer::intValue).sum();
         if (totalDays == 0) {
             throw new BusinessException("No business days in the selected range", HttpStatus.BAD_REQUEST, "INVALID_DATE_RANGE");
         }
@@ -517,10 +520,12 @@ public class RequestService {
             throw new BusinessException("Leave dates overlap with an existing request", HttpStatus.CONFLICT, "LEAVE_DATE_CONFLICT");
         }
 
-        LeaveBalance balance = getOrCreateBalance(employee, startDate.getYear(), request.leaveType());
-        int remaining = balance.getTotalDays() - balance.getUsedDays();
-        if (remaining < totalDays) {
-            throw new BusinessException("Quỹ phép không đủ", HttpStatus.BAD_REQUEST, "INSUFFICIENT_LEAVE_BALANCE");
+        for (Map.Entry<Integer, Integer> yearDays : daysByYear.entrySet()) {
+            LeaveBalance balance = getOrCreateBalance(employee, yearDays.getKey(), request.leaveType());
+            int remaining = balance.getTotalDays() - balance.getUsedDays();
+            if (remaining < yearDays.getValue()) {
+                throw new BusinessException("Quỹ phép không đủ", HttpStatus.BAD_REQUEST, "INSUFFICIENT_LEAVE_BALANCE");
+            }
         }
 
         LeaveRequest leaveRequest = LeaveRequest.builder()
@@ -557,9 +562,12 @@ public class RequestService {
         request.setApprover(reviewer);
         leaveRequestRepository.save(request);
 
-        LeaveBalance balance = getOrCreateBalance(request.getEmployee(), request.getStartDate().getYear(), request.getLeaveType());
-        balance.setUsedDays(balance.getUsedDays() + request.getTotalDays());
-        leaveBalanceRepository.save(balance);
+        Map<Integer, Integer> daysByYear = splitDaysByYear(request.getStartDate(), request.getEndDate());
+        for (Map.Entry<Integer, Integer> yearDays : daysByYear.entrySet()) {
+            LeaveBalance balance = getOrCreateBalance(request.getEmployee(), yearDays.getKey(), request.getLeaveType());
+            balance.setUsedDays(balance.getUsedDays() + yearDays.getValue());
+            leaveBalanceRepository.save(balance);
+        }
 
         notificationService.sendRequestApprovedNotification(
             request.getEmployee(), String.valueOf(request.getId()), "nghỉ phép");
@@ -594,7 +602,7 @@ public class RequestService {
         User employee = userRepository.findByUsername(username)
             .orElseThrow(() -> new BusinessException("Employee not found", HttpStatus.NOT_FOUND, "EMPLOYEE_NOT_FOUND"));
 
-        int year = LocalDate.now().getYear();
+        int year = LocalDate.now(TimeUtil.UTC_PLUS_7).getYear();
         List<LeaveBalance> balances = leaveBalanceRepository.findByEmployeeIdAndYear(employee.getId(), year);
 
         boolean hasAnnual = balances.stream().anyMatch(b -> b.getLeaveType() == LeaveType.ANNUAL);
@@ -607,6 +615,18 @@ public class RequestService {
         }
 
         return balances.stream().map(this::toLeaveBalanceDto).toList();
+    }
+
+    private Map<Integer, Integer> splitDaysByYear(LocalDate start, LocalDate end) {
+        Map<Integer, Integer> daysByYear = new LinkedHashMap<>();
+        LocalDate segmentStart = start;
+        while (segmentStart.getYear() < end.getYear()) {
+            LocalDate yearEnd = LocalDate.of(segmentStart.getYear(), 12, 31);
+            daysByYear.put(segmentStart.getYear(), holidayService.countBusinessDays(segmentStart, yearEnd));
+            segmentStart = yearEnd.plusDays(1);
+        }
+        daysByYear.put(segmentStart.getYear(), holidayService.countBusinessDays(segmentStart, end));
+        return daysByYear;
     }
 
     private LeaveBalance getOrCreateBalance(User employee, int year, LeaveType type) {
