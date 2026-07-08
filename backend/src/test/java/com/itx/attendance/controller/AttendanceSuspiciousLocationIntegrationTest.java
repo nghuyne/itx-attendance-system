@@ -194,6 +194,24 @@ class AttendanceSuspiciousLocationIntegrationTest {
     }
 
     @Test
+    void checkIn_previousCheckInTimeInFuture_doesNotFlagSuspicious() throws Exception {
+        // Simulates clock skew / a concurrent check-in landing after this request's "now" read:
+        // prev.checkInTime ends up after "now", making minutesDelta negative. Without a guard,
+        // "minutesDelta < 60" is trivially true for any negative value and false-flags as suspicious.
+        seedPreviousCheckIn(PREV_LAT, PREV_LNG, LocalDateTime.now(ZoneOffset.UTC).plusMinutes(5));
+
+        String body = objectMapper.writeValueAsString(
+            new CheckInRequest(FAR_LAT, FAR_LNG, FAKE_PHOTO, true, null));
+
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.suspiciousLocation").value(false));
+    }
+
+    @Test
     void checkIn_noPreviousCheckIn_doesNotFlagSuspicious() throws Exception {
         String body = objectMapper.writeValueAsString(
             new CheckInRequest(FAR_LAT, FAR_LNG, FAKE_PHOTO, true, null));

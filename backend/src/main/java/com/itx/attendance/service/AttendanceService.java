@@ -181,7 +181,11 @@ public class AttendanceService {
                         request.lat(), request.lng());
                     long minutesDelta = ChronoUnit.MINUTES.between(
                         prev.getCheckInTime(), LocalDateTime.now(ZoneOffset.UTC));
-                    if (distKm > 50.0 && minutesDelta < 60) {
+                    // minutesDelta can go negative if prev.getCheckInTime() is not strictly in the
+                    // past (clock skew, or a concurrent check-in landing after this "now" read) —
+                    // without this guard, any negative value satisfies "< 60" and false-flags as
+                    // suspicious even though no fast travel actually happened.
+                    if (distKm > 50.0 && minutesDelta >= 0 && minutesDelta < 60) {
                         suspiciousLocation = true;
                         suspiciousDistKm = distKm;
                     }
