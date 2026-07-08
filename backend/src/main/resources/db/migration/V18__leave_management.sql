@@ -14,7 +14,7 @@ CREATE TABLE leave_requests (
     PRIMARY KEY (id),
     CONSTRAINT fk_lr_employee FOREIGN KEY (employee_id) REFERENCES users(id),
     CONSTRAINT fk_lr_approver FOREIGN KEY (approver_id) REFERENCES users(id)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE leave_balances (
     id          BIGINT  NOT NULL AUTO_INCREMENT,
@@ -26,7 +26,7 @@ CREATE TABLE leave_balances (
     PRIMARY KEY (id),
     UNIQUE KEY uq_leave_balance (employee_id, year, leave_type),
     CONSTRAINT fk_lb_employee FOREIGN KEY (employee_id) REFERENCES users(id)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_leave_requests_employee_status ON leave_requests (employee_id, status);
 

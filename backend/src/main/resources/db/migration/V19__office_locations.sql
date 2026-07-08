@@ -7,7 +7,7 @@ CREATE TABLE office_locations (
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO office_locations (name, latitude, longitude, radius_meters, is_active)
 VALUES ('Văn phòng chính', 10.77695000, 106.70070000, 200, TRUE);

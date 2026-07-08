@@ -6,4 +6,4 @@ CREATE TABLE valid_macs (
     is_active   BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at  DATETIME(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     UNIQUE KEY uq_valid_macs_bssid (bssid)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
