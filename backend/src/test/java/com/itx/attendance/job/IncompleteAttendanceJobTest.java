@@ -222,6 +222,75 @@ class IncompleteAttendanceJobTest {
         }
     }
 
+    // ── Overnight shift — grace cutoff rolls past midnight ─────────────────
+
+    @Test
+    void markIncompleteRecords_overnightShiftDuringWorkHours_notMarked() {
+        // Shift 23:30 end, ot_buffer=60 → real cutoff = 23:30 + 60 + 30 = next day 01:00.
+        // Regression check: a naive LocalTime-only comparison wraps this cutoff to "01:00"
+        // same-day, so any daytime "now" (e.g. 10:00, mid-shift) would incorrectly look
+        // past cutoff and get marked INCOMPLETE hours before the shift even ends.
+        Shift overnightShift = Shift.builder()
+            .id("shift-overnight")
+            .name("Ca Đêm")
+            .shiftStartTime(LocalTime.of(22, 0))
+            .shiftEndTime(LocalTime.of(23, 30))
+            .otBuffer(60)
+            .build();
+
+        LocalDate fixedDate = LocalDate.of(2026, 6, 30);
+        LocalDateTime fixedNowVn = LocalDateTime.of(2026, 6, 30, 10, 0); // mid-shift, well before real cutoff
+
+        AttendanceRecord record = makeRecord(fixedDate, null);
+        record.setShift(overnightShift);
+
+        try (MockedStatic<TimeUtil> mockedTimeUtil = Mockito.mockStatic(TimeUtil.class)) {
+            mockedTimeUtil.when(TimeUtil::nowUtcPlus7).thenReturn(fixedNowVn);
+
+            when(attendanceRecordRepository
+                .findByCheckInTimeAfterAndCheckOutTimeIsNullAndAttendanceStatusNotIn(any(), any()))
+                .thenReturn(List.of(record));
+
+            incompleteAttendanceJob.markIncompleteRecords();
+
+            assertThat(record.getAttendanceStatus()).isEqualTo(AttendanceStatus.ON_TIME);
+            verify(attendanceRecordRepository, never()).save(any());
+            verifyNoInteractions(notificationRepository);
+        }
+    }
+
+    @Test
+    void markIncompleteRecords_overnightShiftPastRealCutoffNextDay_isMarkedIncomplete() {
+        // Same shift as above; "now" is 01:01 the day after — past the real grace cutoff (01:00).
+        Shift overnightShift = Shift.builder()
+            .id("shift-overnight")
+            .name("Ca Đêm")
+            .shiftStartTime(LocalTime.of(22, 0))
+            .shiftEndTime(LocalTime.of(23, 30))
+            .otBuffer(60)
+            .build();
+
+        LocalDate fixedDate = LocalDate.of(2026, 6, 30);
+        LocalDateTime fixedNowVn = LocalDateTime.of(2026, 7, 1, 1, 1);
+
+        AttendanceRecord record = makeRecord(fixedDate, null);
+        record.setShift(overnightShift);
+
+        try (MockedStatic<TimeUtil> mockedTimeUtil = Mockito.mockStatic(TimeUtil.class)) {
+            mockedTimeUtil.when(TimeUtil::nowUtcPlus7).thenReturn(fixedNowVn);
+
+            when(attendanceRecordRepository
+                .findByCheckInTimeAfterAndCheckOutTimeIsNullAndAttendanceStatusNotIn(any(), any()))
+                .thenReturn(List.of(record));
+            when(attendanceRecordRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+            incompleteAttendanceJob.markIncompleteRecords();
+
+            assertThat(record.getAttendanceStatus()).isEqualTo(AttendanceStatus.INCOMPLETE);
+            verify(notificationRepository).save(any(Notification.class));
+        }
+    }
+
     // ── Empty candidate list ───────────────────────────────────────────────
 
     @Test

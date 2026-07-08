@@ -17,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
 
 @Component
@@ -33,7 +32,6 @@ public class IncompleteAttendanceJob {
     public void markIncompleteRecords() {
         LocalDateTime nowVn = TimeUtil.nowUtcPlus7();
         LocalDate today = nowVn.toLocalDate();
-        LocalTime nowTime = nowVn.toLocalTime();
 
         LocalDateTime lookbackFrom = today.minusDays(7).atStartOfDay();
         List<AttendanceRecord> candidates = attendanceRecordRepository
@@ -48,7 +46,7 @@ public class IncompleteAttendanceJob {
                     || subStatus == ApprovalSubStatus.PENDING_APPROVAL) {
                 continue;
             }
-            if (shouldMarkIncomplete(record, today, nowTime)) {
+            if (shouldMarkIncomplete(record, nowVn)) {
                 record.setAttendanceStatus(AttendanceStatus.INCOMPLETE);
                 attendanceRecordRepository.save(record);
 
@@ -68,18 +66,23 @@ public class IncompleteAttendanceJob {
         }
     }
 
-    private boolean shouldMarkIncomplete(AttendanceRecord record, LocalDate today, LocalTime nowTime) {
-        if (record.getDate().isBefore(today)) {
-            return true;
-        }
+    private boolean shouldMarkIncomplete(AttendanceRecord record, LocalDateTime nowVn) {
         Shift shift = record.getShift();
         if (shift == null) {
+            // No shift to anchor a grace cutoff to — fall back to the plain calendar-day check.
+            if (record.getDate().isBefore(nowVn.toLocalDate())) {
+                return true;
+            }
             log.warn("IncompleteAttendanceJob: skipping record {} — shift is null", record.getId());
             return false;
         }
-        LocalTime graceCutoff = shift.getShiftEndTime()
+        // Anchor the cutoff to the record's own date via LocalDateTime (not LocalTime), so a
+        // late shift end + otBuffer + 30 that rolls past midnight advances to the next calendar
+        // day instead of wrapping — and doesn't get short-circuited by a plain date comparison
+        // the moment the clock ticks past midnight.
+        LocalDateTime graceCutoff = LocalDateTime.of(record.getDate(), shift.getShiftEndTime())
             .plusMinutes(shift.getOtBuffer())
             .plusMinutes(30);
-        return nowTime.isAfter(graceCutoff);
+        return nowVn.isAfter(graceCutoff);
     }
 }
