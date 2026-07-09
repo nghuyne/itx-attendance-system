@@ -1,6 +1,5 @@
 package com.itx.attendance.service;
 
-import com.itx.attendance.domain.User;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,11 +29,12 @@ public class EmailService {
         }
     }
 
+    // Plain strings only, never a User entity: a proxy crossing this @Async boundary races
+    // the caller's Hibernate Session across threads (see hibernate-loadcontexts-flakiness-investigation.md).
     @Async("taskExecutor")
-    public void sendEmailAsync(User recipient, String subject, String body) {
-        String email = recipient.getEmail();
+    public void sendEmailAsync(String recipientId, String email, String subject, String body) {
         if (email == null || email.isBlank()) {
-            log.warn("Skipping email for recipient {} — email address is blank", recipient.getId());
+            log.warn("Skipping email for recipient {} — email address is blank", recipientId);
             return;
         }
         try {

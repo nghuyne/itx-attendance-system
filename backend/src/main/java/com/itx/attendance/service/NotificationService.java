@@ -249,7 +249,7 @@ public class NotificationService {
             return;
         }
 
-        emailService.sendEmailAsync(recipient, subject, message);
+        emailService.sendEmailAsync(recipient.getId(), recipient.getEmail(), subject, message);
     }
 
     private String buildExceptionRequestMessage(ExceptionRequest request) {

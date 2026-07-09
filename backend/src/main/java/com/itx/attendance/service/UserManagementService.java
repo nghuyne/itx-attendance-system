@@ -127,7 +127,7 @@ public class UserManagementService {
             "Tên đăng nhập: " + user.getUsername() + "\n" +
             "Mật khẩu tạm thời: " + tempPassword + "\n\n" +
             "Vui lòng đăng nhập và đổi mật khẩu ngay khi có thể.";
-        emailService.sendEmailAsync(user, subject, body);
+        emailService.sendEmailAsync(user.getId(), user.getEmail(), subject, body);
     }
 
     private String generateTempPassword() {

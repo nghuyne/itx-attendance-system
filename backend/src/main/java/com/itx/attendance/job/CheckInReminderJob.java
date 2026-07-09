@@ -55,7 +55,7 @@ public class CheckInReminderJob {
                 employee.getShift().getShiftStartTime().toString()
             );
             try {
-                emailService.sendEmailAsync(employee, subject, body);
+                emailService.sendEmailAsync(employee.getId(), employee.getEmail(), subject, body);
                 sentCount++;
             } catch (Exception e) {
                 log.warn("CheckInReminderJob: failed to queue reminder for {} — {}", employee.getId(), e.getMessage());
