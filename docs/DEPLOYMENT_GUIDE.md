@@ -107,5 +107,21 @@ Vì ứng dụng của bạn yêu cầu xin quyền Camera (chụp ảnh điểm
   ```
   *(Lưu ý: Để Certbot tự động cấu hình, bạn cần chỉnh sửa file `nginx.conf` trong dự án một chút để Nginx trỏ đúng tên miền).*
 
+## Bước 7: (Tùy chọn) Bật Auto-Deploy từ GitHub Actions
+
+Repo đã có sẵn job `deploy` trong `.github/workflows/main.yml`. Job này **không tự chạy** — nó chỉ chạy khi bạn kích hoạt thủ công (`workflow_dispatch`) và gõ đúng chuỗi `deploy` vào ô `confirm_deploy`, và chỉ sau khi toàn bộ CI (build backend, build frontend, 26 test E2E Playwright) đã pass. Khi VPS đã sẵn sàng (đã làm xong Bước 1-5 ở trên), làm theo các bước sau để bật:
+
+1. Vào **GitHub repo → Settings → Secrets and variables → Actions**, thêm các secret:
+   - `VPS_HOST`: IP hoặc domain của VPS.
+   - `VPS_USER`: user SSH (vd: `root` hoặc user deploy riêng).
+   - `VPS_SSH_KEY`: private key SSH (dạng PEM) có quyền truy cập VPS. **Không dùng key cá nhân** — nên tạo một deploy key riêng (`ssh-keygen`) chỉ để CI dùng, rồi thêm public key tương ứng vào `~/.ssh/authorized_keys` trên VPS.
+   - `VPS_DEPLOY_PATH`: đường dẫn thư mục đã `git clone` trên VPS (vd: `/root/itx-attendance-system`).
+   - (Tùy chọn) `VPS_PORT`: nếu SSH không chạy ở port 22 mặc định.
+   - `DB_ROOT_PASSWORD`, `DB_USERNAME`, `DB_PASSWORD`, `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY`, `JWT_SECRET`, `CORS_ALLOWED_ORIGINS`, `MAIL_HOST`: đúng các giá trị production bạn muốn dùng cho `.env` (vd: `CORS_ALLOWED_ORIGINS=https://chamcong.congty.com`). Job `deploy` sẽ dùng các secret này để tự tạo `.env` trên VPS ở mỗi lần deploy.
+2. Vào tab **Actions → CI Pipeline → Run workflow**, chọn nhánh `master`, gõ `deploy` vào ô `confirm_deploy`, bấm Run.
+3. Job `deploy` sẽ SSH vào VPS, `git fetch` + `git reset --hard origin/master`, ghi lại file `.env` từ các secret ở trên, chạy `docker compose up -d --build`, rồi kiểm tra `http://localhost:8080/actuator/health` — nếu backend không "UP" trong vòng ~2.5 phút, job báo **failed** kèm log backend thay vì báo thành công giả.
+
+> **Lưu ý:** File `.env` trên VPS **không còn cần tạo thủ công** ở Bước 4 nếu bạn dùng Auto-Deploy — mỗi lần chạy job `deploy`, file `.env` sẽ bị **ghi đè** bằng giá trị từ GitHub Secrets ở trên. Nếu bạn chỉ deploy thủ công (Bước 5) và không dùng job này, vẫn cần tạo `.env` tay như Bước 4 mô tả.
+
 ## 🎉 Tóm Lược
 Triển khai phần mềm nghe có vẻ phức tạp, nhưng cốt lõi chỉ là mang mã nguồn đặt lên một chiếc máy tính không bao giờ tắt (VPS). Nhờ chúng ta đã làm tốt phần **Phase 1: Infrastructure** (Cấu hình Nginx, Docker) ở bước Audit, dự án của bạn hiện tại thuộc dạng "Plug-and-Play" (Cắm là chạy) — cực kỳ nhàn cho người vận hành!
