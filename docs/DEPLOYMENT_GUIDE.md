@@ -11,8 +11,34 @@ Dưới đây là quy trình 6 bước chi tiết cùng giải thích "Tại sao
 
 - **Cần làm gì?** 
   1. Mua một tên miền (VD: `chamcong.congty.com`) từ các nhà cung cấp như Namecheap, Mắt Bão, Tenten.
-  2. Thuê một VPS (Virtual Private Server) chạy hệ điều hành **Ubuntu 22.04 LTS**. Các nhà cung cấp uy tín: DigitalOcean, Vultr, AWS (EC2), hoặc Hostinger. Cấu hình tối thiểu: **2GB RAM, 2 CPUs**.
+  2. Thuê một VPS (Virtual Private Server) chạy hệ điều hành **Ubuntu 22.04 LTS**. Các nhà cung cấp uy tín: DigitalOcean, Vultr, AWS (EC2), Hostinger, hoặc **Oracle Cloud Free Tier** (miễn phí vĩnh viễn, xem hướng dẫn riêng bên dưới). Cấu hình tối thiểu: **2GB RAM, 2 CPUs**.
 - **Tại sao phải làm vậy?** Máy tính cá nhân (localhost) sẽ tắt khi bạn gập máy, và không có "IP tĩnh" để người ngoài truy cập. VPS là máy tính ảo đặt ở trung tâm dữ liệu, chạy liên tục và có IP Public. Tên miền giúp người dùng không phải gõ dãy số IP khó nhớ (VD: `142.250.19.14`).
+
+### Hướng dẫn riêng: Tạo VPS miễn phí trên Oracle Cloud Free Tier
+
+Oracle Cloud cho phép dùng **vĩnh viễn miễn phí** một VPS cấu hình rất mạnh (tối đa 4 vCPU ARM / 24GB RAM, gộp chung trong hạn mức "Always Free"), vượt xa yêu cầu tối thiểu của dự án. Đánh đổi là bước đăng ký hơi rườm rà và đôi khi hết chỗ trống ("Out of capacity") ở khu vực gần Việt Nam.
+
+1. Đăng ký tài khoản tại [oracle.com/cloud/free](https://www.oracle.com/cloud/free/). Cần email, số điện thoại, và **thẻ Visa/Mastercard quốc tế** để xác minh danh tính (không bị trừ tiền nếu chỉ dùng tài nguyên Always Free).
+2. Khi được hỏi chọn **Home Region**, chọn khu vực gần Việt Nam nhất có hỗ trợ Always Free (thường là Singapore hoặc Nhật Bản). **Lưu ý: không thể đổi Home Region sau khi tạo tài khoản**, nên cân nhắc kỹ.
+3. Vào Console → menu ☰ → **Compute → Instances → Create Instance**:
+   - **Name:** `itx-attendance-vps`.
+   - **Image:** Canonical Ubuntu, phiên bản **22.04**.
+   - **Shape:** đổi sang **Ampere (ARM) → VM.Standard.A1.Flex**, chọn phần "Always Free eligible", đặt **2 OCPU / 12GB RAM** trở lên (tổng hạn mức free toàn tài khoản là 4 OCPU / 24GB, có thể dồn hết vào 1 VPS).
+   - **Networking:** để mặc định tạo VCN mới, nhớ bật **"Assign a public IPv4 address"**.
+   - **SSH keys:** chọn **"Generate a key pair for me"** rồi tải về file `.pem` — đây chính là private key sẽ dùng làm secret `VPS_SSH_KEY` ở Bước 7.
+   - Bấm **Create**.
+4. Nếu gặp lỗi `Out of host capacity`: đây là lỗi tạm thời do khu vực đó hết chỗ cho shape ARM free, không phải lỗi cấu hình của bạn. Thử đổi **Availability Domain** khác (nếu region có nhiều AD), hoặc thử tạo lại sau vài giờ/ngày.
+5. Sau khi Instance chuyển trạng thái **RUNNING**, ghi lại **Public IP** hiển thị trên trang chi tiết Instance — đây là IP dùng cho Bước 2 (trỏ domain) và Bước 3 (SSH vào server).
+6. **Mở port 80/443 (khác biệt quan trọng so với VPS thường):** Oracle Cloud chặn traffic vào theo 2 lớp, cần mở cả hai:
+   - **Lớp mạng (Console):** vào **Networking → Virtual Cloud Networks →** chọn VCN vừa tạo **→ Security Lists →** Default Security List **→ Add Ingress Rules**: thêm rule cho port `80` và `443`, Source CIDR `0.0.0.0/0`.
+   - **Lớp hệ điều hành (trong VPS):** Ubuntu image của Oracle có `iptables`/`netfilter-persistent` chặn sẵn mọi port trừ 22. SSH vào server rồi chạy:
+     ```bash
+     sudo iptables -I INPUT -p tcp --dport 80 -j ACCEPT
+     sudo iptables -I INPUT -p tcp --dport 443 -j ACCEPT
+     sudo netfilter-persistent save
+     ```
+   - Bỏ qua bước này là nguyên nhân phổ biến nhất khiến domain "trỏ đúng IP nhưng không truy cập được".
+7. SSH vào server: `ssh -i duong-dan-toi-key.pem ubuntu@<PUBLIC_IP>` (user mặc định là `ubuntu`, không phải `root`), rồi tiếp tục với **Bước 3** bên dưới. Khi cần dùng `sudo` cho các lệnh cài Docker.
 
 ## Bước 2: Trỏ Tên miền về IP của VPS (DNS Records)
 - **Cần làm gì?** Vào trang quản lý tên miền bạn vừa mua, tạo bản ghi **A Record** trỏ tên miền (VD: `chamcong.congty.com`) về địa chỉ IP của VPS.
@@ -20,6 +46,8 @@ Dưới đây là quy trình 6 bước chi tiết cùng giải thích "Tại sao
 
 ## Bước 3: Cài đặt Môi trường cơ bản trên VPS
 Kết nối vào VPS của bạn qua SSH (Sử dụng Terminal trên Mac/Linux hoặc PuTTY/PowerShell trên Windows: `ssh root@IP_CUA_VPS`).
+
+> **Nếu dùng Oracle Cloud:** user mặc định là `ubuntu`, không phải `root` (`ssh -i key.pem ubuntu@IP_CUA_VPS`), và bạn cần thêm `sudo` trước mỗi lệnh bên dưới.
 
 - **Cần làm gì?** Chạy các lệnh cài đặt Git và Docker:
   ```bash
