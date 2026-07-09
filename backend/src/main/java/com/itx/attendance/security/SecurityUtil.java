@@ -1,6 +1,8 @@
 package com.itx.attendance.security;
 
 import com.itx.attendance.domain.UserRole;
+import com.itx.attendance.exception.BusinessException;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -11,10 +13,10 @@ public class SecurityUtil {
 
     public static UserDetails getCurrentUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            throw new IllegalStateException("No authenticated user in context");
+        if (auth == null || !auth.isAuthenticated() || !(auth.getPrincipal() instanceof UserDetails userDetails)) {
+            throw new BusinessException("No authenticated user in context", HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED");
         }
-        return (UserDetails) auth.getPrincipal();
+        return userDetails;
     }
 
     public static String getCurrentUsername() {
