@@ -1,3 +1,25 @@
+# Default: normalize all text files to LF in the repo and on checkout,
+# regardless of platform (Windows/Linux/macOS). This is what actually
+# prevents CRLF/LF false-"modified" diffs across sandboxes/OSes — it
+# overrides each machine's local core.autocrlf setting.
+* text=auto eol=lf
+
+# Windows-only scripts that must keep CRLF to run correctly on Windows
+*.bat text eol=crlf
+*.cmd text eol=crlf
 backend/mvnw text eol=lf
 backend/mvnw.cmd text eol=crlf
+*.ps1 text eol=crlf
 *.sh text eol=lf
+
+# Binary files: never touch line endings
+*.jar binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
