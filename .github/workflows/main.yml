@@ -5,6 +5,12 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
+  workflow_dispatch:
+    inputs:
+      confirm_deploy:
+        description: 'Type "deploy" to deploy to the production VPS after CI passes. Leave blank to just run CI.'
+        required: false
+        default: ''
 
 jobs:
   backend-build:
@@ -43,3 +49,70 @@ jobs:
     - name: Build
       working-directory: ./frontend
       run: npm run build
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: [ backend-build, frontend-build ]
+    env:
+      DB_ROOT_PASSWORD: ci_root_password
+      DB_USERNAME: root
+      DB_PASSWORD: ci_root_password
+      MINIO_ACCESS_KEY: ci_minio_user
+      MINIO_SECRET_KEY: ci_minio_password
+      JWT_SECRET: ci_jwt_secret_minimum_32_characters_long_ok
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+      MAIL_HOST: mailhog
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Start backend stack (mysql, minio, mailhog, backend)
+      run: docker compose up -d --build mysql minio mailhog backend
+
+    - name: Wait for backend health
+      run: |
+        for i in $(seq 1 60); do
+          if curl -sf http://localhost:8080/actuator/health | grep -q '"status":"UP"'; then
+            echo "Backend is up"
+            exit 0
+          fi
+          echo "Waiting for backend... ($i)"
+          sleep 5
+        done
+        echo "Backend did not become healthy in time"
+        docker compose logs backend
+        exit 1
+
+    - name: Use Node.js 18.x
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18.x'
+        cache: 'npm'
+        cache-dependency-path: './frontend/package-lock.json'
+
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Install Playwright browsers
+      working-directory: ./frontend
+      run: npx playwright install --with-deps chromium
+
+    - name: Run Playwright E2E tests
+      working-directory: ./frontend
+      run: npx playwright test
+
+    - name: Upload Playwright report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: playwright-report
+        path: frontend/playwright-report/
+        retention-days: 7
+
+    - name: Dump backend logs on failure
+      if: failure()
+      run: docker compose logs backend
+
+    - name: Tear down stack
+      if: always()
+      run: docker compose down -v
