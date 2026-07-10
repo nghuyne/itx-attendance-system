@@ -194,7 +194,7 @@ class AttendanceHybridValidationIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body)
                 .header("Authorization", "Bearer " + employeeToken)
-                .header("X-Forwarded-For", "1.2.3.4"))
+                .with(req -> { req.setRemoteAddr("1.2.3.4"); return req; }))
             .andExpect(status().isCreated());
     }
 
@@ -215,7 +215,7 @@ class AttendanceHybridValidationIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body)
                 .header("Authorization", "Bearer " + employeeToken)
-                .header("X-Forwarded-For", CLIENT_IP))
+                .with(req -> { req.setRemoteAddr(CLIENT_IP); return req; }))
             .andExpect(status().isCreated());
     }
 
@@ -228,7 +228,7 @@ class AttendanceHybridValidationIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body)
                 .header("Authorization", "Bearer " + employeeToken)
-                .header("X-Forwarded-For", "9.9.9.9"))
+                .with(req -> { req.setRemoteAddr("9.9.9.9"); return req; }))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.error").value("INVALID_IP"));
     }
@@ -242,7 +242,7 @@ class AttendanceHybridValidationIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body)
                 .header("Authorization", "Bearer " + employeeToken)
-                .header("X-Forwarded-For", "9.9.9.9"))
+                .with(req -> { req.setRemoteAddr("9.9.9.9"); return req; }))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.error").value("INVALID_IP"));
     }
@@ -258,7 +258,7 @@ class AttendanceHybridValidationIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body)
                 .header("Authorization", "Bearer " + employeeToken)
-                .header("X-Forwarded-For", "9.9.9.9"))
+                .with(req -> { req.setRemoteAddr("9.9.9.9"); return req; }))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.isClientSite").value(true));
     }
@@ -294,7 +294,7 @@ class AttendanceHybridValidationIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(checkOutBody)
                 .header("Authorization", "Bearer " + employeeToken)
-                .header("X-Forwarded-For", "1.2.3.4"))
+                .with(req -> { req.setRemoteAddr("1.2.3.4"); return req; }))
             .andExpect(status().isOk());
     }
 
@@ -362,7 +362,7 @@ class AttendanceHybridValidationIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(checkInBody)
                 .header("Authorization", "Bearer " + employeeToken)
-                .header("X-Forwarded-For", CLIENT_IP))
+                .with(req -> { req.setRemoteAddr(CLIENT_IP); return req; }))
             .andExpect(status().isCreated());
 
         String checkOutBody = objectMapper.writeValueAsString(
@@ -371,7 +371,7 @@ class AttendanceHybridValidationIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(checkOutBody)
                 .header("Authorization", "Bearer " + employeeToken)
-                .header("X-Forwarded-For", CLIENT_IP))
+                .with(req -> { req.setRemoteAddr(CLIENT_IP); return req; }))
             .andExpect(status().isOk());
     }
 
@@ -389,7 +389,7 @@ class AttendanceHybridValidationIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(checkInBody)
                 .header("Authorization", "Bearer " + employeeToken)
-                .header("X-Forwarded-For", CLIENT_IP))
+                .with(req -> { req.setRemoteAddr(CLIENT_IP); return req; }))
             .andExpect(status().isCreated());
 
         String checkOutBody = objectMapper.writeValueAsString(
@@ -398,7 +398,7 @@ class AttendanceHybridValidationIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(checkOutBody)
                 .header("Authorization", "Bearer " + employeeToken)
-                .header("X-Forwarded-For", "9.9.9.9"))
+                .with(req -> { req.setRemoteAddr("9.9.9.9"); return req; }))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.error").value("INVALID_IP"));
     }
@@ -411,7 +411,7 @@ class AttendanceHybridValidationIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(checkInBody)
                 .header("Authorization", "Bearer " + employeeToken)
-                .header("X-Forwarded-For", "9.9.9.9"))
+                .with(req -> { req.setRemoteAddr("9.9.9.9"); return req; }))
             .andExpect(status().isCreated());
 
         String checkOutBody = objectMapper.writeValueAsString(
@@ -420,7 +420,7 @@ class AttendanceHybridValidationIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(checkOutBody)
                 .header("Authorization", "Bearer " + employeeToken)
-                .header("X-Forwarded-For", "9.9.9.9"))
+                .with(req -> { req.setRemoteAddr("9.9.9.9"); return req; }))
             .andExpect(status().isOk());
     }
 

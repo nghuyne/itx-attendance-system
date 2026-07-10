@@ -428,27 +428,13 @@ public class AttendanceService {
     }
 
     private String extractClientIp(HttpServletRequest request) {
-        String xRealIp = request.getHeader("X-Real-IP");
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
-        String remoteAddr = request.getRemoteAddr();
-
-        log.debug("IP Extraction Debug: X-Real-IP={}, X-Forwarded-For={}, Remote-Addr={}",
-            xRealIp, xForwardedFor, remoteAddr);
-
-        // Ưu tiên 1: X-Real-IP được Nginx thiết lập dựa trên kết nối TCP thực tế
-        String ip = xRealIp;
-
-        // Ưu tiên 2: X-Forwarded-For (lấy IP đầu tiên trong danh sách)
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-                ip = xForwardedFor.split(",")[0].trim();
-            }
-        }
-
-        // Fallback: Kết nối trực tiếp nếu không qua proxy
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = remoteAddr;
-        }
+        // request.getRemoteAddr() is already the trust-checked client IP: Tomcat's
+        // RemoteIpValve (server.tomcat.remoteip.internal-proxies) rewrites it from
+        // X-Real-IP/X-Forwarded-For only when the direct TCP peer is a configured
+        // trusted proxy, and leaves it untouched otherwise. Reading the raw headers
+        // here instead would let anyone who can reach this port directly spoof their
+        // IP regardless of the trusted-proxy configuration.
+        String ip = request.getRemoteAddr();
 
         // Chuẩn hóa IPv6 loopback
         if (ip != null && ip.startsWith("::ffff:")) {
