@@ -213,6 +213,32 @@ class ValidIpControllerIntegrationTest {
     }
 
     @Test
+    void createValidIp_degenerateIpv6Colons_returns400WithINVALID_IP_FORMAT() throws Exception {
+        String body = objectMapper.writeValueAsString(
+            new CreateValidIpRequest("::::::", IpScope.COMPANY, null, null));
+
+        mockMvc.perform(post("/api/admin/valid-ips")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + adminToken))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").value("INVALID_IP_FORMAT"));
+    }
+
+    @Test
+    void createValidIp_ipv4MappedIpv6_returns201() throws Exception {
+        String body = objectMapper.writeValueAsString(
+            new CreateValidIpRequest("::ffff:192.0.2.1", IpScope.COMPANY, null, "IPv4-mapped IPv6"));
+
+        mockMvc.perform(post("/api/admin/valid-ips")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + adminToken))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.ipAddress").value("::ffff:192.0.2.1"));
+    }
+
+    @Test
     void createValidIp_duplicateCompanyIp_returns409WithDUPLICATE_IP() throws Exception {
         validIpRepository.save(ValidIp.builder()
             .ipAddress("203.0.113.10")

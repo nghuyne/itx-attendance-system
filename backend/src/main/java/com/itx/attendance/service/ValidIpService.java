@@ -24,6 +24,24 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ValidIpService {
 
+    private static final String IPV4_OCTET = "(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]\\d|\\d)";
+    private static final String IPV4_PATTERN = "^(" + IPV4_OCTET + "\\.){3}" + IPV4_OCTET + "$";
+    // Standard IPv6 forms (full, compressed "::", and IPv4-mapped e.g. ::ffff:192.0.2.1).
+    // Rejects degenerate strings like "::::::" that a naive colon-count check would let through.
+    private static final String IPV6_PATTERN = "^("
+        + "([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|"
+        + "([0-9a-fA-F]{1,4}:){1,7}:|"
+        + "([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|"
+        + "([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|"
+        + "([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|"
+        + "([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|"
+        + "([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|"
+        + "[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|"
+        + ":((:[0-9a-fA-F]{1,4}){1,7}|:)|"
+        + "([0-9a-fA-F]{1,4}:){1,4}:" + IPV4_OCTET + "(\\." + IPV4_OCTET + "){3}|"
+        + "::(ffff(:0{1,4})?:)?" + IPV4_OCTET + "(\\." + IPV4_OCTET + "){3}"
+        + ")$";
+
     private final ValidIpRepository validIpRepository;
     private final UserRepository userRepository;
 
@@ -128,12 +146,9 @@ public class ValidIpService {
                 "IP address không được rỗng",
                 HttpStatus.BAD_REQUEST, "INVALID_IP_FORMAT");
         }
-        boolean isValidIpv4 = ip.matches(
-            "^((25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]\\d|\\d)\\.){3}(25[0-5]|2[0-4]\\d|1\\d{2}|[1-9]\\d|\\d)$");
-        boolean looksLikeIpv6 = ip.contains(":") &&
-            ip.matches("^[0-9a-fA-F:]+$") &&
-            ip.split(":", -1).length <= 8;
-        if (!isValidIpv4 && !looksLikeIpv6) {
+        boolean isValidIpv4 = ip.matches(IPV4_PATTERN);
+        boolean isValidIpv6 = ip.contains(":") && ip.matches(IPV6_PATTERN);
+        if (!isValidIpv4 && !isValidIpv6) {
             throw new BusinessException(
                 "Định dạng IP không hợp lệ. Hỗ trợ IPv4 (203.0.113.45) và IPv6 (2001:db8::1)",
                 HttpStatus.BAD_REQUEST, "INVALID_IP_FORMAT");
