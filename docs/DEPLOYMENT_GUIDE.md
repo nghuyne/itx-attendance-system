@@ -123,5 +123,19 @@ Repo đã có sẵn job `deploy` trong `.github/workflows/main.yml`. Job này **
 
 > **Lưu ý:** File `.env` trên VPS **không còn cần tạo thủ công** ở Bước 4 nếu bạn dùng Auto-Deploy — mỗi lần chạy job `deploy`, file `.env` sẽ bị **ghi đè** bằng giá trị từ GitHub Secrets ở trên. Nếu bạn chỉ deploy thủ công (Bước 5) và không dùng job này, vẫn cần tạo `.env` tay như Bước 4 mô tả.
 
+## Bước 8: (Tùy chọn) Bật SonarQube Cloud Security Scan
+
+Repo đã có sẵn job `sonarqube` trong `.github/workflows/main.yml` và file cấu hình `sonar-project.properties` ở thư mục gốc, quét cả backend (Java) lẫn frontend (TypeScript) để tìm bug, code smell và security hotspot (hardcoded credential, injection pattern, v.v.). Job này **tắt mặc định** (không chạy, không báo lỗi CI) cho đến khi bạn bật — vì cần một project SonarCloud đã tạo sẵn thì mới có gì để gửi kết quả tới.
+
+1. Đăng ký tài khoản tại [sonarcloud.io](https://sonarcloud.io) (dùng "Log in with GitHub"), sau đó **Import** repo `allxone-vn/check-in` — vì đây là private repo nên chọn plan Free cho private project (giới hạn ~50.000 dòng code, project này còn dư nhiều).
+2. Sau khi import, SonarCloud cho bạn 2 giá trị: **Organization Key** và **Project Key**. Mở `sonar-project.properties` ở thư mục gốc, sửa 2 dòng `sonar.organization=` và `sonar.projectKey=` cho khớp đúng giá trị đó (2 giá trị mặc định trong file hiện chỉ là placeholder đoán trước, gần như chắc chắn không khớp).
+3. Vào SonarCloud → **My Account → Security**, generate một token mới (loại "Global Analysis Token" là đơn giản nhất).
+4. Vào **GitHub repo → Settings → Secrets and variables → Actions**:
+   - Tab **Secrets**: thêm `SONAR_TOKEN` = token vừa tạo ở bước 3.
+   - Tab **Variables**: thêm `SONAR_ENABLED` = `true` (đây là công tắc bật job; không phải secret, chỉ cần tồn tại là job sẽ chạy).
+5. Push code hoặc mở PR bất kỳ vào `master` — job `sonarqube` sẽ tự chạy trong CI. Xem kết quả tại dashboard SonarCloud của project.
+
+> **Lưu ý:** Đây chỉ là static analysis (phân tích code tĩnh) — bắt được nhiều lỗi phổ biến nhưng không thay thế được pentest/dynamic testing thực sự. Bản Free/Community của Sonar cũng không quét dependency có CVE (cần thêm OWASP Dependency-Check hoặc `npm audit`/Dependabot riêng nếu cần).
+
 ## 🎉 Tóm Lược
 Triển khai phần mềm nghe có vẻ phức tạp, nhưng cốt lõi chỉ là mang mã nguồn đặt lên một chiếc máy tính không bao giờ tắt (VPS). Nhờ chúng ta đã làm tốt phần **Phase 1: Infrastructure** (Cấu hình Nginx, Docker) ở bước Audit, dự án của bạn hiện tại thuộc dạng "Plug-and-Play" (Cắm là chạy) — cực kỳ nhàn cho người vận hành!
