@@ -151,7 +151,7 @@ const DeleteConfirmDialog: React.FC<DeleteConfirmProps> = ({
       <p className="text-slate-600 text-sm mb-4">
         Bạn có chắc muốn xóa BSSID{' '}
         <strong className="font-mono">{mac.bssid}</strong>
-        ? Thao tác này không thể hoàn tác.
+        {' '}? Thao tác này không thể hoàn tác.
       </p>
       <div className="flex justify-end gap-3">
         <button

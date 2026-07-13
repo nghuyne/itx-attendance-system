@@ -113,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, role }) => {
             aria-label="Đăng xuất"
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 w-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span>🚪</span>
+            <span>🚪</span>{' '}
             Đăng xuất
           </button>
         </div>
