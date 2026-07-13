@@ -231,6 +231,43 @@ const DeleteDeptConfirm: React.FC<DeleteDeptConfirmProps> = ({ dept, onConfirm, 
 
 // ── Change employee department modal ─────────────────────────────────────────
 
+function DepartmentSelectField({
+  isLoadingDepts,
+  isDeptError,
+  departments,
+  selectedDeptId,
+  setSelectedDeptId,
+}: {
+  isLoadingDepts: boolean;
+  isDeptError: boolean;
+  departments: DepartmentDto[] | undefined;
+  selectedDeptId: string;
+  setSelectedDeptId: (id: string) => void;
+}) {
+  if (isLoadingDepts) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-slate-500 py-2">
+        <LoadingSpinner size="sm" /> Đang tải...
+      </div>
+    );
+  }
+
+  if (isDeptError) {
+    return <p className="text-sm text-red-600 py-2">Không thể tải danh sách phòng ban.</p>;
+  }
+
+  return (
+    <select id="deptSelect" value={selectedDeptId}
+      onChange={e => setSelectedDeptId(e.target.value)}
+      className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white">
+      <option value="">Không có phòng ban</option>
+      {(departments ?? []).map(d => (
+        <option key={d.id} value={String(d.id)}>{d.name}</option>
+      ))}
+    </select>
+  );
+}
+
 interface ChangeDeptModalProps {
   employee: EmployeeWithDeptDto;
   onClose: () => void;
@@ -282,22 +319,13 @@ const ChangeDeptModal: React.FC<ChangeDeptModalProps> = ({ employee, onClose }) 
           <label htmlFor="deptSelect" className="block text-sm font-medium text-slate-700 mb-1">
             Phòng ban
           </label>
-          {isLoadingDepts ? (
-            <div className="flex items-center gap-2 text-sm text-slate-500 py-2">
-              <LoadingSpinner size="sm" /> Đang tải...
-            </div>
-          ) : isDeptError ? (
-            <p className="text-sm text-red-600 py-2">Không thể tải danh sách phòng ban.</p>
-          ) : (
-          <select id="deptSelect" value={selectedDeptId}
-            onChange={e => setSelectedDeptId(e.target.value)}
-            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 bg-white">
-            <option value="">Không có phòng ban</option>
-            {(departments ?? []).map(d => (
-              <option key={d.id} value={String(d.id)}>{d.name}</option>
-            ))}
-          </select>
-          )}
+          <DepartmentSelectField
+            isLoadingDepts={isLoadingDepts}
+            isDeptError={isDeptError}
+            departments={departments}
+            selectedDeptId={selectedDeptId}
+            setSelectedDeptId={setSelectedDeptId}
+          />
         </div>
         <div className="flex justify-end gap-3">
           <button type="button" onClick={onClose}
@@ -316,6 +344,162 @@ const ChangeDeptModal: React.FC<ChangeDeptModalProps> = ({ employee, onClose }) 
     </div>
   );
 };
+
+// ── Departments table section ─────────────────────────────────────────────────
+
+function DepartmentsSection({
+  isLoading,
+  isError,
+  deptList,
+  onAssign,
+  onEdit,
+  onDelete,
+}: {
+  isLoading: boolean;
+  isError: boolean;
+  deptList: DepartmentDto[];
+  onAssign: (dept: DepartmentDto) => void;
+  onEdit: (dept: DepartmentDto) => void;
+  onDelete: (dept: DepartmentDto) => void;
+}) {
+  if (isLoading) {
+    return <div className="space-y-3">{[1, 2, 3].map(i => <SkeletonCard key={i} />)}</div>;
+  }
+
+  if (isError) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+        Không thể tải danh sách phòng ban. Vui lòng thử lại.
+      </div>
+    );
+  }
+
+  if (deptList.length === 0) {
+    return (
+      <div className="text-center py-12 text-slate-500">
+        <p className="text-lg">Chưa có phòng ban nào</p>
+        <p className="text-sm mt-1">Bấm "Tạo phòng ban" để bắt đầu</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50">
+          <tr>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Tên</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Mô tả</th>
+            <th className="text-right px-4 py-3 font-medium text-slate-600">Số nhân viên</th>
+            <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {deptList.map(dept => (
+            <tr key={dept.id} className="hover:bg-slate-50">
+              <td className="px-4 py-3 font-medium text-slate-700">{dept.name}</td>
+              <td className="px-4 py-3 text-slate-500">{dept.description ?? '—'}</td>
+              <td className="px-4 py-3 text-right">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                  dept.employeeCount > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                }`}>
+                  {dept.employeeCount} NV
+                </span>
+              </td>
+              <td className="px-4 py-3 text-center">
+                <div className="flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => onAssign(dept)}
+                    title="Gán ca hàng loạt"
+                    className="px-2 py-1 text-xs text-emerald-700 border border-emerald-300 rounded hover:bg-emerald-50 min-h-[36px]">
+                    Gán ca
+                  </button>
+                  <button
+                    onClick={() => onEdit(dept)}
+                    title="Chỉnh sửa"
+                    aria-label={`Sửa ${dept.name}`}
+                    className="p-1 text-slate-400 hover:text-emerald-600 min-w-[36px] min-h-[36px] flex items-center justify-center">
+                    &#x270F;&#xFE0F;
+                  </button>
+                  <button
+                    onClick={() => onDelete(dept)}
+                    title="Xóa"
+                    aria-label={`Xóa ${dept.name}`}
+                    className="p-1 text-slate-400 hover:text-red-600 min-w-[36px] min-h-[36px] flex items-center justify-center">
+                    &#x1F5D1;&#xFE0F;
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── Employees table section ─────────────────────────────────────────────────
+
+function EmployeesSection({
+  isLoading,
+  isError,
+  empList,
+  onChangeDept,
+}: {
+  isLoading: boolean;
+  isError: boolean;
+  empList: EmployeeWithDeptDto[];
+  onChangeDept: (emp: EmployeeWithDeptDto) => void;
+}) {
+  if (isLoading) {
+    return <div className="space-y-3">{[1, 2, 3].map(i => <SkeletonCard key={i} />)}</div>;
+  }
+
+  if (isError) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+        Không thể tải danh sách nhân viên. Vui lòng thử lại.
+      </div>
+    );
+  }
+
+  if (empList.length === 0) {
+    return <div className="text-center py-8 text-slate-500 text-sm">Không có nhân viên nào.</div>;
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50">
+          <tr>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Họ tên</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Username</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Ca</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Phòng ban</th>
+            <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {empList.map(emp => (
+            <tr key={emp.id} className="hover:bg-slate-50">
+              <td className="px-4 py-3 font-medium text-slate-700">{emp.fullName}</td>
+              <td className="px-4 py-3 text-slate-500">{emp.username}</td>
+              <td className="px-4 py-3 text-slate-500">{emp.shiftName ?? '—'}</td>
+              <td className="px-4 py-3 text-slate-500">{emp.departmentName ?? '—'}</td>
+              <td className="px-4 py-3 text-center">
+                <button
+                  onClick={() => onChangeDept(emp)}
+                  className="px-2 py-1 text-xs text-emerald-700 border border-emerald-300 rounded hover:bg-emerald-50 min-h-[36px]">
+                  Đổi phòng ban
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 // ── Main page ────────────────────────────────────────────────────────────────
 
@@ -373,116 +557,26 @@ export const DepartmentsPage: React.FC = () => {
           </button>
         </div>
 
-        {isLoadingDepts ? (
-          <div className="space-y-3">{[1, 2, 3].map(i => <SkeletonCard key={i} />)}</div>
-        ) : isErrorDepts ? (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-            Không thể tải danh sách phòng ban. Vui lòng thử lại.
-          </div>
-        ) : deptList.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
-            <p className="text-lg">Chưa có phòng ban nào</p>
-            <p className="text-sm mt-1">Bấm "Tạo phòng ban" để bắt đầu</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Tên</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Mô tả</th>
-                  <th className="text-right px-4 py-3 font-medium text-slate-600">Số nhân viên</th>
-                  <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {deptList.map(dept => (
-                  <tr key={dept.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 font-medium text-slate-700">{dept.name}</td>
-                    <td className="px-4 py-3 text-slate-500">{dept.description ?? '—'}</td>
-                    <td className="px-4 py-3 text-right">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        dept.employeeCount > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        {dept.employeeCount} NV
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => setAssigningDept(dept)}
-                          title="Gán ca hàng loạt"
-                          className="px-2 py-1 text-xs text-emerald-700 border border-emerald-300 rounded hover:bg-emerald-50 min-h-[36px]">
-                          Gán ca
-                        </button>
-                        <button
-                          onClick={() => { setEditingDept(dept); setDeptModal('edit'); }}
-                          title="Chỉnh sửa"
-                          aria-label={`Sửa ${dept.name}`}
-                          className="p-1 text-slate-400 hover:text-emerald-600 min-w-[36px] min-h-[36px] flex items-center justify-center">
-                          &#x270F;&#xFE0F;
-                        </button>
-                        <button
-                          onClick={() => setDeletingDept(dept)}
-                          title="Xóa"
-                          aria-label={`Xóa ${dept.name}`}
-                          className="p-1 text-slate-400 hover:text-red-600 min-w-[36px] min-h-[36px] flex items-center justify-center">
-                          &#x1F5D1;&#xFE0F;
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <DepartmentsSection
+          isLoading={isLoadingDepts}
+          isError={isErrorDepts}
+          deptList={deptList}
+          onAssign={setAssigningDept}
+          onEdit={dept => { setEditingDept(dept); setDeptModal('edit'); }}
+          onDelete={setDeletingDept}
+        />
       </section>
 
       {/* ── Section 2: Employees ── */}
       <section>
         <h2 className="text-xl font-bold text-slate-700 mb-4">Nhân viên</h2>
 
-        {isLoadingEmps ? (
-          <div className="space-y-3">{[1, 2, 3].map(i => <SkeletonCard key={i} />)}</div>
-        ) : isErrorEmps ? (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-            Không thể tải danh sách nhân viên. Vui lòng thử lại.
-          </div>
-        ) : empList.length === 0 ? (
-          <div className="text-center py-8 text-slate-500 text-sm">Không có nhân viên nào.</div>
-        ) : (
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Họ tên</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Username</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Ca</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Phòng ban</th>
-                  <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {empList.map(emp => (
-                  <tr key={emp.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 font-medium text-slate-700">{emp.fullName}</td>
-                    <td className="px-4 py-3 text-slate-500">{emp.username}</td>
-                    <td className="px-4 py-3 text-slate-500">{emp.shiftName ?? '—'}</td>
-                    <td className="px-4 py-3 text-slate-500">{emp.departmentName ?? '—'}</td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => setChangingEmpDept(emp)}
-                        className="px-2 py-1 text-xs text-emerald-700 border border-emerald-300 rounded hover:bg-emerald-50 min-h-[36px]">
-                        Đổi phòng ban
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <EmployeesSection
+          isLoading={isLoadingEmps}
+          isError={isErrorEmps}
+          empList={empList}
+          onChangeDept={setChangingEmpDept}
+        />
       </section>
 
       {/* ── Modals ── */}
