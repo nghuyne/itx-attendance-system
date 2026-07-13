@@ -10,6 +10,38 @@ import { ClientSiteModeToggle } from '../../components/employee/ClientSiteModeTo
 import { useUiStore } from '../../store/uiStore';
 import type { CheckOutRequest } from '../../types/api';
 
+type ApiErrorData = { error?: string; message?: string };
+
+const DEFAULT_ERROR_MESSAGE = 'Lỗi không xác định. Vui lòng thử lại.';
+
+const CHECKIN_ERROR_MESSAGES: Record<string, (errorData: ApiErrorData) => string> = {
+  NO_SHIFT_ASSIGNED: () => 'Bạn chưa được gán ca làm việc. Liên hệ HR để cập nhật.',
+  GPS_REQUIRED: () => 'GPS bắt buộc khi chấm công ngoài văn phòng.',
+  INVALID_MAC: () => 'Mạng Wi-Fi không hợp lệ. Vui lòng kết nối vào Wi-Fi văn phòng.',
+  INVALID_IP: (errorData) => errorData.message || 'Không nhận diện được mạng văn phòng. Kiểm tra kết nối.',
+  OUT_OF_OFFICE_RADIUS: (errorData) => errorData.message || 'Vị trí của bạn không nằm trong phạm vi văn phòng.',
+  ALREADY_CHECKED_IN: () => 'Bạn đã chấm công rồi hôm nay.',
+  PHOTO_UPLOAD_FAILED: () => 'Lỗi tải ảnh. Vui lòng thử lại.',
+  PHOTO_TOO_LARGE: () => 'Ảnh quá lớn (>500KB). Vui lòng chụp lại.',
+};
+
+const CHECKOUT_ERROR_MESSAGES: Record<string, (errorData: ApiErrorData) => string> = {
+  ALREADY_CHECKED_OUT: () => 'Bạn đã check-out rồi hôm nay.',
+  NO_CHECKIN_FOUND: () => 'Không tìm thấy bản ghi check-in hôm nay.',
+  INVALID_MAC: () => 'Mạng Wi-Fi không hợp lệ. Vui lòng kết nối vào Wi-Fi văn phòng.',
+  INVALID_IP: (errorData) => errorData.message || 'Không nhận diện được mạng văn phòng. Kiểm tra kết nối.',
+  PHOTO_UPLOAD_FAILED: () => 'Lỗi tải ảnh. Vui lòng thử lại.',
+};
+
+function resolveErrorMessage(
+  messages: Record<string, (errorData: ApiErrorData) => string>,
+  err: unknown
+): string {
+  const errorData = (err as { response?: { data?: ApiErrorData } })?.response?.data ?? {};
+  const resolver = errorData.error ? messages[errorData.error] : undefined;
+  return resolver ? resolver(errorData) : DEFAULT_ERROR_MESSAGE;
+}
+
 export const CheckInPage: React.FC = () => {
   const queryClient = useQueryClient();
   const showToast = useUiStore(s => s.showToast);
@@ -75,18 +107,7 @@ export const CheckInPage: React.FC = () => {
       await queryClient.invalidateQueries({ queryKey: ['attendance', 'today'] });
       showToast({ type: 'success', message: 'Check-in thành công!' });
     } catch (err) {
-      const errorData = (err as { response?: { data?: { error?: string, message?: string } } })?.response?.data;
-      const errorCode = errorData?.error;
-      const message =
-        errorCode === 'NO_SHIFT_ASSIGNED' ? 'Bạn chưa được gán ca làm việc. Liên hệ HR để cập nhật.' :
-        errorCode === 'GPS_REQUIRED' ? 'GPS bắt buộc khi chấm công ngoài văn phòng.' :
-        errorCode === 'INVALID_MAC' ? 'Mạng Wi-Fi không hợp lệ. Vui lòng kết nối vào Wi-Fi văn phòng.' :
-        errorCode === 'INVALID_IP' ? (errorData?.message || 'Không nhận diện được mạng văn phòng. Kiểm tra kết nối.') :
-        errorCode === 'OUT_OF_OFFICE_RADIUS' ? (errorData?.message || 'Vị trí của bạn không nằm trong phạm vi văn phòng.') :
-        errorCode === 'ALREADY_CHECKED_IN' ? 'Bạn đã chấm công rồi hôm nay.' :
-        errorCode === 'PHOTO_UPLOAD_FAILED' ? 'Lỗi tải ảnh. Vui lòng thử lại.' :
-        errorCode === 'PHOTO_TOO_LARGE' ? 'Ảnh quá lớn (>500KB). Vui lòng chụp lại.' :
-        'Lỗi không xác định. Vui lòng thử lại.';
+      const message = resolveErrorMessage(CHECKIN_ERROR_MESSAGES, err);
       setSubmitError(message);
       showToast({ type: 'error', message });
     } finally {
@@ -108,15 +129,7 @@ export const CheckInPage: React.FC = () => {
       await queryClient.invalidateQueries({ queryKey: ['attendance', 'today'] });
       showToast({ type: 'success', message: 'Check-out thành công!' });
     } catch (err) {
-      const errorData = (err as { response?: { data?: { error?: string, message?: string } } })?.response?.data;
-      const errorCode = errorData?.error;
-      const message =
-        errorCode === 'ALREADY_CHECKED_OUT' ? 'Bạn đã check-out rồi hôm nay.' :
-        errorCode === 'NO_CHECKIN_FOUND' ? 'Không tìm thấy bản ghi check-in hôm nay.' :
-        errorCode === 'INVALID_MAC' ? 'Mạng Wi-Fi không hợp lệ. Vui lòng kết nối vào Wi-Fi văn phòng.' :
-        errorCode === 'INVALID_IP' ? (errorData?.message || 'Không nhận diện được mạng văn phòng. Kiểm tra kết nối.') :
-        errorCode === 'PHOTO_UPLOAD_FAILED' ? 'Lỗi tải ảnh. Vui lòng thử lại.' :
-        'Lỗi không xác định. Vui lòng thử lại.';
+      const message = resolveErrorMessage(CHECKOUT_ERROR_MESSAGES, err);
       setCheckOutError(message);
       showToast({ type: 'error', message });
     } finally {
