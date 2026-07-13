@@ -116,8 +116,9 @@ export const OtRequestModal = ({ isOpen, onClose, onSuccess }: OtRequestModalPro
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-neutral mb-1">Ngày làm OT</label>
+              <label htmlFor="plannedDate" className="block text-sm font-medium text-neutral mb-1">Ngày làm OT</label>
               <input
+                id="plannedDate"
                 type="date"
                 {...register('plannedDate')}
                 min={getToday()}
@@ -129,10 +130,11 @@ export const OtRequestModal = ({ isOpen, onClose, onSuccess }: OtRequestModalPro
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-neutral mb-1">
+              <label htmlFor="plannedOtHours" className="block text-sm font-medium text-neutral mb-1">
                 Số giờ dự kiến (0.5 – 8 giờ)
               </label>
               <input
+                id="plannedOtHours"
                 type="number"
                 step="0.5"
                 min="0.5"
@@ -146,8 +148,9 @@ export const OtRequestModal = ({ isOpen, onClose, onSuccess }: OtRequestModalPro
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-neutral mb-1">Lý do</label>
+              <label htmlFor="reason" className="block text-sm font-medium text-neutral mb-1">Lý do</label>
               <textarea
+                id="reason"
                 {...register('reason')}
                 rows={3}
                 placeholder="Nhập lý do làm OT (tối thiểu 10 ký tự)..."

@@ -142,8 +142,9 @@ export const LeaveRequestModal = ({ isOpen, onClose, onSuccess }: LeaveRequestMo
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-neutral mb-1">Loại phép</label>
+              <label htmlFor="leaveType" className="block text-sm font-medium text-neutral mb-1">Loại phép</label>
               <select
+                id="leaveType"
                 {...register('leaveType')}
                 className="w-full border border-base-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
@@ -163,8 +164,9 @@ export const LeaveRequestModal = ({ isOpen, onClose, onSuccess }: LeaveRequestMo
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-neutral mb-1">Ngày bắt đầu</label>
+                <label htmlFor="startDate" className="block text-sm font-medium text-neutral mb-1">Ngày bắt đầu</label>
                 <input
+                  id="startDate"
                   type="date"
                   {...register('startDate')}
                   min={getToday()}
@@ -175,8 +177,9 @@ export const LeaveRequestModal = ({ isOpen, onClose, onSuccess }: LeaveRequestMo
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-neutral mb-1">Ngày kết thúc</label>
+                <label htmlFor="endDate" className="block text-sm font-medium text-neutral mb-1">Ngày kết thúc</label>
                 <input
+                  id="endDate"
                   type="date"
                   {...register('endDate')}
                   min={startDate || getToday()}
@@ -203,8 +206,9 @@ export const LeaveRequestModal = ({ isOpen, onClose, onSuccess }: LeaveRequestMo
             )}
 
             <div>
-              <label className="block text-sm font-medium text-neutral mb-1">Lý do</label>
+              <label htmlFor="reason" className="block text-sm font-medium text-neutral mb-1">Lý do</label>
               <textarea
+                id="reason"
                 {...register('reason')}
                 rows={3}
                 placeholder="Nhập lý do nghỉ phép (tối thiểu 10 ký tự)..."
