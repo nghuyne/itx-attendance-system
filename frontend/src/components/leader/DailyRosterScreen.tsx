@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useUiStore } from '../../store/uiStore';
-import type { RequestSummaryDto, RequestCategory } from '../../types/api';
+import type { RequestSummaryDto, RequestCategory, TeamRosterItemDto } from '../../types/api';
 import { AttendanceStatus } from '../../types/domain';
 import { leaderService } from '../../services/leaderService';
 import { requestService } from '../../services/requestService';
@@ -16,6 +16,46 @@ function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr + 'T00:00:00+07:00');
   d.setDate(d.getDate() + days);
   return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+}
+
+function RosterListContent({
+  isPending,
+  roster,
+  onRequestDetail,
+}: {
+  isPending: boolean;
+  roster: TeamRosterItemDto[];
+  onRequestDetail: (requestId: string, category: RequestCategory) => void;
+}) {
+  if (isPending) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="border rounded-lg p-4 animate-pulse">
+            <div className="h-4 bg-slate-200 rounded w-1/3 mb-2" />
+            <div className="h-3 bg-slate-200 rounded w-1/2 mb-2" />
+            <div className="h-3 bg-slate-200 rounded w-1/4" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (roster.length === 0) {
+    return <p className="text-slate-500 text-center py-8">Không có nhân viên trong nhóm</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      {roster.map(item => (
+        <RosterCard
+          key={item.employeeId}
+          item={item}
+          onRequestDetail={onRequestDetail}
+        />
+      ))}
+    </div>
+  );
 }
 
 export const DailyRosterScreen = () => {
@@ -111,29 +151,11 @@ export const DailyRosterScreen = () => {
         </div>
       </div>
 
-      {isPending ? (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="border rounded-lg p-4 animate-pulse">
-              <div className="h-4 bg-slate-200 rounded w-1/3 mb-2" />
-              <div className="h-3 bg-slate-200 rounded w-1/2 mb-2" />
-              <div className="h-3 bg-slate-200 rounded w-1/4" />
-            </div>
-          ))}
-        </div>
-      ) : roster.length === 0 ? (
-        <p className="text-slate-500 text-center py-8">Không có nhân viên trong nhóm</p>
-      ) : (
-        <div className="space-y-3">
-          {roster.map(item => (
-            <RosterCard
-              key={item.employeeId}
-              item={item}
-              onRequestDetail={handleRequestDetail}
-            />
-          ))}
-        </div>
-      )}
+      <RosterListContent
+        isPending={isPending}
+        roster={roster}
+        onRequestDetail={handleRequestDetail}
+      />
 
       {selectedRequest && (
         <RequestDetailModal
