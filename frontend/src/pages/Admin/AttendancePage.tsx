@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminService } from '../../services/adminService';
-import type { AdminAttendanceRecordDto } from '../../types/api';
+import type { AdminAttendanceRecordDto, PageResponse } from '../../types/api';
 import { AttendanceStatus, ATTENDANCE_STATUS_LABEL, ATTENDANCE_STATUS_COLORS } from '../../types/domain';
 import { SkeletonCard } from '../../components/common/SkeletonCard';
 import { AttendanceOverrideModal } from '../../components/admin/AttendanceOverrideModal';
@@ -18,6 +18,148 @@ const formatVN = (isoStr: string | null): string => {
     minute: '2-digit',
   });
 };
+
+function AttendanceRecordsSection({
+  isLoading,
+  isError,
+  records,
+  data,
+  selectedStatuses,
+  onClearStatuses,
+  page,
+  setPage,
+  totalPages,
+  onOverride,
+}: {
+  isLoading: boolean;
+  isError: boolean;
+  records: AdminAttendanceRecordDto[];
+  data: PageResponse<AdminAttendanceRecordDto> | undefined;
+  selectedStatuses: AttendanceStatus[];
+  onClearStatuses: () => void;
+  page: number;
+  setPage: React.Dispatch<React.SetStateAction<number>>;
+  totalPages: number;
+  onOverride: (record: AdminAttendanceRecordDto) => void;
+}) {
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+        Không thể tải dữ liệu chấm công. Vui lòng thử lại.
+      </div>
+    );
+  }
+
+  if (records.length === 0) {
+    return (
+      <div className="text-center py-12 text-slate-500">
+        {selectedStatuses.length > 0 ? (
+          <>
+            <p className="text-lg">Không có bản ghi nào phù hợp với bộ lọc đã chọn</p>
+            <button
+              onClick={onClearStatuses}
+              className="mt-3 text-sm text-emerald-600 hover:text-emerald-700 underline"
+            >
+              Xóa bộ lọc
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-lg">Không có bản ghi nào</p>
+            <p className="text-sm mt-1">Thử chọn khoảng thời gian khác</p>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {selectedStatuses.length > 0 && data && (
+        <p className="text-sm text-slate-500 mb-2">
+          Đang hiển thị {data.totalElements} bản ghi phù hợp với bộ lọc
+        </p>
+      )}
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50">
+            <tr>
+              <th className="text-left px-4 py-3 font-medium text-slate-600">Ngày</th>
+              <th className="text-left px-4 py-3 font-medium text-slate-600">Nhân viên</th>
+              <th className="text-left px-4 py-3 font-medium text-slate-600">Ca</th>
+              <th className="text-left px-4 py-3 font-medium text-slate-600">Vào (UTC+7)</th>
+              <th className="text-left px-4 py-3 font-medium text-slate-600">Ra (UTC+7)</th>
+              <th className="text-left px-4 py-3 font-medium text-slate-600">Trạng thái</th>
+              <th className="text-left px-4 py-3 font-medium text-slate-600">Override</th>
+              <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {records.map((record) => (
+              <tr key={record.id} className="hover:bg-slate-50">
+                <td className="px-4 py-3 text-slate-700">{record.date}</td>
+                <td className="px-4 py-3 text-slate-700">{record.employeeName}</td>
+                <td className="px-4 py-3 text-slate-500">{record.shiftName ?? '—'}</td>
+                <td className="px-4 py-3 font-mono text-slate-600">{formatVN(record.checkInTime)}</td>
+                <td className="px-4 py-3 font-mono text-slate-600">{formatVN(record.checkOutTime)}</td>
+                <td className="px-4 py-3">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${ATTENDANCE_STATUS_COLORS[record.attendanceStatus as AttendanceStatus] ?? 'bg-slate-100 text-slate-600'}`}>
+                    {ATTENDANCE_STATUS_LABEL[record.attendanceStatus as AttendanceStatus] ?? record.attendanceStatus}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  {record.isAdminOverride && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      ADMIN_OVERRIDE
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <button
+                    onClick={() => onOverride(record)}
+                    aria-label={`Override bản ghi của ${record.employeeName}`}
+                    className="px-3 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 min-h-[36px]"
+                  >
+                    Override
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 mt-4">
+          <button
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed min-h-[36px]"
+          >
+            Trước
+          </button>
+          <span className="text-sm text-slate-600">Trang {page + 1}/{totalPages}</span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed min-h-[36px]"
+          >
+            Sau
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
 
 const STATUS_OPTIONS: { value: AttendanceStatus; label: string }[] = [
   { value: AttendanceStatus.ON_TIME, label: 'Đúng giờ' },
@@ -197,111 +339,18 @@ export const AdminAttendancePage: React.FC = () => {
         </div>
       )}
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
-        </div>
-      ) : isError ? (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-          Không thể tải dữ liệu chấm công. Vui lòng thử lại.
-        </div>
-      ) : records.length === 0 ? (
-        <div className="text-center py-12 text-slate-500">
-          {selectedStatuses.length > 0 ? (
-            <>
-              <p className="text-lg">Không có bản ghi nào phù hợp với bộ lọc đã chọn</p>
-              <button
-                onClick={handleClearStatuses}
-                className="mt-3 text-sm text-emerald-600 hover:text-emerald-700 underline"
-              >
-                Xóa bộ lọc
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="text-lg">Không có bản ghi nào</p>
-              <p className="text-sm mt-1">Thử chọn khoảng thời gian khác</p>
-            </>
-          )}
-        </div>
-      ) : (
-        <>
-          {selectedStatuses.length > 0 && data && (
-            <p className="text-sm text-slate-500 mb-2">
-              Đang hiển thị {data.totalElements} bản ghi phù hợp với bộ lọc
-            </p>
-          )}
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Ngày</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Nhân viên</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Ca</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Vào (UTC+7)</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Ra (UTC+7)</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Trạng thái</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Override</th>
-                  <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {records.map((record) => (
-                  <tr key={record.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 text-slate-700">{record.date}</td>
-                    <td className="px-4 py-3 text-slate-700">{record.employeeName}</td>
-                    <td className="px-4 py-3 text-slate-500">{record.shiftName ?? '—'}</td>
-                    <td className="px-4 py-3 font-mono text-slate-600">{formatVN(record.checkInTime)}</td>
-                    <td className="px-4 py-3 font-mono text-slate-600">{formatVN(record.checkOutTime)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${ATTENDANCE_STATUS_COLORS[record.attendanceStatus as AttendanceStatus] ?? 'bg-slate-100 text-slate-600'}`}>
-                        {ATTENDANCE_STATUS_LABEL[record.attendanceStatus as AttendanceStatus] ?? record.attendanceStatus}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {record.isAdminOverride && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                          ADMIN_OVERRIDE
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => setOverridingRecord(record)}
-                        aria-label={`Override bản ghi của ${record.employeeName}`}
-                        className="px-3 py-1.5 text-xs bg-amber-500 text-white rounded-lg hover:bg-amber-600 min-h-[36px]"
-                      >
-                        Override
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 mt-4">
-              <button
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed min-h-[36px]"
-              >
-                Trước
-              </button>
-              <span className="text-sm text-slate-600">Trang {page + 1}/{totalPages}</span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page >= totalPages - 1}
-                className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed min-h-[36px]"
-              >
-                Sau
-              </button>
-            </div>
-          )}
-        </>
-      )}
+      <AttendanceRecordsSection
+        isLoading={isLoading}
+        isError={isError}
+        records={records}
+        data={data}
+        selectedStatuses={selectedStatuses}
+        onClearStatuses={handleClearStatuses}
+        page={page}
+        setPage={setPage}
+        totalPages={totalPages}
+        onOverride={setOverridingRecord}
+      />
 
       {overridingRecord && (
         <AttendanceOverrideModal
