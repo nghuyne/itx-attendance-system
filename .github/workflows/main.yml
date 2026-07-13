@@ -78,7 +78,7 @@ jobs:
       working-directory: ./frontend
       run: npm ci
     - name: SonarQube Cloud Scan
-      uses: SonarSource/sonarqube-scan-action@v4
+      uses: SonarSource/sonarqube-scan-action@689fb39b34b9aa95ebc5f8f119343ddd51542402 # v4
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -158,7 +158,7 @@ jobs:
     environment: production
     steps:
     - name: Deploy to production VPS over SSH
-      uses: appleboy/ssh-action@v1
+      uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
       env:
         DEPLOY_DB_ROOT_PASSWORD: ${{ secrets.DB_ROOT_PASSWORD }}
         DEPLOY_DB_USERNAME: ${{ secrets.DB_USERNAME }}
