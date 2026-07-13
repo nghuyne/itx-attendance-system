@@ -37,6 +37,56 @@ function formatDatetime(isoString: string | null): string {
   });
 }
 
+function RequestListItemSubtitle({ req }: { req: RequestSummaryDto }) {
+  if (req.requestCategory === 'LEAVE') {
+    return (
+      <p className="text-sm text-slate-500 mt-0.5">
+        {REQUEST_CATEGORY_LABEL[req.requestCategory]}
+        {req.leaveType ? ` · ${LEAVE_TYPE_LABEL[req.leaveType] ?? req.leaveType}` : ''}
+        {req.startDate ? ` · ${req.startDate}` : ''}
+        {req.endDate && req.endDate !== req.startDate ? ` – ${req.endDate}` : ''}
+        {req.totalDays != null ? ` · ${req.totalDays} ngày` : ''}
+      </p>
+    );
+  }
+
+  if (req.requestCategory === 'OT') {
+    return (
+      <p className="text-sm text-slate-500 mt-0.5">
+        {REQUEST_CATEGORY_LABEL[req.requestCategory]}
+        {req.plannedDate ? ` · ${req.plannedDate}` : ''}
+        {req.plannedOtHours != null ? ` · ${req.plannedOtHours} giờ` : ''}
+      </p>
+    );
+  }
+
+  return (
+    <p className="text-sm text-slate-500 mt-0.5">
+      {REQUEST_CATEGORY_LABEL[req.requestCategory] ?? req.requestCategory} · {req.attendanceDate}
+    </p>
+  );
+}
+
+function RequestListItem({ req, onSelect }: { req: RequestSummaryDto; onSelect: () => void }) {
+  return (
+    <button
+      onClick={onSelect}
+      className="w-full text-left border border-slate-200 rounded-lg p-4 hover:border-primary hover:bg-primary/5 transition-colors"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="font-semibold text-neutral">{req.employeeName}</p>
+          <RequestListItemSubtitle req={req} />
+          <p className="text-sm text-slate-600 mt-1 line-clamp-2">{req.reason}</p>
+        </div>
+        <p className="text-xs text-slate-400 whitespace-nowrap flex-shrink-0">
+          {formatDatetime(req.createdAt)}
+        </p>
+      </div>
+    </button>
+  );
+}
+
 export const PendingRequestsScreen = () => {
   const [activeTab, setActiveTab] = useState<Tab>('PENDING');
   const [selectedRequest, setSelectedRequest] = useState<RequestSummaryDto | null>(null);
@@ -112,40 +162,7 @@ export const PendingRequestsScreen = () => {
       ) : (
         <div className="space-y-3">
           {filtered.map(req => (
-            <button
-              key={req.id}
-              onClick={() => setSelectedRequest(req)}
-              className="w-full text-left border border-slate-200 rounded-lg p-4 hover:border-primary hover:bg-primary/5 transition-colors"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="font-semibold text-neutral">{req.employeeName}</p>
-                  {req.requestCategory === 'LEAVE' ? (
-                    <p className="text-sm text-slate-500 mt-0.5">
-                      {REQUEST_CATEGORY_LABEL[req.requestCategory]}
-                      {req.leaveType ? ` · ${LEAVE_TYPE_LABEL[req.leaveType] ?? req.leaveType}` : ''}
-                      {req.startDate ? ` · ${req.startDate}` : ''}
-                      {req.endDate && req.endDate !== req.startDate ? ` – ${req.endDate}` : ''}
-                      {req.totalDays != null ? ` · ${req.totalDays} ngày` : ''}
-                    </p>
-                  ) : req.requestCategory === 'OT' ? (
-                    <p className="text-sm text-slate-500 mt-0.5">
-                      {REQUEST_CATEGORY_LABEL[req.requestCategory]}
-                      {req.plannedDate ? ` · ${req.plannedDate}` : ''}
-                      {req.plannedOtHours != null ? ` · ${req.plannedOtHours} giờ` : ''}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-slate-500 mt-0.5">
-                      {REQUEST_CATEGORY_LABEL[req.requestCategory] ?? req.requestCategory} · {req.attendanceDate}
-                    </p>
-                  )}
-                  <p className="text-sm text-slate-600 mt-1 line-clamp-2">{req.reason}</p>
-                </div>
-                <p className="text-xs text-slate-400 whitespace-nowrap flex-shrink-0">
-                  {formatDatetime(req.createdAt)}
-                </p>
-              </div>
-            </button>
+            <RequestListItem key={req.id} req={req} onSelect={() => setSelectedRequest(req)} />
           ))}
         </div>
       )}
