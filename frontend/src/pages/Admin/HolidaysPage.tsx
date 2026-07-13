@@ -9,6 +9,14 @@ import { useUiStore } from '../../store/uiStore';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { SkeletonCard } from '../../components/common/SkeletonCard';
 
+const typeLabel = (type: HolidayType) =>
+  type === 'FIXED' ? 'Cố định' : 'Linh hoạt';
+
+const typeBadgeClass = (type: HolidayType) =>
+  type === 'FIXED'
+    ? 'bg-blue-100 text-blue-800'
+    : 'bg-amber-100 text-amber-800';
+
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '—';
   const [year, month, day] = dateStr.split('-');
@@ -217,6 +225,82 @@ const DeleteConfirmDialog: React.FC<DeleteConfirmProps> = ({
   </div>
 );
 
+function HolidaysTableSection({
+  isLoading,
+  isError,
+  filteredHolidays,
+  onDelete,
+}: {
+  isLoading: boolean;
+  isError: boolean;
+  filteredHolidays: HolidayDto[];
+  onDelete: (holiday: HolidayDto) => void;
+}) {
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+        Không thể tải danh sách ngày lễ. Vui lòng thử lại.
+      </div>
+    );
+  }
+
+  if (filteredHolidays.length === 0) {
+    return (
+      <div className="text-center py-12 text-slate-500">
+        <p className="text-lg">Chưa có ngày lễ nào</p>
+        <p className="text-sm mt-1">Bấm &ldquo;+ Thêm ngày lễ&rdquo; để cấu hình</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50">
+          <tr>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Ngày</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Tên ngày lễ</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Loại</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Năm</th>
+            <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {filteredHolidays.map((holiday) => (
+            <tr key={holiday.id} className="hover:bg-slate-50">
+              <td className="px-4 py-3 font-mono text-slate-700">{formatDate(holiday.date)}</td>
+              <td className="px-4 py-3 text-slate-700">{holiday.name}</td>
+              <td className="px-4 py-3">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${typeBadgeClass(holiday.type)}`}>
+                  {typeLabel(holiday.type)}
+                </span>
+              </td>
+              <td className="px-4 py-3 text-slate-600">{holiday.year}</td>
+              <td className="px-4 py-3 text-center">
+                <button
+                  onClick={() => onDelete(holiday)}
+                  aria-label={`Xóa ngày lễ ${holiday.name}`}
+                  className="p-1 text-slate-400 hover:text-red-600 min-w-[36px] min-h-[36px] flex items-center justify-center mx-auto"
+                >
+                  🗑️
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export const HolidaysPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deletingHoliday, setDeletingHoliday] = useState<HolidayDto | null>(null);
@@ -259,14 +343,6 @@ export const HolidaysPage: React.FC = () => {
     [allHolidays, typeFilter]
   );
 
-  const typeLabel = (type: HolidayType) =>
-    type === 'FIXED' ? 'Cố định' : 'Linh hoạt';
-
-  const typeBadgeClass = (type: HolidayType) =>
-    type === 'FIXED'
-      ? 'bg-blue-100 text-blue-800'
-      : 'bg-amber-100 text-amber-800';
-
   return (
     <main className="p-4">
       <div className="flex items-center justify-between mb-4">
@@ -302,57 +378,12 @@ export const HolidaysPage: React.FC = () => {
         </select>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
-        </div>
-      ) : isError ? (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-          Không thể tải danh sách ngày lễ. Vui lòng thử lại.
-        </div>
-      ) : filteredHolidays.length === 0 ? (
-        <div className="text-center py-12 text-slate-500">
-          <p className="text-lg">Chưa có ngày lễ nào</p>
-          <p className="text-sm mt-1">Bấm &ldquo;+ Thêm ngày lễ&rdquo; để cấu hình</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Ngày</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Tên ngày lễ</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Loại</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Năm</th>
-                <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredHolidays.map((holiday) => (
-                <tr key={holiday.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 font-mono text-slate-700">{formatDate(holiday.date)}</td>
-                  <td className="px-4 py-3 text-slate-700">{holiday.name}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${typeBadgeClass(holiday.type)}`}>
-                      {typeLabel(holiday.type)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">{holiday.year}</td>
-                  <td className="px-4 py-3 text-center">
-                    <button
-                      onClick={() => setDeletingHoliday(holiday)}
-                      aria-label={`Xóa ngày lễ ${holiday.name}`}
-                      className="p-1 text-slate-400 hover:text-red-600 min-w-[36px] min-h-[36px] flex items-center justify-center mx-auto"
-                    >
-                      🗑️
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <HolidaysTableSection
+        isLoading={isLoading}
+        isError={isError}
+        filteredHolidays={filteredHolidays}
+        onDelete={setDeletingHoliday}
+      />
 
       {isModalOpen && (
         <HolidayFormModal
