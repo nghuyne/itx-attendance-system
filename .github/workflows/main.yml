@@ -95,6 +95,7 @@ jobs:
       JWT_SECRET: ci_jwt_secret_minimum_32_characters_long_ok
       CORS_ALLOWED_ORIGINS: http://localhost:5173
       MAIL_HOST: mailhog
+      ADMIN_BOOTSTRAP_PASSWORD: ci_admin_password
     steps:
     - uses: actions/checkout@v4
 
@@ -158,26 +159,47 @@ jobs:
     steps:
     - name: Deploy to production VPS over SSH
       uses: appleboy/ssh-action@v1
+      env:
+        DEPLOY_DB_ROOT_PASSWORD: ${{ secrets.DB_ROOT_PASSWORD }}
+        DEPLOY_DB_USERNAME: ${{ secrets.DB_USERNAME }}
+        DEPLOY_DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        DEPLOY_MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+        DEPLOY_MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+        DEPLOY_JWT_SECRET: ${{ secrets.JWT_SECRET }}
+        DEPLOY_CORS_ALLOWED_ORIGINS: ${{ secrets.CORS_ALLOWED_ORIGINS }}
+        DEPLOY_MAIL_HOST: ${{ secrets.MAIL_HOST }}
+        DEPLOY_ADMIN_BOOTSTRAP_PASSWORD: ${{ secrets.ADMIN_BOOTSTRAP_PASSWORD }}
       with:
         host: ${{ secrets.VPS_HOST }}
         username: ${{ secrets.VPS_USER }}
         key: ${{ secrets.VPS_SSH_KEY }}
         port: ${{ secrets.VPS_PORT || 22 }}
+        # Pass secrets as real env vars on the remote host instead of interpolating
+        # ${{ secrets.* }} directly into the script text (avoids shell/script injection
+        # if a secret value ever contains shell metacharacters).
+        envs: DEPLOY_DB_ROOT_PASSWORD,DEPLOY_DB_USERNAME,DEPLOY_DB_PASSWORD,DEPLOY_MINIO_ACCESS_KEY,DEPLOY_MINIO_SECRET_KEY,DEPLOY_JWT_SECRET,DEPLOY_CORS_ALLOWED_ORIGINS,DEPLOY_MAIL_HOST,DEPLOY_ADMIN_BOOTSTRAP_PASSWORD
         script: |
           set -e
           cd "${{ secrets.VPS_DEPLOY_PATH }}"
           git fetch origin master
           git reset --hard origin/master
 
-          cat > .env <<'ENVEOF'
-          DB_ROOT_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}
-          DB_USERNAME=${{ secrets.DB_USERNAME }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          MINIO_ACCESS_KEY=${{ secrets.MINIO_ACCESS_KEY }}
-          MINIO_SECRET_KEY=${{ secrets.MINIO_SECRET_KEY }}
-          JWT_SECRET=${{ secrets.JWT_SECRET }}
-          CORS_ALLOWED_ORIGINS=${{ secrets.CORS_ALLOWED_ORIGINS }}
-          MAIL_HOST=${{ secrets.MAIL_HOST }}
+          cleanup_env() {
+            shred -u .env 2>/dev/null || rm -f .env
+          }
+          trap cleanup_env EXIT
+
+          umask 077
+          cat > .env <<ENVEOF
+          DB_ROOT_PASSWORD=$DEPLOY_DB_ROOT_PASSWORD
+          DB_USERNAME=$DEPLOY_DB_USERNAME
+          DB_PASSWORD=$DEPLOY_DB_PASSWORD
+          MINIO_ACCESS_KEY=$DEPLOY_MINIO_ACCESS_KEY
+          MINIO_SECRET_KEY=$DEPLOY_MINIO_SECRET_KEY
+          JWT_SECRET=$DEPLOY_JWT_SECRET
+          CORS_ALLOWED_ORIGINS=$DEPLOY_CORS_ALLOWED_ORIGINS
+          MAIL_HOST=$DEPLOY_MAIL_HOST
+          ADMIN_BOOTSTRAP_PASSWORD=$DEPLOY_ADMIN_BOOTSTRAP_PASSWORD
           ENVEOF
           chmod 600 .env
 
