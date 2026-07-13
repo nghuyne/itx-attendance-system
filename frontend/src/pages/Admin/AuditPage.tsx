@@ -10,6 +10,11 @@ const getDefaultDates = () => {
   return { from, to };
 };
 
+const truncateId = (id: string | null): string => {
+  if (!id) return '—';
+  return id.length > 8 ? `${id.slice(0, 8)}…` : id;
+};
+
 const formatVNDateTime = (isoStr: string): string => {
   const utcStr = isoStr.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(isoStr) ? isoStr : `${isoStr}Z`;
   return new Date(utcStr).toLocaleString('vi-VN', {
@@ -143,7 +148,7 @@ export const AuditPage: React.FC = () => {
                     <td className="px-4 py-3 text-slate-700">{log.adminName}</td>
                     <td className="px-4 py-3 text-slate-500 font-mono text-xs">{log.targetTable}</td>
                     <td className="px-4 py-3 font-mono text-xs text-slate-600" title={log.targetId ?? undefined}>
-                      {log.targetId ? (log.targetId.length > 8 ? `${log.targetId.slice(0, 8)}…` : log.targetId) : '—'}
+                      {truncateId(log.targetId)}
                     </td>
                     <td className="px-4 py-3 text-slate-600">{log.fieldChanged}</td>
                     <td className="px-4 py-3 text-slate-500">{log.oldValue ?? '—'}</td>
