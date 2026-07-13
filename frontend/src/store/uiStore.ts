@@ -36,7 +36,7 @@ export const useUiStore = create<UiState>((set) => ({
     set((state) => ({
       toasts: [
         ...state.toasts,
-        { ...payload, id: `toast-${Date.now()}-${Math.random().toString(36).slice(2)}` },
+        { ...payload, id: crypto.randomUUID() },
       ],
     })),
 
