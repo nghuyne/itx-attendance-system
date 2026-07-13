@@ -152,8 +152,8 @@ export const AdminAttendancePage: React.FC = () => {
             ))}
           </select>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Trạng thái</label>
+        <fieldset>
+          <legend className="block text-xs font-medium text-slate-600 mb-1">Trạng thái</legend>
           <div className="flex flex-wrap gap-2">
             {STATUS_OPTIONS.map((opt) => (
               <label key={opt.value} className="flex items-center gap-1 cursor-pointer">
@@ -167,7 +167,7 @@ export const AdminAttendancePage: React.FC = () => {
               </label>
             ))}
           </div>
-        </div>
+        </fieldset>
       </div>
 
       {selectedStatuses.length > 0 && (

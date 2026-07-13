@@ -121,10 +121,10 @@ const HolidayFormModal: React.FC<HolidayFormModalProps> = ({ onClose, onSuccess 
             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+          <fieldset>
+            <legend className="block text-sm font-medium text-slate-700 mb-2">
               Loại <span className="text-red-500">*</span>
-            </label>
+            </legend>
             <div className="flex gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" value="FIXED" {...register('type')} className="text-emerald-600" />
@@ -135,7 +135,7 @@ const HolidayFormModal: React.FC<HolidayFormModalProps> = ({ onClose, onSuccess 
                 <span className="text-sm">Linh hoạt (Âm lịch)</span>
               </label>
             </div>
-          </div>
+          </fieldset>
 
           <div>
             <label htmlFor="year" className="block text-sm font-medium text-slate-700 mb-1">

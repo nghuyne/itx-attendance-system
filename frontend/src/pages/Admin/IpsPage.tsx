@@ -113,10 +113,10 @@ const IpFormModal: React.FC<IpFormModalProps> = ({ onClose, onSuccess }) => {
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+          <fieldset>
+            <legend className="block text-sm font-medium text-slate-700 mb-2">
               Phạm vi <span className="text-red-500">*</span>
-            </label>
+            </legend>
             <div className="flex gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -137,7 +137,7 @@ const IpFormModal: React.FC<IpFormModalProps> = ({ onClose, onSuccess }) => {
                 <span className="text-sm">Cá nhân</span>
               </label>
             </div>
-          </div>
+          </fieldset>
 
           {selectedScope === 'INDIVIDUAL' && (
             <div>
