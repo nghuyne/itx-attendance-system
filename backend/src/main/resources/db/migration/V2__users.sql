@@ -19,18 +19,3 @@ CREATE TABLE users (
     CONSTRAINT fk_users_leader
         FOREIGN KEY (leader_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Seed: tài khoản admin mặc định
--- password_hash = BCrypt(rounds=10) của chuỗi 'admin123'
--- Generated and verified: BCryptPasswordEncoder(10).matches("admin123", hash) == true
-INSERT INTO users (id, username, email, password_hash, full_name, role, is_active, leader_id)
-VALUES (
-    UUID(),
-    'admin',
-    'admin@itx.local',
-    '$2a$10$XjCq.Z6n1spYh4K0Ac14HOnbegYb9HnaB1MbFCT7/qFic1/nUO7yK',
-    'System Administrator',
-    'ADMIN',
-    TRUE,
-    NULL
-);
