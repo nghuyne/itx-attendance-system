@@ -206,6 +206,115 @@ const DeleteConfirmDialog: React.FC<DeleteConfirmProps> = ({
   </div>
 );
 
+function LocationsTableSection({
+  isLoading,
+  isError,
+  locations,
+  onEdit,
+  onToggle,
+  isToggling,
+  onDelete,
+}: {
+  isLoading: boolean;
+  isError: boolean;
+  locations: OfficeLocationDto[];
+  onEdit: (loc: OfficeLocationDto) => void;
+  onToggle: (loc: OfficeLocationDto) => void;
+  isToggling: boolean;
+  onDelete: (loc: OfficeLocationDto) => void;
+}) {
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+        Không thể tải danh sách vị trí. Vui lòng thử lại.
+      </div>
+    );
+  }
+
+  if (locations.length === 0) {
+    return (
+      <div className="text-center py-12 text-slate-500">
+        <p className="text-lg">Chưa có vị trí văn phòng nào</p>
+        <p className="text-sm mt-1">Bấm "+ Thêm vị trí" để thêm vị trí đầu tiên</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50">
+          <tr>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">STT</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Tên</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Vĩ độ</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Kinh độ</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Bán kính (m)</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Trạng thái</th>
+            <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {locations.map((loc, idx) => (
+            <tr key={loc.id} className="hover:bg-slate-50">
+              <td className="px-4 py-3 text-slate-500">{idx + 1}</td>
+              <td className="px-4 py-3 font-medium text-slate-700">{loc.name}</td>
+              <td className="px-4 py-3 font-mono text-slate-600">{loc.latitude}</td>
+              <td className="px-4 py-3 font-mono text-slate-600">{loc.longitude}</td>
+              <td className="px-4 py-3 text-slate-600">{loc.radiusMeters}</td>
+              <td className="px-4 py-3">
+                <span
+                  className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                    loc.active
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {loc.active ? 'Hoạt động' : 'Tắt'}
+                </span>
+              </td>
+              <td className="px-4 py-3">
+                <div className="flex items-center justify-center gap-1">
+                  <button
+                    onClick={() => onEdit(loc)}
+                    aria-label={`Sửa ${loc.name}`}
+                    className="p-1 text-slate-400 hover:text-emerald-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => onToggle(loc)}
+                    disabled={isToggling}
+                    aria-label={loc.active ? `Tắt ${loc.name}` : `Bật ${loc.name}`}
+                    className="p-1 text-slate-400 hover:text-blue-600 min-w-[36px] min-h-[36px] flex items-center justify-center disabled:opacity-40"
+                  >
+                    {loc.active ? '🔴' : '🟢'}
+                  </button>
+                  <button
+                    onClick={() => onDelete(loc)}
+                    aria-label={`Xóa ${loc.name}`}
+                    className="p-1 text-slate-400 hover:text-red-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export const OfficeLocationsPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<OfficeLocationDto | null>(null);
@@ -270,84 +379,15 @@ export const OfficeLocationsPage: React.FC = () => {
         </button>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
-        </div>
-      ) : isError ? (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-          Không thể tải danh sách vị trí. Vui lòng thử lại.
-        </div>
-      ) : locations.length === 0 ? (
-        <div className="text-center py-12 text-slate-500">
-          <p className="text-lg">Chưa có vị trí văn phòng nào</p>
-          <p className="text-sm mt-1">Bấm "+ Thêm vị trí" để thêm vị trí đầu tiên</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">STT</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Tên</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Vĩ độ</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Kinh độ</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Bán kính (m)</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Trạng thái</th>
-                <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {locations.map((loc, idx) => (
-                <tr key={loc.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 text-slate-500">{idx + 1}</td>
-                  <td className="px-4 py-3 font-medium text-slate-700">{loc.name}</td>
-                  <td className="px-4 py-3 font-mono text-slate-600">{loc.latitude}</td>
-                  <td className="px-4 py-3 font-mono text-slate-600">{loc.longitude}</td>
-                  <td className="px-4 py-3 text-slate-600">{loc.radiusMeters}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        loc.active
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      {loc.active ? 'Hoạt động' : 'Tắt'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-center gap-1">
-                      <button
-                        onClick={() => openEditModal(loc)}
-                        aria-label={`Sửa ${loc.name}`}
-                        className="p-1 text-slate-400 hover:text-emerald-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        onClick={() => toggleMutation.mutate(loc)}
-                        disabled={toggleMutation.isPending}
-                        aria-label={loc.active ? `Tắt ${loc.name}` : `Bật ${loc.name}`}
-                        className="p-1 text-slate-400 hover:text-blue-600 min-w-[36px] min-h-[36px] flex items-center justify-center disabled:opacity-40"
-                      >
-                        {loc.active ? '🔴' : '🟢'}
-                      </button>
-                      <button
-                        onClick={() => setDeletingLocation(loc)}
-                        aria-label={`Xóa ${loc.name}`}
-                        className="p-1 text-slate-400 hover:text-red-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <LocationsTableSection
+        isLoading={isLoading}
+        isError={isError}
+        locations={locations}
+        onEdit={openEditModal}
+        onToggle={loc => toggleMutation.mutate(loc)}
+        isToggling={toggleMutation.isPending}
+        onDelete={setDeletingLocation}
+      />
 
       {isModalOpen && (
         <LocationFormModal
