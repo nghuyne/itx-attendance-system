@@ -25,8 +25,9 @@ import fs from 'fs';
   });
 
   try {
-    console.log('📍 Loading app...');
-    await page.goto('http://localhost', { waitUntil: 'load', timeout: 30000 });
+    const targetUrl = process.env.TEST_URL || 'http://localhost';
+    console.log(`📍 Loading app at ${targetUrl}...`);
+    await page.goto(targetUrl, { waitUntil: 'load', timeout: 30000 });
 
     console.log('✅ App loaded');
 
