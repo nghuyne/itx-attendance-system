@@ -71,7 +71,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, role }) => {
 
       <nav
         aria-label="Sidebar navigation"
-        aria-expanded={isOpen}
         className={`
           fixed md:static inset-y-0 left-0 z-50 md:z-auto
           bg-white border-r border-slate-200
