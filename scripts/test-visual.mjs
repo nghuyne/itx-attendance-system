@@ -1,5 +1,9 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 (async () => {
   const browser = await chromium.launch();
@@ -32,8 +36,9 @@ import fs from 'fs';
     console.log('✅ App loaded');
 
     // Take screenshot
-    await page.screenshot({ path: '/tmp/app-screenshot.png' });
-    console.log('📸 Screenshot saved');
+    const screenshotPath = path.resolve(__dirname, 'app-screenshot.png');
+    await page.screenshot({ path: screenshotPath });
+    console.log(`📸 Screenshot saved to ${screenshotPath}`);
 
     // Check page content
     const title = await page.title();
