@@ -336,6 +336,120 @@ const DeleteConfirmDialog: React.FC<DeleteConfirmProps> = ({ shift, onConfirm, o
   </div>
 );
 
+function ShiftsTableSection({
+  isLoading,
+  isError,
+  shifts,
+  onRowDoubleClick,
+  onAssign,
+  onEdit,
+  onDelete,
+}: {
+  isLoading: boolean;
+  isError: boolean;
+  shifts: ShiftDto[];
+  onRowDoubleClick: (shift: ShiftDto) => void;
+  onAssign: (shift: ShiftDto) => void;
+  onEdit: (shift: ShiftDto) => void;
+  onDelete: (shift: ShiftDto) => void;
+}) {
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+        Không thể tải danh sách ca. Vui lòng thử lại.
+      </div>
+    );
+  }
+
+  if (shifts.length === 0) {
+    return (
+      <div className="text-center py-12 text-slate-500">
+        <p className="text-lg">Chưa có ca nào</p>
+        <p className="text-sm mt-1">Bấm "Tạo ca mới" để bắt đầu</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50">
+          <tr>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Tên ca</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Bắt đầu</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Kết thúc</th>
+            <th className="text-right px-4 py-3 font-medium text-slate-600">Ngưỡng trễ</th>
+            <th className="text-right px-4 py-3 font-medium text-slate-600">Ngưỡng về sớm</th>
+            <th className="text-right px-4 py-3 font-medium text-slate-600">Nửa ngày</th>
+            <th className="text-right px-4 py-3 font-medium text-slate-600">Buffer OT</th>
+            <th className="text-right px-4 py-3 font-medium text-slate-600">Nhân viên</th>
+            <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {shifts.map((shift) => (
+            <tr
+              key={shift.id}
+              onDoubleClick={() => onRowDoubleClick(shift)}
+              className="hover:bg-slate-50 cursor-pointer"
+              title="Double-click để chỉnh sửa"
+            >
+              <td className="px-4 py-3 font-medium text-slate-700">{shift.name}</td>
+              <td className="px-4 py-3 font-mono text-slate-600">{shift.startTime}</td>
+              <td className="px-4 py-3 font-mono text-slate-600">{shift.endTime}</td>
+              <td className="px-4 py-3 text-right text-slate-600">{shift.lateInThreshold} phút</td>
+              <td className="px-4 py-3 text-right text-slate-600">{shift.earlyOutThreshold} phút</td>
+              <td className="px-4 py-3 text-right text-slate-600">{shift.halfDayThreshold} phút</td>
+              <td className="px-4 py-3 text-right text-slate-600">{shift.otBuffer} phút</td>
+              <td className="px-4 py-3 text-right">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                  shift.assignedCount > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                }`}>
+                  {shift.assignedCount} NV
+                </span>
+              </td>
+              <td className="px-4 py-3 text-center">
+                <div className="flex items-center justify-center gap-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onAssign(shift); }}
+                    aria-label={`Gán ca ${shift.name}`}
+                    title="Gán ca cho nhân viên"
+                    className="px-2 py-1 text-xs text-emerald-700 border border-emerald-300 rounded hover:bg-emerald-50 min-h-[36px] flex items-center"
+                  >
+                    Gán ca
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onEdit(shift); }}
+                    aria-label={`Chỉnh sửa ca ${shift.name}`}
+                    className="p-1 text-slate-400 hover:text-emerald-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
+                  >
+                    &#x270F;&#xFE0F;
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDelete(shift); }}
+                    aria-label={`Xóa ca ${shift.name}`}
+                    className="p-1 text-slate-400 hover:text-red-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
+                  >
+                    &#x1F5D1;&#xFE0F;
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export const ShiftsPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<ShiftDto | null>(null);
@@ -400,89 +514,15 @@ export const ShiftsPage: React.FC = () => {
         </button>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
-        </div>
-      ) : isError ? (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-          Không thể tải danh sách ca. Vui lòng thử lại.
-        </div>
-      ) : shifts.length === 0 ? (
-        <div className="text-center py-12 text-slate-500">
-          <p className="text-lg">Chưa có ca nào</p>
-          <p className="text-sm mt-1">Bấm "Tạo ca mới" để bắt đầu</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Tên ca</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Bắt đầu</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Kết thúc</th>
-                <th className="text-right px-4 py-3 font-medium text-slate-600">Ngưỡng trễ</th>
-                <th className="text-right px-4 py-3 font-medium text-slate-600">Ngưỡng về sớm</th>
-                <th className="text-right px-4 py-3 font-medium text-slate-600">Nửa ngày</th>
-                <th className="text-right px-4 py-3 font-medium text-slate-600">Buffer OT</th>
-                <th className="text-right px-4 py-3 font-medium text-slate-600">Nhân viên</th>
-                <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {shifts.map((shift) => (
-                <tr
-                  key={shift.id}
-                  onDoubleClick={() => handleRowDoubleClick(shift)}
-                  className="hover:bg-slate-50 cursor-pointer"
-                  title="Double-click để chỉnh sửa"
-                >
-                  <td className="px-4 py-3 font-medium text-slate-700">{shift.name}</td>
-                  <td className="px-4 py-3 font-mono text-slate-600">{shift.startTime}</td>
-                  <td className="px-4 py-3 font-mono text-slate-600">{shift.endTime}</td>
-                  <td className="px-4 py-3 text-right text-slate-600">{shift.lateInThreshold} phút</td>
-                  <td className="px-4 py-3 text-right text-slate-600">{shift.earlyOutThreshold} phút</td>
-                  <td className="px-4 py-3 text-right text-slate-600">{shift.halfDayThreshold} phút</td>
-                  <td className="px-4 py-3 text-right text-slate-600">{shift.otBuffer} phút</td>
-                  <td className="px-4 py-3 text-right">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                      shift.assignedCount > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      {shift.assignedCount} NV
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setAssigningShift(shift); }}
-                        aria-label={`Gán ca ${shift.name}`}
-                        title="Gán ca cho nhân viên"
-                        className="px-2 py-1 text-xs text-emerald-700 border border-emerald-300 rounded hover:bg-emerald-50 min-h-[36px] flex items-center"
-                      >
-                        Gán ca
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleRowDoubleClick(shift); }}
-                        aria-label={`Chỉnh sửa ca ${shift.name}`}
-                        className="p-1 text-slate-400 hover:text-emerald-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
-                      >
-                        &#x270F;&#xFE0F;
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setDeletingShift(shift); }}
-                        aria-label={`Xóa ca ${shift.name}`}
-                        className="p-1 text-slate-400 hover:text-red-600 min-w-[36px] min-h-[36px] flex items-center justify-center"
-                      >
-                        &#x1F5D1;&#xFE0F;
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <ShiftsTableSection
+        isLoading={isLoading}
+        isError={isError}
+        shifts={shifts}
+        onRowDoubleClick={handleRowDoubleClick}
+        onAssign={setAssigningShift}
+        onEdit={handleRowDoubleClick}
+        onDelete={setDeletingShift}
+      />
 
       {isModalOpen && (
         <ShiftFormModal
