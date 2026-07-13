@@ -104,19 +104,24 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({
               {notifications.map((n) => (
                 <li
                   key={n.id}
-                  onClick={() => handleNotificationClick(n)}
-                  className={`px-4 py-3 border-b border-neutral-100 cursor-pointer hover:bg-neutral-50 flex gap-3 ${getItemBorderClass(n.type, n.isRead)} ${getItemBgClass(n.type)}`}
+                  className={`border-b border-neutral-100 ${getItemBorderClass(n.type, n.isRead)} ${getItemBgClass(n.type)}`}
                 >
-                  <span className="text-lg flex-shrink-0">{TYPE_ICONS[n.type] ?? '🔔'}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm text-neutral-800 line-clamp-3">{n.message}</p>
-                    <p className="text-xs text-neutral-500 mt-1">
-                      {new Date(n.createdAt + 'Z').toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
-                    </p>
-                  </div>
-                  {!n.isRead && (
-                    <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleNotificationClick(n)}
+                    className="w-full px-4 py-3 cursor-pointer hover:bg-neutral-50 flex gap-3 text-left"
+                  >
+                    <span className="text-lg flex-shrink-0">{TYPE_ICONS[n.type] ?? '🔔'}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-neutral-800 line-clamp-3">{n.message}</p>
+                      <p className="text-xs text-neutral-500 mt-1">
+                        {new Date(n.createdAt + 'Z').toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' })}
+                      </p>
+                    </div>
+                    {!n.isRead && (
+                      <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />
+                    )}
+                  </button>
                 </li>
               ))}
             </ul>

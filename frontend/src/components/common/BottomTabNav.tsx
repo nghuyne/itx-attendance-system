@@ -23,8 +23,8 @@ export const BottomTabNav: React.FC<BottomTabNavProps> = ({
   <nav
     aria-label="Navigation"
     className="fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex z-30"
-    role="tablist"
   >
+    <div role="tablist" className="flex w-full">
     {TABS.map((tab) => {
       const isActive = tab.id === currentTab;
       const showBadge = tab.id === 'requests' && unreadRequestCount > 0;
@@ -51,5 +51,6 @@ export const BottomTabNav: React.FC<BottomTabNavProps> = ({
         </button>
       );
     })}
+    </div>
   </nav>
 );
