@@ -89,58 +89,69 @@ function LeaveBalanceSkeleton() {
   );
 }
 
+function RequestCardSummary({ req }: { req: RequestSummaryDto }) {
+  if (req.requestCategory === 'LEAVE') {
+    return (
+      <>
+        <p className="text-sm font-semibold text-neutral">
+          {req.startDate ? formatDate(req.startDate) : '—'}
+          {req.endDate && req.endDate !== req.startDate && ` – ${formatDate(req.endDate)}`}
+        </p>
+        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+            NGHỈ PHÉP
+          </span>
+          <span className="text-xs text-slate-500">
+            {req.leaveType ? LEAVE_TYPE_LABEL[req.leaveType] : '—'}
+            {req.totalDays != null && ` · ${req.totalDays} ngày`}
+          </span>
+        </div>
+      </>
+    );
+  }
+
+  if (req.requestCategory === 'OT') {
+    return (
+      <>
+        <p className="text-sm font-semibold text-neutral">
+          {req.plannedDate ? formatDate(req.plannedDate) : '—'}
+        </p>
+        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+            OT
+          </span>
+          {req.plannedOtHours != null && (
+            <span className="text-xs text-slate-500">{req.plannedOtHours} giờ</span>
+          )}
+        </div>
+      </>
+    );
+  }
+
+  const isAdjustment = req.requestCategory === 'ADJUSTMENT';
+  return (
+    <>
+      <p className="text-sm font-semibold text-neutral">
+        {req.attendanceDate ? formatDate(req.attendanceDate) : '—'}
+      </p>
+      <p className="text-xs text-slate-500 mt-0.5">
+        {isAdjustment
+          ? 'Điều chỉnh giờ ra'
+          : `Ngoại lệ — ${req.requestType ? REQUEST_TYPE_LABEL[req.requestType] ?? req.requestType : '—'}`}
+      </p>
+    </>
+  );
+}
+
 function RequestCard({ req }: { req: RequestSummaryDto }) {
   const status = STATUS_CONFIG[req.status];
   const isAdjustment = req.requestCategory === 'ADJUSTMENT';
-  const isLeave = req.requestCategory === 'LEAVE';
-  const isOt = req.requestCategory === 'OT';
 
   return (
     <div className="bg-base-100 rounded-xl border border-base-200 shadow-sm p-4 space-y-2">
       <div className="flex items-start justify-between gap-2">
         <div>
-          {isLeave ? (
-            <>
-              <p className="text-sm font-semibold text-neutral">
-                {req.startDate ? formatDate(req.startDate) : '—'}
-                {req.endDate && req.endDate !== req.startDate && ` – ${formatDate(req.endDate)}`}
-              </p>
-              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                  NGHỈ PHÉP
-                </span>
-                <span className="text-xs text-slate-500">
-                  {req.leaveType ? LEAVE_TYPE_LABEL[req.leaveType] : '—'}
-                  {req.totalDays != null && ` · ${req.totalDays} ngày`}
-                </span>
-              </div>
-            </>
-          ) : isOt ? (
-            <>
-              <p className="text-sm font-semibold text-neutral">
-                {req.plannedDate ? formatDate(req.plannedDate) : '—'}
-              </p>
-              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-                  OT
-                </span>
-                {req.plannedOtHours != null && (
-                  <span className="text-xs text-slate-500">{req.plannedOtHours} giờ</span>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-sm font-semibold text-neutral">
-                {req.attendanceDate ? formatDate(req.attendanceDate) : '—'}
-              </p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {isAdjustment
-                  ? 'Điều chỉnh giờ ra'
-                  : `Ngoại lệ — ${req.requestType ? REQUEST_TYPE_LABEL[req.requestType] ?? req.requestType : '—'}`}
-              </p>
-            </>
-          )}
+          <RequestCardSummary req={req} />
         </div>
         <span className={`shrink-0 text-xs font-medium px-2.5 py-1 rounded-full ${status.className}`}>
           {status.label}
