@@ -53,13 +53,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             if (jwtTokenProvider.isTokenValid(token)) {
                 String username = jwtTokenProvider.extractUsername(token);
-                if (username != null && SecurityContextHolder.getContext().getAuthentication() == null
-                        && !isIssuedBeforePasswordChange(token, username)) {
-                    UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-                    UsernamePasswordAuthenticationToken authToken =
-                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                    User user = userRepository.findByUsername(username).orElse(null);
+                    if (user != null && !isIssuedBeforePasswordChange(token, user)) {
+                        if (user.isMustChangePassword() && !request.getRequestURI().startsWith("/api/auth/")) {
+                            respondPasswordChangeRequired(response);
+                            return;
+                        }
+                        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+                        UsernamePasswordAuthenticationToken authToken =
+                                new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authToken);
+                    }
                 }
             }
         } catch (Exception e) {
@@ -69,9 +75,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    private boolean isIssuedBeforePasswordChange(String token, String username) {
-        User user = userRepository.findByUsername(username).orElse(null);
-        if (user == null || user.getPasswordChangedAt() == null) {
+    private void respondPasswordChangeRequired(HttpServletResponse response) throws IOException {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write(
+                "{\"error\":\"PASSWORD_CHANGE_REQUIRED\",\"message\":\"Vui lòng đổi mật khẩu trước khi tiếp tục\"}");
+    }
+
+    private boolean isIssuedBeforePasswordChange(String token, User user) {
+        if (user.getPasswordChangedAt() == null) {
             return false;
         }
         Instant issuedAt = jwtTokenProvider.extractIssuedAt(token);
