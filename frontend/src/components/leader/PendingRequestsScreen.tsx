@@ -87,6 +87,48 @@ function RequestListItem({ req, onSelect }: { req: RequestSummaryDto; onSelect: 
   );
 }
 
+function RequestListContent({
+  isPending,
+  filtered,
+  activeTab,
+  onSelect,
+}: {
+  isPending: boolean;
+  filtered: RequestSummaryDto[];
+  activeTab: Tab;
+  onSelect: (req: RequestSummaryDto) => void;
+}) {
+  if (isPending) {
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="border rounded-lg p-4 animate-pulse">
+            <div className="h-4 bg-slate-200 rounded w-1/3 mb-2" />
+            <div className="h-3 bg-slate-200 rounded w-2/3 mb-2" />
+            <div className="h-3 bg-slate-200 rounded w-1/2" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (filtered.length === 0) {
+    return (
+      <p className="text-slate-500 text-center py-8">
+        {activeTab === 'PENDING' ? 'Không có yêu cầu chờ duyệt' : 'Danh sách trống'}
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {filtered.map(req => (
+        <RequestListItem key={req.id} req={req} onSelect={() => onSelect(req)} />
+      ))}
+    </div>
+  );
+}
+
 export const PendingRequestsScreen = () => {
   const [activeTab, setActiveTab] = useState<Tab>('PENDING');
   const [selectedRequest, setSelectedRequest] = useState<RequestSummaryDto | null>(null);
@@ -110,9 +152,9 @@ export const PendingRequestsScreen = () => {
     enabled: activeTab === 'REJECTED',
   });
 
-  const activeQuery = activeTab === 'PENDING' ? pendingQuery
-    : activeTab === 'APPROVED' ? approvedQuery
-    : rejectedQuery;
+  let activeQuery = pendingQuery;
+  if (activeTab === 'APPROVED') activeQuery = approvedQuery;
+  else if (activeTab === 'REJECTED') activeQuery = rejectedQuery;
 
   const filtered = activeQuery.data ?? [];
   const isPending = activeQuery.isPending;
@@ -145,27 +187,12 @@ export const PendingRequestsScreen = () => {
         ))}
       </div>
 
-      {isPending ? (
-        <div className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="border rounded-lg p-4 animate-pulse">
-              <div className="h-4 bg-slate-200 rounded w-1/3 mb-2" />
-              <div className="h-3 bg-slate-200 rounded w-2/3 mb-2" />
-              <div className="h-3 bg-slate-200 rounded w-1/2" />
-            </div>
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <p className="text-slate-500 text-center py-8">
-          {activeTab === 'PENDING' ? 'Không có yêu cầu chờ duyệt' : 'Danh sách trống'}
-        </p>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map(req => (
-            <RequestListItem key={req.id} req={req} onSelect={() => setSelectedRequest(req)} />
-          ))}
-        </div>
-      )}
+      <RequestListContent
+        isPending={isPending}
+        filtered={filtered}
+        activeTab={activeTab}
+        onSelect={setSelectedRequest}
+      />
 
       {selectedRequest && (
         <RequestDetailModal
