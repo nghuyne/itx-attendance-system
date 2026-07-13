@@ -22,6 +22,10 @@ allprojects {
         google()
         mavenCentral()
     }
+    // Enable dependency locking for predictable, reproducible builds
+    dependencyLocking {
+        lockAllConfigurations()
+    }
 }
 
 task clean(type: Delete) {
