@@ -242,6 +242,105 @@ const DeleteConfirmDialog: React.FC<DeleteConfirmProps> = ({
   </div>
 );
 
+const formatDate = (dateStr: string | null) => {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('vi-VN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+};
+
+function IpsTableSection({
+  isLoading,
+  isError,
+  ips,
+  onDelete,
+}: {
+  isLoading: boolean;
+  isError: boolean;
+  ips: ValidIpDto[];
+  onDelete: (ip: ValidIpDto) => void;
+}) {
+  if (isLoading) {
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+        Không thể tải danh sách IP. Vui lòng thử lại.
+      </div>
+    );
+  }
+
+  if (ips.length === 0) {
+    return (
+      <div className="text-center py-12 text-slate-500">
+        <p className="text-lg">Chưa có IP nào được cấu hình</p>
+        <p className="text-sm mt-1">Bấm "+ Thêm IP" để thêm IP văn phòng đầu tiên</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-slate-200">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50">
+          <tr>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Địa chỉ IP</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Phạm vi</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Nhân viên</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Ghi chú</th>
+            <th className="text-left px-4 py-3 font-medium text-slate-600">Ngày tạo</th>
+            <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tác</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {ips.map((ip) => (
+            <tr key={ip.id} className="hover:bg-slate-50">
+              <td className="px-4 py-3 font-mono text-slate-700">{ip.ipAddress}</td>
+              <td className="px-4 py-3">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                  ip.scope === 'COMPANY'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-blue-100 text-blue-800'
+                }`}>
+                  {ip.scope === 'COMPANY' ? 'Toàn công ty' : 'Cá nhân'}
+                </span>
+              </td>
+              <td className="px-4 py-3 text-slate-600">
+                {ip.employeeName ?? <span className="text-slate-400">—</span>}
+              </td>
+              <td className="px-4 py-3 text-slate-500">
+                {ip.description ?? <span className="text-slate-400">—</span>}
+              </td>
+              <td className="px-4 py-3 text-slate-500">
+                {formatDate(ip.createdAt)}
+              </td>
+              <td className="px-4 py-3 text-center">
+                <button
+                  onClick={() => onDelete(ip)}
+                  aria-label={`Xóa IP ${ip.ipAddress}`}
+                  className="p-1 text-slate-400 hover:text-red-600 min-w-[36px] min-h-[36px] flex items-center justify-center mx-auto"
+                >
+                  🗑️
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export const IpsPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [deletingIp, setDeletingIp] = useState<ValidIpDto | null>(null);
@@ -272,17 +371,6 @@ export const IpsPage: React.FC = () => {
 
   const ips = data?.content ?? [];
 
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return '—';
-    const d = new Date(dateStr);
-    if (Number.isNaN(d.getTime())) return '—';
-    return d.toLocaleDateString('vi-VN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    });
-  };
-
   return (
     <main className="p-4">
       <div className="flex items-center justify-between mb-4">
@@ -295,69 +383,12 @@ export const IpsPage: React.FC = () => {
         </button>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
-        </div>
-      ) : isError ? (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-          Không thể tải danh sách IP. Vui lòng thử lại.
-        </div>
-      ) : ips.length === 0 ? (
-        <div className="text-center py-12 text-slate-500">
-          <p className="text-lg">Chưa có IP nào được cấu hình</p>
-          <p className="text-sm mt-1">Bấm "+ Thêm IP" để thêm IP văn phòng đầu tiên</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Địa chỉ IP</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Phạm vi</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Nhân viên</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Ghi chú</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Ngày tạo</th>
-                <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {ips.map((ip) => (
-                <tr key={ip.id} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 font-mono text-slate-700">{ip.ipAddress}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                      ip.scope === 'COMPANY'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-blue-100 text-blue-800'
-                    }`}>
-                      {ip.scope === 'COMPANY' ? 'Toàn công ty' : 'Cá nhân'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {ip.employeeName ?? <span className="text-slate-400">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-slate-500">
-                    {ip.description ?? <span className="text-slate-400">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-slate-500">
-                    {formatDate(ip.createdAt)}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <button
-                      onClick={() => setDeletingIp(ip)}
-                      aria-label={`Xóa IP ${ip.ipAddress}`}
-                      className="p-1 text-slate-400 hover:text-red-600 min-w-[36px] min-h-[36px] flex items-center justify-center mx-auto"
-                    >
-                      🗑️
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <IpsTableSection
+        isLoading={isLoading}
+        isError={isError}
+        ips={ips}
+        onDelete={setDeletingIp}
+      />
 
       {isModalOpen && (
         <IpFormModal
