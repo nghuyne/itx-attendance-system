@@ -10,7 +10,7 @@ import type { AttendanceRecordDto } from '../../types/api';
 const createAdjustmentSchema = (checkInTime: string) => z.object({
   proposedCheckoutTime: z.string()
     .min(1, 'Vui lòng chọn thời gian checkout')
-    .refine((val) => !isNaN(new Date(val).getTime()), 'Định dạng thời gian không hợp lệ')
+    .refine((val) => !Number.isNaN(new Date(val).getTime()), 'Định dạng thời gian không hợp lệ')
     .refine((val) => new Date(val).getTime() > new Date(checkInTime + 'Z').getTime(), 'Phải sau thời gian check-in'),
   reason: z.string().min(10, 'Lý do phải có ít nhất 10 ký tự').max(500, 'Lý do không được vượt quá 500 ký tự'),
 });

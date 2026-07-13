@@ -51,7 +51,7 @@ const HolidayFormModal: React.FC<HolidayFormModalProps> = ({ onClose, onSuccess 
   const selectedDate = watch('date');
   React.useEffect(() => {
     if (selectedDate && /^\d{4}/.test(selectedDate)) {
-      const yearFromDate = parseInt(selectedDate.substring(0, 4), 10);
+      const yearFromDate = Number.parseInt(selectedDate.substring(0, 4), 10);
       if (yearFromDate >= 1900 && yearFromDate <= 2100) {
         setValue('year', yearFromDate);
       }

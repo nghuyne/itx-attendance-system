@@ -275,7 +275,7 @@ export const IpsPage: React.FC = () => {
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return '—';
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return '—';
+    if (Number.isNaN(d.getTime())) return '—';
     return d.toLocaleDateString('vi-VN', {
       year: 'numeric',
       month: '2-digit',
