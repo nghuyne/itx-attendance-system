@@ -8,7 +8,192 @@ import { SkeletonCard } from '../../components/common/SkeletonCard';
 import { CameraViewfinder } from '../../components/employee/CameraViewfinder';
 import { ClientSiteModeToggle } from '../../components/employee/ClientSiteModeToggle';
 import { useUiStore } from '../../store/uiStore';
-import type { CheckOutRequest } from '../../types/api';
+import type { AttendanceRecordDto, CheckOutRequest } from '../../types/api';
+
+const formatVN = (utcStr: string | null) =>
+  utcStr ? new Date(utcStr + 'Z').toLocaleTimeString('vi-VN', {
+    hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh',
+  }) : '—';
+
+function AlreadyCheckedOutCard({ todayRecord }: { todayRecord: AttendanceRecordDto }) {
+  return (
+    <main className="p-4">
+      <h1 className="text-2xl font-bold text-slate-700 mb-4">Chấm công</h1>
+      <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
+        <p className="text-sm text-slate-500">
+          Ca: {todayRecord.shiftName} ({todayRecord.shiftStartTime}–{todayRecord.shiftEndTime})
+        </p>
+        <div className="flex gap-6">
+          <div>
+            <p className="text-xs text-slate-500">Check-in</p>
+            <p className="text-xl font-bold text-slate-800 font-mono">{formatVN(todayRecord.checkInTime)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-slate-500">Check-out</p>
+            <p className="text-xl font-bold text-slate-800 font-mono">{formatVN(todayRecord.checkOutTime)}</p>
+          </div>
+        </div>
+        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${ATTENDANCE_STATUS_COLORS[todayRecord.attendanceStatus]}`}>
+          {ATTENDANCE_STATUS_LABEL[todayRecord.attendanceStatus] ?? todayRecord.attendanceStatus}
+        </span>
+      </div>
+    </main>
+  );
+}
+
+function CheckOutSection({
+  todayRecord,
+  checkOutPhoto,
+  setCheckOutPhoto,
+  checkOutError,
+  setCheckOutError,
+  isCheckingOut,
+  onCheckOut,
+  showToast,
+}: {
+  todayRecord: AttendanceRecordDto;
+  checkOutPhoto: string;
+  setCheckOutPhoto: (v: string) => void;
+  checkOutError: string | null;
+  setCheckOutError: (v: string | null) => void;
+  isCheckingOut: boolean;
+  onCheckOut: () => void;
+  showToast: (t: { type: 'error'; message: string }) => void;
+}) {
+  const canCheckOut = checkOutPhoto.length > 0 && !isCheckingOut;
+  return (
+    <main className="flex flex-col min-h-0">
+      <div className="p-4 pb-0">
+        <h1 className="text-2xl font-bold text-slate-700 mb-2">Chấm công</h1>
+        <div className="bg-white rounded-lg border border-slate-200 p-3 mb-3">
+          <p className="text-sm text-slate-500">Check-in lúc</p>
+          <p className="text-xl font-bold text-slate-800 font-mono">{formatVN(todayRecord.checkInTime)}</p>
+          <span className={`inline-flex mt-1 px-2 py-1 rounded-full text-xs font-medium ${ATTENDANCE_STATUS_COLORS[todayRecord.attendanceStatus]}`}>
+            {ATTENDANCE_STATUS_LABEL[todayRecord.attendanceStatus] ?? todayRecord.attendanceStatus}
+          </span>
+        </div>
+        <p className="text-sm font-medium text-slate-700 mb-2">Chụp ảnh để check-out:</p>
+      </div>
+
+      <div className="px-4">
+        <CameraViewfinder
+          onPhotoCapture={(base64) => { setCheckOutPhoto(base64); setCheckOutError(null); }}
+          onError={(error) => showToast({ type: 'error', message: error })}
+        />
+      </div>
+
+      <div className="p-4 space-y-2 mt-2">
+        <button
+          onClick={onCheckOut}
+          disabled={!canCheckOut}
+          className={`w-full py-3 min-h-[48px] rounded-lg font-bold text-lg transition-all ${
+            canCheckOut
+              ? 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95'
+              : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+          } ${isCheckingOut ? 'opacity-75' : ''}`}
+        >
+          {isCheckingOut ? 'Đang xử lý...' : 'Xác nhận Check-out'}
+        </button>
+        {checkOutError && (
+          <div className="bg-red-50 border border-red-300 rounded-lg p-3">
+            <p className="text-red-700 text-sm">{checkOutError}</p>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+function CheckInSection({
+  coords,
+  isAndroid,
+  bssid,
+  isClientSite,
+  setIsClientSite,
+  photoBase64,
+  isSubmitting,
+  submitError,
+  onPhotoCapture,
+  onCameraError,
+  onSubmit,
+}: {
+  coords: { lat: number | null; lng: number | null };
+  isAndroid: boolean;
+  bssid: string | null;
+  isClientSite: boolean;
+  setIsClientSite: (v: boolean) => void;
+  photoBase64: string;
+  isSubmitting: boolean;
+  submitError: string | null;
+  onPhotoCapture: (base64: string) => void;
+  onCameraError: (error: string) => void;
+  onSubmit: () => void;
+}) {
+  const canSubmit = photoBase64.length > 0
+    && !isSubmitting
+    && (!isClientSite || coords.lat !== null);
+
+  return (
+    <main className="flex flex-col min-h-0">
+      <div className="p-4 pb-0">
+        <h1 className="text-2xl font-bold text-slate-700 mb-4">Chấm công</h1>
+        {coords.lat !== null && coords.lng !== null ? (
+          <p className="text-xs text-emerald-600 mb-2">GPS: {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}</p>
+        ) : (
+          <p className="text-xs text-amber-500 mb-2">GPS không khả dụng — check-in văn phòng vẫn được phép</p>
+        )}
+      </div>
+
+      {isAndroid && (
+        <div className={`mx-4 mb-3 px-3 py-2 rounded-lg text-xs font-medium ${
+          bssid
+            ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+            : 'bg-amber-50 border border-amber-200 text-amber-700'
+        }`}>
+          {bssid
+            ? `Wi-Fi văn phòng: ${bssid}`
+            : 'Không đọc được BSSID — sẽ dùng IP để xác thực'
+          }
+        </div>
+      )}
+
+      <div className="px-4 mb-3">
+        <ClientSiteModeToggle
+          isClientSite={isClientSite}
+          onChange={setIsClientSite}
+          gpsAvailable={coords.lat !== null}
+        />
+      </div>
+
+      <div className="px-4">
+        <CameraViewfinder
+          onPhotoCapture={onPhotoCapture}
+          onError={onCameraError}
+        />
+      </div>
+
+      <div className="p-4 space-y-2 mt-2">
+        <button
+          onClick={onSubmit}
+          disabled={!canSubmit}
+          className={`w-full py-3 min-h-[48px] rounded-lg font-bold text-lg transition-all ${
+            canSubmit
+              ? 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95'
+              : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+          } ${isSubmitting ? 'opacity-75' : ''}`}
+        >
+          {isSubmitting ? 'Đang xử lý...' : 'Xác nhận Check-in'}
+        </button>
+
+        {submitError && (
+          <div className="bg-red-50 border border-red-300 rounded-lg p-3">
+            <p className="text-red-700 text-sm">{submitError}</p>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
 
 type ApiErrorData = { error?: string; message?: string };
 
@@ -157,144 +342,38 @@ export const CheckInPage: React.FC = () => {
     );
   }
 
+  if (todayRecord?.checkOutTime) {
+    return <AlreadyCheckedOutCard todayRecord={todayRecord} />;
+  }
+
   if (todayRecord) {
-    const formatVN = (utcStr: string | null) =>
-      utcStr ? new Date(utcStr + 'Z').toLocaleTimeString('vi-VN', {
-        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh',
-      }) : '—';
-
-    if (todayRecord.checkOutTime) {
-      return (
-        <main className="p-4">
-          <h1 className="text-2xl font-bold text-slate-700 mb-4">Chấm công</h1>
-          <div className="bg-white rounded-lg border border-slate-200 p-4 space-y-3">
-            <p className="text-sm text-slate-500">
-              Ca: {todayRecord.shiftName} ({todayRecord.shiftStartTime}–{todayRecord.shiftEndTime})
-            </p>
-            <div className="flex gap-6">
-              <div>
-                <p className="text-xs text-slate-500">Check-in</p>
-                <p className="text-xl font-bold text-slate-800 font-mono">{formatVN(todayRecord.checkInTime)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500">Check-out</p>
-                <p className="text-xl font-bold text-slate-800 font-mono">{formatVN(todayRecord.checkOutTime)}</p>
-              </div>
-            </div>
-            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${ATTENDANCE_STATUS_COLORS[todayRecord.attendanceStatus]}`}>
-              {ATTENDANCE_STATUS_LABEL[todayRecord.attendanceStatus] ?? todayRecord.attendanceStatus}
-            </span>
-          </div>
-        </main>
-      );
-    }
-
-    const canCheckOut = checkOutPhoto.length > 0 && !isCheckingOut;
     return (
-      <main className="flex flex-col min-h-0">
-        <div className="p-4 pb-0">
-          <h1 className="text-2xl font-bold text-slate-700 mb-2">Chấm công</h1>
-          <div className="bg-white rounded-lg border border-slate-200 p-3 mb-3">
-            <p className="text-sm text-slate-500">Check-in lúc</p>
-            <p className="text-xl font-bold text-slate-800 font-mono">{formatVN(todayRecord.checkInTime)}</p>
-            <span className={`inline-flex mt-1 px-2 py-1 rounded-full text-xs font-medium ${ATTENDANCE_STATUS_COLORS[todayRecord.attendanceStatus]}`}>
-              {ATTENDANCE_STATUS_LABEL[todayRecord.attendanceStatus] ?? todayRecord.attendanceStatus}
-            </span>
-          </div>
-          <p className="text-sm font-medium text-slate-700 mb-2">Chụp ảnh để check-out:</p>
-        </div>
-
-        <div className="px-4">
-          <CameraViewfinder
-            onPhotoCapture={(base64) => { setCheckOutPhoto(base64); setCheckOutError(null); }}
-            onError={(error) => showToast({ type: 'error', message: error })}
-          />
-        </div>
-
-        <div className="p-4 space-y-2 mt-2">
-          <button
-            onClick={handleCheckOut}
-            disabled={!canCheckOut}
-            className={`w-full py-3 min-h-[48px] rounded-lg font-bold text-lg transition-all ${
-              canCheckOut
-                ? 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95'
-                : 'bg-slate-300 text-slate-500 cursor-not-allowed'
-            } ${isCheckingOut ? 'opacity-75' : ''}`}
-          >
-            {isCheckingOut ? 'Đang xử lý...' : 'Xác nhận Check-out'}
-          </button>
-          {checkOutError && (
-            <div className="bg-red-50 border border-red-300 rounded-lg p-3">
-              <p className="text-red-700 text-sm">{checkOutError}</p>
-            </div>
-          )}
-        </div>
-      </main>
+      <CheckOutSection
+        todayRecord={todayRecord}
+        checkOutPhoto={checkOutPhoto}
+        setCheckOutPhoto={setCheckOutPhoto}
+        checkOutError={checkOutError}
+        setCheckOutError={setCheckOutError}
+        isCheckingOut={isCheckingOut}
+        onCheckOut={handleCheckOut}
+        showToast={showToast}
+      />
     );
   }
 
-  const canSubmit = photoBase64.length > 0
-    && !isSubmitting
-    && (!isClientSite || coords.lat !== null);
-
   return (
-    <main className="flex flex-col min-h-0">
-      <div className="p-4 pb-0">
-        <h1 className="text-2xl font-bold text-slate-700 mb-4">Chấm công</h1>
-        {coords.lat !== null && coords.lng !== null ? (
-          <p className="text-xs text-emerald-600 mb-2">GPS: {coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}</p>
-        ) : (
-          <p className="text-xs text-amber-500 mb-2">GPS không khả dụng — check-in văn phòng vẫn được phép</p>
-        )}
-      </div>
-
-      {isAndroid && (
-        <div className={`mx-4 mb-3 px-3 py-2 rounded-lg text-xs font-medium ${
-          bssid
-            ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
-            : 'bg-amber-50 border border-amber-200 text-amber-700'
-        }`}>
-          {bssid
-            ? `Wi-Fi văn phòng: ${bssid}`
-            : 'Không đọc được BSSID — sẽ dùng IP để xác thực'
-          }
-        </div>
-      )}
-
-      <div className="px-4 mb-3">
-        <ClientSiteModeToggle
-          isClientSite={isClientSite}
-          onChange={setIsClientSite}
-          gpsAvailable={coords.lat !== null}
-        />
-      </div>
-
-      <div className="px-4">
-        <CameraViewfinder
-          onPhotoCapture={handlePhotoCapture}
-          onError={handleCameraError}
-        />
-      </div>
-
-      <div className="p-4 space-y-2 mt-2">
-        <button
-          onClick={handleSubmit}
-          disabled={!canSubmit}
-          className={`w-full py-3 min-h-[48px] rounded-lg font-bold text-lg transition-all ${
-            canSubmit
-              ? 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95'
-              : 'bg-slate-300 text-slate-500 cursor-not-allowed'
-          } ${isSubmitting ? 'opacity-75' : ''}`}
-        >
-          {isSubmitting ? 'Đang xử lý...' : 'Xác nhận Check-in'}
-        </button>
-
-        {submitError && (
-          <div className="bg-red-50 border border-red-300 rounded-lg p-3">
-            <p className="text-red-700 text-sm">{submitError}</p>
-          </div>
-        )}
-      </div>
-    </main>
+    <CheckInSection
+      coords={coords}
+      isAndroid={isAndroid}
+      bssid={bssid}
+      isClientSite={isClientSite}
+      setIsClientSite={setIsClientSite}
+      photoBase64={photoBase64}
+      isSubmitting={isSubmitting}
+      submitError={submitError}
+      onPhotoCapture={handlePhotoCapture}
+      onCameraError={handleCameraError}
+      onSubmit={handleSubmit}
+    />
   );
 };
