@@ -112,15 +112,14 @@ export const RequestDetailModal = ({ isOpen, request, onClose, onApproved }: Req
         : (REQUEST_TYPE_LABEL[request.requestType ?? ''] ?? request.requestType);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-    >
+    <>
+      <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose} aria-hidden="true" />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
-        className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto pointer-events-auto"
       >
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
@@ -242,6 +241,7 @@ export const RequestDetailModal = ({ isOpen, request, onClose, onApproved }: Req
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };

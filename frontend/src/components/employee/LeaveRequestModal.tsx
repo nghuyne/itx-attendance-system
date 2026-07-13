@@ -116,17 +116,14 @@ export const LeaveRequestModal = ({ isOpen, onClose, onSuccess }: LeaveRequestMo
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
-      onClick={e => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
+    <>
+      <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose} aria-hidden="true" />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="leave-modal-title"
-        className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto pointer-events-auto"
       >
         <div className="p-6 space-y-4">
           <div className="flex items-center justify-between">
@@ -228,6 +225,7 @@ export const LeaveRequestModal = ({ isOpen, onClose, onSuccess }: LeaveRequestMo
           </form>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };
