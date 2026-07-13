@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { userService } from '../../services/userService';
 import { departmentService } from '../../services/departmentService';
 import { shiftService } from '../../services/shiftService';
-import type { AdminUserDto } from '../../types/api';
+import type { AdminUserDto, PageResponse } from '../../types/api';
 import { UserRole } from '../../types/domain';
 import { useUiStore } from '../../store/uiStore';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
@@ -199,6 +199,128 @@ const ResetPasswordConfirm: React.FC<ResetPasswordConfirmProps> = ({ user, onCon
 
 // ── Main page ────────────────────────────────────────────────────────────────
 
+function UsersTableSection({
+  isLoading,
+  isError,
+  users,
+  data,
+  page,
+  setPage,
+  onResetPassword,
+  onToggleActive,
+  isToggling,
+}: {
+  isLoading: boolean;
+  isError: boolean;
+  users: AdminUserDto[];
+  data: PageResponse<AdminUserDto> | undefined;
+  page: number;
+  setPage: React.Dispatch<React.SetStateAction<number>>;
+  onResetPassword: (user: AdminUserDto) => void;
+  onToggleActive: (user: AdminUserDto) => void;
+  isToggling: boolean;
+}) {
+  if (isLoading) {
+    return <div className="space-y-3">{[1, 2, 3].map(i => <SkeletonCard key={i} />)}</div>;
+  }
+
+  if (isError) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+        Không thể tải danh sách tài khoản. Vui lòng thử lại.
+      </div>
+    );
+  }
+
+  if (users.length === 0) {
+    return (
+      <div className="text-center py-12 text-slate-500">
+        <p className="text-lg">Chưa có tài khoản nào</p>
+        <p className="text-sm mt-1">Bấm "Tạo tài khoản" để bắt đầu</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50">
+            <tr>
+              <th className="text-left px-4 py-3 font-medium text-slate-600">Họ tên</th>
+              <th className="text-left px-4 py-3 font-medium text-slate-600">Username</th>
+              <th className="text-left px-4 py-3 font-medium text-slate-600">Email</th>
+              <th className="text-left px-4 py-3 font-medium text-slate-600">Vai trò</th>
+              <th className="text-left px-4 py-3 font-medium text-slate-600">Phòng ban</th>
+              <th className="text-left px-4 py-3 font-medium text-slate-600">Ca</th>
+              <th className="text-center px-4 py-3 font-medium text-slate-600">Trạng thái</th>
+              <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {users.map(u => (
+              <tr key={u.id} className="hover:bg-slate-50">
+                <td className="px-4 py-3 font-medium text-slate-700">{u.fullName}</td>
+                <td className="px-4 py-3 text-slate-500">{u.username}</td>
+                <td className="px-4 py-3 text-slate-500">{u.email}</td>
+                <td className="px-4 py-3 text-slate-500">{ROLE_LABEL[u.role] ?? u.role}</td>
+                <td className="px-4 py-3 text-slate-500">{u.departmentName ?? '—'}</td>
+                <td className="px-4 py-3 text-slate-500">{u.shiftName ?? '—'}</td>
+                <td className="px-4 py-3 text-center">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                    u.active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {u.active ? 'Hoạt động' : 'Vô hiệu hóa'}
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <div className="flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => onResetPassword(u)}
+                      title="Đặt lại mật khẩu"
+                      className="px-2 py-1 text-xs text-emerald-700 border border-emerald-300 rounded hover:bg-emerald-50 min-h-[36px]">
+                      Đặt lại MK
+                    </button>
+                    <button
+                      onClick={() => onToggleActive(u)}
+                      disabled={isToggling}
+                      title={u.active ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                      className={`px-2 py-1 text-xs border rounded min-h-[36px] disabled:opacity-50 ${
+                        u.active
+                          ? 'text-red-700 border-red-300 hover:bg-red-50'
+                          : 'text-emerald-700 border-emerald-300 hover:bg-emerald-50'
+                      }`}>
+                      {u.active ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex items-center gap-2 justify-end">
+        <button
+          onClick={() => setPage(p => p - 1)}
+          disabled={page === 0}
+          className="min-h-[48px] px-3 py-1.5 rounded border text-sm disabled:opacity-50 hover:bg-slate-50">
+          Trước
+        </button>
+        <span className="text-sm text-slate-600">
+          Trang {(data?.number ?? 0) + 1}/{data?.totalPages ?? 1}
+        </span>
+        <button
+          onClick={() => setPage(p => p + 1)}
+          disabled={page >= (data?.totalPages ?? 1) - 1}
+          className="min-h-[48px] px-3 py-1.5 rounded border text-sm disabled:opacity-50 hover:bg-slate-50">
+          Sau
+        </button>
+      </div>
+    </>
+  );
+}
+
 export const UsersPage: React.FC = () => {
   const showToast = useUiStore(s => s.showToast);
   const queryClient = useQueryClient();
@@ -253,95 +375,17 @@ export const UsersPage: React.FC = () => {
         </button>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-3">{[1, 2, 3].map(i => <SkeletonCard key={i} />)}</div>
-      ) : isError ? (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-          Không thể tải danh sách tài khoản. Vui lòng thử lại.
-        </div>
-      ) : users.length === 0 ? (
-        <div className="text-center py-12 text-slate-500">
-          <p className="text-lg">Chưa có tài khoản nào</p>
-          <p className="text-sm mt-1">Bấm "Tạo tài khoản" để bắt đầu</p>
-        </div>
-      ) : (
-        <>
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Họ tên</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Username</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Email</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Vai trò</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Phòng ban</th>
-                  <th className="text-left px-4 py-3 font-medium text-slate-600">Ca</th>
-                  <th className="text-center px-4 py-3 font-medium text-slate-600">Trạng thái</th>
-                  <th className="text-center px-4 py-3 font-medium text-slate-600">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {users.map(u => (
-                  <tr key={u.id} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 font-medium text-slate-700">{u.fullName}</td>
-                    <td className="px-4 py-3 text-slate-500">{u.username}</td>
-                    <td className="px-4 py-3 text-slate-500">{u.email}</td>
-                    <td className="px-4 py-3 text-slate-500">{ROLE_LABEL[u.role] ?? u.role}</td>
-                    <td className="px-4 py-3 text-slate-500">{u.departmentName ?? '—'}</td>
-                    <td className="px-4 py-3 text-slate-500">{u.shiftName ?? '—'}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        u.active ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        {u.active ? 'Hoạt động' : 'Vô hiệu hóa'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => setResettingUser(u)}
-                          title="Đặt lại mật khẩu"
-                          className="px-2 py-1 text-xs text-emerald-700 border border-emerald-300 rounded hover:bg-emerald-50 min-h-[36px]">
-                          Đặt lại MK
-                        </button>
-                        <button
-                          onClick={() => toggleActiveMutation.mutate(u)}
-                          disabled={toggleActiveMutation.isPending}
-                          title={u.active ? 'Vô hiệu hóa' : 'Kích hoạt'}
-                          className={`px-2 py-1 text-xs border rounded min-h-[36px] disabled:opacity-50 ${
-                            u.active
-                              ? 'text-red-700 border-red-300 hover:bg-red-50'
-                              : 'text-emerald-700 border-emerald-300 hover:bg-emerald-50'
-                          }`}>
-                          {u.active ? 'Vô hiệu hóa' : 'Kích hoạt'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="flex items-center gap-2 justify-end">
-            <button
-              onClick={() => setPage(p => p - 1)}
-              disabled={page === 0}
-              className="min-h-[48px] px-3 py-1.5 rounded border text-sm disabled:opacity-50 hover:bg-slate-50">
-              Trước
-            </button>
-            <span className="text-sm text-slate-600">
-              Trang {(data?.number ?? 0) + 1}/{data?.totalPages ?? 1}
-            </span>
-            <button
-              onClick={() => setPage(p => p + 1)}
-              disabled={page >= (data?.totalPages ?? 1) - 1}
-              className="min-h-[48px] px-3 py-1.5 rounded border text-sm disabled:opacity-50 hover:bg-slate-50">
-              Sau
-            </button>
-          </div>
-        </>
-      )}
+      <UsersTableSection
+        isLoading={isLoading}
+        isError={isError}
+        users={users}
+        data={data}
+        page={page}
+        setPage={setPage}
+        onResetPassword={setResettingUser}
+        onToggleActive={u => toggleActiveMutation.mutate(u)}
+        isToggling={toggleActiveMutation.isPending}
+      />
 
       {showCreateModal && (
         <CreateUserModal
