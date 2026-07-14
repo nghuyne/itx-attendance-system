@@ -1,23 +1,16 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { seedEmployeeAuth } from '../support/auth';
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
-async function seedEmployeeAuth(page: Page) {
-  await page.addInitScript(
-    (storage: { key: string; value: unknown }) => {
-      localStorage.setItem(storage.key, JSON.stringify(storage.value));
-    },
-    {
-      key: 'itx-auth',
-      value: {
-        state: {
-          user: { id: 'emp-id', username: 'emp1', fullName: 'Nguyen Van A', role: 'EMPLOYEE', mustChangePassword: false },
-          isAuthenticated: true,
-        },
-        version: 0,
-      },
-    }
-  );
+// react-webcam requires camera permission + a real MediaStream. The Chromium
+// launch flags in playwright.config.ts (--use-fake-device-for-media-stream)
+// supply a synthetic video feed so capturePhoto() actually produces a frame,
+// letting these tests drive the real capture → submit flow instead of only
+// asserting the pre-capture disabled state.
+async function capturePhoto(page: import('@playwright/test').Page) {
+  await page.getByRole('button', { name: 'Chụp ảnh' }).click();
+  await expect(page.getByRole('button', { name: 'Chụp lại' })).toBeVisible();
 }
 
 function makeRecord(overrides: Record<string, unknown> = {}) {
@@ -192,27 +185,14 @@ test.describe('Employee — Chấm công (Story 3.1 → 3.4)', () => {
     );
     await page.goto('/check-in');
 
-    // Inject a fake photo to enable the button
-    await page.evaluate(() => {
-      const event = new CustomEvent('photo-captured', { detail: 'data:image/jpeg;base64,/9j/fake' });
-      document.dispatchEvent(event);
-    });
-
-    // Directly click if button is enabled after injecting state; otherwise test error display
-    // We can trigger check-in by calling the API mock and testing the error display pattern
+    await capturePhoto(page);
     const submitBtn = page.getByRole('button', { name: 'Xác nhận Check-in' });
+    await expect(submitBtn).toBeEnabled();
+    await submitBtn.click();
 
-    // Even if disabled (no real photo), the error message from the mocked API should appear
-    // when triggered. Test the error display message text exists after clicking.
-    // Instead, simulate the full flow via evaluate to set photo state:
-    await page.evaluate(() => {
-      // Force the React state update via a direct DOM interaction hack
-      // The button text changes to the error on click
-    });
-
-    // Since we can't easily inject a photo, verify the IP error text mapping exists in component
-    // by checking the button is disabled (this validates the photo guard works correctly)
-    await expect(submitBtn).toBeDisabled();
+    // The message renders in both the toast and the inline form error — assert
+    // on the inline one, since the toast auto-dismisses.
+    await expect(page.locator('p.text-red-700', { hasText: 'Không nhận diện được mạng văn phòng' })).toBeVisible();
   });
 
   test('lỗi NO_SHIFT_ASSIGNED hiển thị đúng message', async ({ page }) => {
@@ -227,8 +207,10 @@ test.describe('Employee — Chấm công (Story 3.1 → 3.4)', () => {
     );
     await page.goto('/check-in');
 
-    // Verify the button guard is in place — can't easily inject photo in unit test without camera
-    await expect(page.getByRole('button', { name: 'Xác nhận Check-in' })).toBeDisabled();
+    await capturePhoto(page);
+    await page.getByRole('button', { name: 'Xác nhận Check-in' }).click();
+
+    await expect(page.locator('p.text-red-700', { hasText: 'Bạn chưa được gán ca làm việc. Liên hệ HR để cập nhật.' })).toBeVisible();
   });
 
   // ── Loading state ──────────────────────────────────────────────────────
@@ -373,7 +355,9 @@ test.describe('Employee — Chấm công (Story 3.1 → 3.4)', () => {
     );
     await page.goto('/check-in');
 
-    // Checkout button is disabled without photo — the guard is validated above
-    await expect(page.getByRole('button', { name: 'Xác nhận Check-out' })).toBeDisabled();
+    await capturePhoto(page);
+    await page.getByRole('button', { name: 'Xác nhận Check-out' }).click();
+
+    await expect(page.locator('p.text-red-700', { hasText: 'Bạn đã check-out rồi hôm nay.' })).toBeVisible();
   });
 });
