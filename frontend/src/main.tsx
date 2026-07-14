@@ -14,6 +14,6 @@ createRoot(document.getElementById('root')!).render(
 
 if (import.meta.env.DEV) {
   import('./store/uiStore').then(({ useUiStore }) => {
-    (window as Record<string, unknown>).__uiStore = useUiStore;
+    (window as unknown as Record<string, unknown>).__uiStore = useUiStore;
   });
 }
