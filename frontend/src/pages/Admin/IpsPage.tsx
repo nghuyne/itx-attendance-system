@@ -8,6 +8,7 @@ import type { ValidIpDto, IpScope } from '../../types/api';
 import { useUiStore } from '../../store/uiStore';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { SkeletonCard } from '../../components/common/SkeletonCard';
+import { formatDate } from '../../utils/formatters';
 
 const isValidIpv4 = (ip: string) =>
   /^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$/.test(ip);
@@ -242,16 +243,6 @@ const DeleteConfirmDialog: React.FC<DeleteConfirmProps> = ({
   </div>
 );
 
-const formatDate = (dateStr: string | null) => {
-  if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('vi-VN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-};
 
 function IpsTableSection({
   isLoading,

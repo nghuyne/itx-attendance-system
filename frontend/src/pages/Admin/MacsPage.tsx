@@ -8,6 +8,7 @@ import type { ValidMacDto, CreateValidMacRequest } from '../../types/api';
 import { useUiStore } from '../../store/uiStore';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
 import { SkeletonCard } from '../../components/common/SkeletonCard';
+import { formatDate } from '../../utils/formatters';
 
 const BSSID_REGEX = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
 
@@ -173,16 +174,6 @@ const DeleteConfirmDialog: React.FC<DeleteConfirmProps> = ({
   </div>
 );
 
-const formatDate = (dateStr: string | null) => {
-  if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('vi-VN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-};
 
 function MacsTableSection({
   isLoading,
