@@ -98,6 +98,14 @@ test.describe('Protected Routes — Role-Based Redirects', () => {
     await page.goto('/check-in');
     await page.waitForURL('**/leader/dashboard');
   });
+
+  test('LEADER accessing /admin/shifts is redirected to /leader/dashboard', async ({ page }) => {
+    await seedAuth(page, USERS.leader);
+    await stubAllApiCalls(page);
+
+    await page.goto('/admin/shifts');
+    await page.waitForURL('**/leader/dashboard');
+  });
 });
 
 test.describe('Protected Routes — mustChangePassword Gate', () => {
