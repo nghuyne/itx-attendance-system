@@ -7,7 +7,7 @@ import { validIpService } from '../../services/validIpService';
 import type { ValidIpDto, IpScope } from '../../types/api';
 import { useUiStore } from '../../store/uiStore';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
-import { SkeletonCard } from '../../components/common/SkeletonCard';
+import { TableStateWrapper } from '../../components/common/TableStateWrapper';
 import { formatDate } from '../../utils/formatters';
 
 const isValidIpv4 = (ip: string) =>
@@ -255,32 +255,15 @@ function IpsTableSection({
   ips: ValidIpDto[];
   onDelete: (ip: ValidIpDto) => void;
 }) {
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-        Không thể tải danh sách IP. Vui lòng thử lại.
-      </div>
-    );
-  }
-
-  if (ips.length === 0) {
-    return (
-      <div className="text-center py-12 text-slate-500">
-        <p className="text-lg">Chưa có IP nào được cấu hình</p>
-        <p className="text-sm mt-1">Bấm "+ Thêm IP" để thêm IP văn phòng đầu tiên</p>
-      </div>
-    );
-  }
-
   return (
+    <TableStateWrapper
+      isLoading={isLoading}
+      isError={isError}
+      isEmpty={ips.length === 0}
+      errorMessage="Không thể tải danh sách IP. Vui lòng thử lại."
+      emptyTitle="Chưa có IP nào được cấu hình"
+      emptySubtitle='Bấm "+ Thêm IP" để thêm IP văn phòng đầu tiên'
+    >
     <div className="overflow-x-auto rounded-lg border border-slate-200">
       <table className="w-full text-sm">
         <thead className="bg-slate-50">
@@ -329,6 +312,7 @@ function IpsTableSection({
         </tbody>
       </table>
     </div>
+    </TableStateWrapper>
   );
 }
 

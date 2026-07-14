@@ -8,7 +8,7 @@ import { validIpService } from '../../services/validIpService';
 import type { ShiftDto } from '../../types/api';
 import { useUiStore } from '../../store/uiStore';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
-import { SkeletonCard } from '../../components/common/SkeletonCard';
+import { TableStateWrapper } from '../../components/common/TableStateWrapper';
 
 const shiftSchema = z.object({
   name: z.string().min(1, 'Vui lòng nhập tên ca'),
@@ -353,32 +353,15 @@ function ShiftsTableSection({
   onEdit: (shift: ShiftDto) => void;
   onDelete: (shift: ShiftDto) => void;
 }) {
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-        Không thể tải danh sách ca. Vui lòng thử lại.
-      </div>
-    );
-  }
-
-  if (shifts.length === 0) {
-    return (
-      <div className="text-center py-12 text-slate-500">
-        <p className="text-lg">Chưa có ca nào</p>
-        <p className="text-sm mt-1">Bấm "Tạo ca mới" để bắt đầu</p>
-      </div>
-    );
-  }
-
   return (
+    <TableStateWrapper
+      isLoading={isLoading}
+      isError={isError}
+      isEmpty={shifts.length === 0}
+      errorMessage="Không thể tải danh sách ca. Vui lòng thử lại."
+      emptyTitle="Chưa có ca nào"
+      emptySubtitle='Bấm "Tạo ca mới" để bắt đầu'
+    >
     <div className="overflow-x-auto rounded-lg border border-slate-200">
       <table className="w-full text-sm">
         <thead className="bg-slate-50">
@@ -447,6 +430,7 @@ function ShiftsTableSection({
         </tbody>
       </table>
     </div>
+    </TableStateWrapper>
   );
 }
 

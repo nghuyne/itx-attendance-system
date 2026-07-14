@@ -7,7 +7,7 @@ import { validMacService } from '../../services/validMacService';
 import type { ValidMacDto, CreateValidMacRequest } from '../../types/api';
 import { useUiStore } from '../../store/uiStore';
 import { LoadingSpinner } from '../../components/common/LoadingSpinner';
-import { SkeletonCard } from '../../components/common/SkeletonCard';
+import { TableStateWrapper } from '../../components/common/TableStateWrapper';
 import { formatDate } from '../../utils/formatters';
 
 const BSSID_REGEX = /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/;
@@ -186,32 +186,15 @@ function MacsTableSection({
   macs: ValidMacDto[];
   onDelete: (mac: ValidMacDto) => void;
 }) {
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        {[1, 2, 3].map((i) => <SkeletonCard key={i} />)}
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-        Không thể tải danh sách BSSID. Vui lòng thử lại.
-      </div>
-    );
-  }
-
-  if (macs.length === 0) {
-    return (
-      <div className="text-center py-12 text-slate-500">
-        <p className="text-lg">Chưa có BSSID nào được cấu hình</p>
-        <p className="text-sm mt-1">Bấm "+ Thêm BSSID" để thêm router Wi-Fi văn phòng đầu tiên</p>
-      </div>
-    );
-  }
-
   return (
+    <TableStateWrapper
+      isLoading={isLoading}
+      isError={isError}
+      isEmpty={macs.length === 0}
+      errorMessage="Không thể tải danh sách BSSID. Vui lòng thử lại."
+      emptyTitle="Chưa có BSSID nào được cấu hình"
+      emptySubtitle='Bấm "+ Thêm BSSID" để thêm router Wi-Fi văn phòng đầu tiên'
+    >
     <div className="overflow-x-auto rounded-lg border border-slate-200">
       <table className="w-full text-sm">
         <thead className="bg-slate-50">
@@ -246,6 +229,7 @@ function MacsTableSection({
         </tbody>
       </table>
     </div>
+    </TableStateWrapper>
   );
 }
 
