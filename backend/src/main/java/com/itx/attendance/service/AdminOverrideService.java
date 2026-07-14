@@ -99,7 +99,12 @@ public class AdminOverrideService {
         }
 
         try {
-            attendanceRecordRepository.save(record);
+            // saveAndFlush, not save: Hibernate defers the UPDATE (and thus the
+            // version check) to transaction commit by default, which happens
+            // after this method returns — outside this catch entirely. Flushing
+            // here forces the version check synchronously so the conflict is
+            // actually caught instead of surfacing as a raw 500 at commit time.
+            attendanceRecordRepository.saveAndFlush(record);
         } catch (OptimisticLockingFailureException e) {
             throw new BusinessException(
                 "Bản ghi đã được chỉnh sửa bởi người khác, vui lòng tải lại trang",
