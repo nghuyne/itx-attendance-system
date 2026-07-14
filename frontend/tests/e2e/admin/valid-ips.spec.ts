@@ -1,24 +1,7 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { seedAdminAuth } from '../support/auth';
 
 // ── helpers ───────────────────────────────────────────────────────────────
-
-async function seedAdminAuth(page: Page) {
-  await page.addInitScript(
-    (storage: { key: string; value: unknown }) => {
-      localStorage.setItem(storage.key, JSON.stringify(storage.value));
-    },
-    {
-      key: 'itx-auth',
-      value: {
-        state: {
-          user: { id: 'admin-id', username: 'admin', fullName: 'System Administrator', role: 'ADMIN', mustChangePassword: false },
-          isAuthenticated: true,
-        },
-        version: 0,
-      },
-    }
-  );
-}
 
 const MOCK_IPS = [
   { id: 1, ipAddress: '203.0.113.10', scope: 'COMPANY', employeeId: null, employeeName: null, description: 'Văn phòng HCM', createdAt: '2026-06-01T08:00:00' },

@@ -1,24 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
+import { seedEmployeeAuth } from '../support/auth';
 
 // ── helpers ───────────────────────────────────────────────────────────────
-
-async function seedEmployeeAuth(page: Page) {
-  await page.addInitScript(
-    (storage: { key: string; value: unknown }) => {
-      localStorage.setItem(storage.key, JSON.stringify(storage.value));
-    },
-    {
-      key: 'itx-auth',
-      value: {
-        state: {
-          user: { id: 'emp-id', username: 'emp1', fullName: 'Nguyen Van A', role: 'EMPLOYEE', mustChangePassword: false },
-          isAuthenticated: true,
-        },
-        version: 0,
-      },
-    }
-  );
-}
 
 function makeOtRequest(id: string, overrides: Record<string, unknown> = {}) {
   return {

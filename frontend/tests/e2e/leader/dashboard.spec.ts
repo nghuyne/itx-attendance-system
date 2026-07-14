@@ -1,24 +1,7 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { seedLeaderAuth } from '../support/auth';
 
 // ── helpers ───────────────────────────────────────────────────────────────
-
-async function seedLeaderAuth(page: Page) {
-  await page.addInitScript(
-    (storage: { key: string; value: unknown }) => {
-      localStorage.setItem(storage.key, JSON.stringify(storage.value));
-    },
-    {
-      key: 'itx-auth',
-      value: {
-        state: {
-          user: { id: 'leader-id', username: 'leader1', fullName: 'Tran Thi B', role: 'LEADER', mustChangePassword: false },
-          isAuthenticated: true,
-        },
-        version: 0,
-      },
-    }
-  );
-}
 
 function makeRosterItem(overrides: Record<string, unknown> = {}) {
   return {

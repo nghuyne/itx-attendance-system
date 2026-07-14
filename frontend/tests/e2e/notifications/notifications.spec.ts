@@ -1,25 +1,8 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { seedLeaderAuth, seedAdminAuth } from '../support/auth';
 
 // ── helpers ───────────────────────────────────────────────────────────────
 // Tests run via leader dashboard — LeaderLayout includes Header with NotificationBell
-
-async function seedLeaderAuth(page: Page) {
-  await page.addInitScript(
-    (storage: { key: string; value: unknown }) => {
-      localStorage.setItem(storage.key, JSON.stringify(storage.value));
-    },
-    {
-      key: 'itx-auth',
-      value: {
-        state: {
-          user: { id: 'leader-id', username: 'leader1', fullName: 'Tran Thi B', role: 'LEADER', mustChangePassword: false },
-          isAuthenticated: true,
-        },
-        version: 0,
-      },
-    }
-  );
-}
 
 function makeNotification(id: string, overrides: Record<string, unknown> = {}) {
   return {
@@ -312,24 +295,6 @@ test.describe('NotificationPanel (Story 4.2)', () => {
 });
 
 // ── Admin — Suspicious Location Notification (Story 8.2) ────────────────────
-
-async function seedAdminAuth(page: Page) {
-  await page.addInitScript(
-    (storage: { key: string; value: unknown }) => {
-      localStorage.setItem(storage.key, JSON.stringify(storage.value));
-    },
-    {
-      key: 'itx-auth',
-      value: {
-        state: {
-          user: { id: 'admin-id', username: 'admin', fullName: 'System Administrator', role: 'ADMIN', mustChangePassword: false },
-          isAuthenticated: true,
-        },
-        version: 0,
-      },
-    }
-  );
-}
 
 function makeSuspiciousNotification(id: string, overrides: Record<string, unknown> = {}) {
   return {
