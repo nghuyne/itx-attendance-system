@@ -21,6 +21,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.HexFormat;
 
 @Component
@@ -86,8 +87,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (user.getPasswordChangedAt() == null) {
             return false;
         }
+        // JWT `iat` is a NumericDate (RFC 7519 §2) — jjwt encodes it in whole
+        // seconds, so a token minted milliseconds after a password change can
+        // still decode to an issuedAt that floors to *before* passwordChangedAt's
+        // sub-second value. Truncating changedAt to the same second-precision
+        // makes the comparison apples-to-apples and closes that race.
         Instant issuedAt = jwtTokenProvider.extractIssuedAt(token);
-        Instant changedAt = user.getPasswordChangedAt().atZone(ZoneId.systemDefault()).toInstant();
+        Instant changedAt = user.getPasswordChangedAt().atZone(ZoneId.systemDefault()).toInstant()
+                .truncatedTo(ChronoUnit.SECONDS);
         return issuedAt.isBefore(changedAt);
     }
 
