@@ -3,6 +3,14 @@ import { seedEmployeeAuth } from '../support/auth';
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
+// LeaveRequestModal rejects a start date in the past, so submission tests
+// need dates relative to "today" rather than a fixed calendar date.
+const futureDate = (daysFromNow: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  return d.toISOString().split('T')[0];
+};
+
 function makeBalances(overrides: { annual?: Partial<Record<string, unknown>>; sick?: Partial<Record<string, unknown>> } = {}) {
   return [
     { id: 1, employeeId: 'emp-id', year: 2026, leaveType: 'ANNUAL', totalDays: 12, usedDays: 0, ...overrides.annual },
@@ -200,8 +208,8 @@ test.describe('Employee — LeaveRequestModal (Story 6.1)', () => {
     );
     await openModal(page);
 
-    await page.locator('input[name="startDate"]').fill('2026-07-10');
-    await page.locator('input[name="endDate"]').fill('2026-07-12');
+    await page.locator('input[name="startDate"]').fill(futureDate(1));
+    await page.locator('input[name="endDate"]').fill(futureDate(3));
     await page.locator('textarea[name="reason"]').fill('Lý do nghỉ phép hợp lệ đủ dài để vượt validation');
     await page.getByRole('button', { name: 'Gửi đơn nghỉ phép' }).click();
 
@@ -215,8 +223,8 @@ test.describe('Employee — LeaveRequestModal (Story 6.1)', () => {
     );
     await openModal(page);
 
-    await page.locator('input[name="startDate"]').fill('2026-07-10');
-    await page.locator('input[name="endDate"]').fill('2026-07-12');
+    await page.locator('input[name="startDate"]').fill(futureDate(1));
+    await page.locator('input[name="endDate"]').fill(futureDate(3));
     await page.locator('textarea[name="reason"]').fill('Lý do nghỉ phép hợp lệ đủ dài để vượt validation');
     await page.getByRole('button', { name: 'Gửi đơn nghỉ phép' }).click();
 
@@ -229,8 +237,8 @@ test.describe('Employee — LeaveRequestModal (Story 6.1)', () => {
     );
     await openModal(page);
 
-    await page.locator('input[name="startDate"]').fill('2026-07-10');
-    await page.locator('input[name="endDate"]').fill('2026-07-12');
+    await page.locator('input[name="startDate"]').fill(futureDate(1));
+    await page.locator('input[name="endDate"]').fill(futureDate(3));
     await page.locator('textarea[name="reason"]').fill('Lý do nghỉ phép hợp lệ đủ dài để vượt validation');
     await page.getByRole('button', { name: 'Gửi đơn nghỉ phép' }).click();
 
