@@ -87,11 +87,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (user.getPasswordChangedAt() == null) {
             return false;
         }
-        // JWT `iat` is a NumericDate (RFC 7519 §2) — jjwt encodes it in whole
-        // seconds, so a token minted milliseconds after a password change can
-        // still decode to an issuedAt that floors to *before* passwordChangedAt's
-        // sub-second value. Truncating changedAt to the same second-precision
-        // makes the comparison apples-to-apples and closes that race.
+        // JWT `iat` is a NumericDate (RFC 7519 §2) — jjwt always floors it to
+        // whole seconds. passwordChangedAt is floored the same way before it's
+        // ever persisted (see AuthService#nowFlooredToSeconds) so both sides
+        // round in the same direction; truncating here too is defense in depth
+        // in case a value predating that fix is still in the DB.
         Instant issuedAt = jwtTokenProvider.extractIssuedAt(token);
         Instant changedAt = user.getPasswordChangedAt().atZone(ZoneId.systemDefault()).toInstant()
                 .truncatedTo(ChronoUnit.SECONDS);

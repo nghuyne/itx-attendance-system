@@ -101,8 +101,20 @@ public class AuthService {
         }
         java.time.Instant issuedAt = jwtTokenProvider.extractIssuedAt(token);
         java.time.Instant changedAt = user.getPasswordChangedAt()
-                .atZone(java.time.ZoneId.systemDefault()).toInstant();
+                .atZone(java.time.ZoneId.systemDefault()).toInstant()
+                .truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
         return issuedAt.isBefore(changedAt);
+    }
+
+    // JWT `iat` (RFC 7519 NumericDate) is always floored to whole seconds by
+    // jjwt. MySQL's DATETIME(0) column rounds (not truncates) sub-second
+    // values on write, which can push passwordChangedAt into the *next*
+    // second — ahead of a token minted moments later in real time, causing
+    // JwtAuthenticationFilter to reject a genuinely-fresh token as stale.
+    // Flooring here before it ever reaches the DB keeps both sides of the
+    // comparison using the same (floor) rounding direction.
+    private static LocalDateTime nowFlooredToSeconds() {
+        return LocalDateTime.now().truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
     }
 
     public void logout(String accessToken, String refreshToken) {
@@ -147,7 +159,7 @@ public class AuthService {
 
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         user.setMustChangePassword(false);
-        user.setPasswordChangedAt(LocalDateTime.now());
+        user.setPasswordChangedAt(nowFlooredToSeconds());
         userRepository.save(user);
     }
 
@@ -180,7 +192,7 @@ public class AuthService {
         }
         User user = resetToken.getUser();
         user.setPasswordHash(passwordEncoder.encode(newPassword));
-        user.setPasswordChangedAt(LocalDateTime.now());
+        user.setPasswordChangedAt(nowFlooredToSeconds());
         userRepository.save(user);
         resetToken.setUsed(true);
         passwordResetTokenRepository.save(resetToken);
