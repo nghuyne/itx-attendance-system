@@ -29,11 +29,10 @@ export const RejectionReasonModal = ({ isOpen, onConfirm, onCancel, isSubmitting
   if (!isOpen) return null;
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
+    <dialog
+      open
       aria-labelledby="rejection-reason-title"
-      className="mt-4 p-4 border border-red-200 rounded-lg bg-red-50"
+      className="static mt-4 p-4 border border-red-200 rounded-lg bg-red-50 text-inherit"
     >
       <p id="rejection-reason-title" className="text-sm font-medium text-red-800 mb-2">Lý do từ chối</p>
       <textarea
@@ -61,6 +60,6 @@ export const RejectionReasonModal = ({ isOpen, onConfirm, onCancel, isSubmitting
           Hủy
         </button>
       </div>
-    </div>
+    </dialog>
   );
 };
