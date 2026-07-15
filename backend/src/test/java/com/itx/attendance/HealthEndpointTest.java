@@ -25,7 +25,11 @@ import static org.assertj.core.api.Assertions.assertThat;
     "minio.endpoint=http://localhost:9000",
     "minio.access-key=minioadmin",
     "minio.secret-key=minioadmin",
-    "minio.bucket-name=test-bucket"
+    "minio.bucket-name=test-bucket",
+    // No SMTP server available in this test's context (unlike the docker-compose
+    // mailhog used by the e2e-tests CI job), so the default mail health indicator
+    // would try to reach smtp.gmail.com and drag the aggregate status to DOWN.
+    "management.health.mail.enabled=false"
 })
 class HealthEndpointTest {
 

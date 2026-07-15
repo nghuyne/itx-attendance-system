@@ -228,7 +228,8 @@ public class AdminController {
             @RequestParam(defaultValue = "50") @Min(1) @Max(100) int size) {
         return ResponseEntity.ok(
             auditLogService.getAuditLogs(adminId, targetTable, from, to,
-                PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))));
+                PageRequest.of(page, size,
+                    Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id")))));
     }
 
     @GetMapping("/admins")
