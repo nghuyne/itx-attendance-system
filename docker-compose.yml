@@ -35,6 +35,7 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       MAIL_HOST: ${MAIL_HOST:-localhost}
       ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-}
+      JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=65.0 -XX:+ExitOnOutOfMemoryError"
     depends_on:
       mysql:
         condition: service_healthy
@@ -43,6 +44,10 @@ services:
     networks:
       - itx-network
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: ${BACKEND_MEM_LIMIT:-768m}
 
   mysql:
     image: mysql:8.0
