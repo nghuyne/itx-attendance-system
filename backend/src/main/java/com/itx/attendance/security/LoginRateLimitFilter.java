@@ -60,10 +60,23 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
     }
 
     private String extractClientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
+        // request.getRemoteAddr() is already the trust-checked client IP: Tomcat's
+        // RemoteIpValve (server.tomcat.remoteip.internal-proxies) rewrites it from
+        // X-Real-IP/X-Forwarded-For only when the direct TCP peer is a configured
+        // trusted proxy, and leaves it untouched otherwise. Reading the raw headers
+        // here instead would let anyone who can reach this port directly spoof their
+        // IP regardless of the trusted-proxy configuration.
+        String ip = request.getRemoteAddr();
+
+        // Chuẩn hóa IPv6 loopback — cùng normalize như AttendanceService.extractClientIp(),
+        // tránh cùng 1 client bị tách thành 2 bucket rate-limit khác nhau.
+        if (ip != null && ip.startsWith("::ffff:")) {
+            ip = ip.substring(7);
         }
-        return request.getRemoteAddr();
+        if ("0:0:0:0:0:0:0:1".equals(ip)) {
+            ip = "127.0.0.1";
+        }
+
+        return ip;
     }
 }
