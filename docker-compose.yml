@@ -12,6 +12,7 @@ services:
       - backend
     networks:
       - itx-network
+    restart: unless-stopped
 
   backend:
     build:
@@ -41,6 +42,7 @@ services:
         condition: service_started
     networks:
       - itx-network
+    restart: unless-stopped
 
   mysql:
     image: mysql:8.0
@@ -59,6 +61,7 @@ services:
       start_period: 30s
     networks:
       - itx-network
+    restart: unless-stopped
 
   minio:
     image: minio/minio:latest
@@ -70,6 +73,7 @@ services:
     command: server /data --console-address ":9001"
     networks:
       - itx-network
+    restart: unless-stopped
 
   mailhog:
     image: mailhog/mailhog:latest
@@ -78,6 +82,7 @@ services:
       - "8025:8025"
     networks:
       - itx-network
+    restart: unless-stopped
 
 volumes:
   mysql_data:
