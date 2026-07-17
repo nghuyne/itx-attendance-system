@@ -24,7 +24,7 @@ export const SEEDED_USERS = {
 // alone exceeds the budget — this is a real interaction with a real
 // anti-brute-force control, not a test artifact, so we retry through it
 // (bucket4j refills the full bucket once per window) rather than weakening it.
-async function loginRequest(request: APIRequestContext, user: { username: string; password: string }) {
+export async function loginRequest(request: APIRequestContext, user: { username: string; password: string }) {
   for (let attempt = 0; ; attempt++) {
     const res = await request.post('/api/auth/login', { data: user });
     if (res.status() !== 429) return res;
