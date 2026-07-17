@@ -41,6 +41,15 @@ services:
         condition: service_healthy
       minio:
         condition: service_started
+    # TCP-connect only (no /actuator/health call): confirms port 8080 is bound, not that
+    # the DB pool/MinIO are reachable. bash -c wraps the /dev/tcp redirection because
+    # CMD-SHELL's default shell (dash/sh) doesn't support it.
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080'"]
+      interval: 5s
+      timeout: 20s
+      retries: 10
+      start_period: 30s
     networks:
       - itx-network
     restart: unless-stopped
