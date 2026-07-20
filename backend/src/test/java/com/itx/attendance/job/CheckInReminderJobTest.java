@@ -70,7 +70,7 @@ class CheckInReminderJobTest {
         checkInReminderJob.sendCheckInReminders();
 
         verify(userRepository, never()).findByRoleAndActiveTrueAndShiftIsNotNull(any());
-        verify(emailService, never()).sendEmailAsync(any(), any(), any(), any());
+        verify(emailService, never()).sendEmailAsync(any(), any(), any(), any(), any());
     }
 
     // ── Happy path ────────────────────────────────────────────────────────────
@@ -88,6 +88,7 @@ class CheckInReminderJobTest {
         checkInReminderJob.sendCheckInReminders();
 
         verify(emailService).sendEmailAsync(
+            any(),
             eq("emp-1"),
             eq("emp1@itx.local"),
             eq("[ITX Chấm công] Nhắc nhở: Bạn chưa check-in hôm nay"),
@@ -108,7 +109,7 @@ class CheckInReminderJobTest {
 
         checkInReminderJob.sendCheckInReminders();
 
-        verify(emailService, never()).sendEmailAsync(any(), any(), any(), any());
+        verify(emailService, never()).sendEmailAsync(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -122,7 +123,7 @@ class CheckInReminderJobTest {
         checkInReminderJob.sendCheckInReminders();
 
         verify(attendanceRecordRepository, never()).existsByEmployeeIdAndDateAndCheckInTimeIsNotNull(any(), any());
-        verify(emailService, never()).sendEmailAsync(any(), any(), any(), any());
+        verify(emailService, never()).sendEmailAsync(any(), any(), any(), any(), any());
     }
 
     @Test
@@ -135,7 +136,7 @@ class CheckInReminderJobTest {
 
         checkInReminderJob.sendCheckInReminders();
 
-        verify(emailService, never()).sendEmailAsync(any(), any(), any(), any());
+        verify(emailService, never()).sendEmailAsync(any(), any(), any(), any(), any());
     }
 
     // ── Multiple employees ────────────────────────────────────────────────────
@@ -163,8 +164,8 @@ class CheckInReminderJobTest {
 
         checkInReminderJob.sendCheckInReminders();
 
-        verify(emailService, times(1)).sendEmailAsync(eq("emp-1"), any(), any(), any());
-        verify(emailService, never()).sendEmailAsync(eq("emp-2"), any(), any(), any());
+        verify(emailService, times(1)).sendEmailAsync(any(), eq("emp-1"), any(), any(), any());
+        verify(emailService, never()).sendEmailAsync(any(), eq("emp-2"), any(), any(), any());
     }
 
     // ── Resilience ────────────────────────────────────────────────────────────
@@ -188,10 +189,10 @@ class CheckInReminderJobTest {
         when(attendanceRecordRepository.existsByEmployeeIdAndDateAndCheckInTimeIsNotNull(any(), any(LocalDate.class)))
             .thenReturn(false);
         doThrow(new RuntimeException("mail server down"))
-            .when(emailService).sendEmailAsync(eq("emp-1"), any(), any(), any());
+            .when(emailService).sendEmailAsync(any(), eq("emp-1"), any(), any(), any());
 
         checkInReminderJob.sendCheckInReminders();
 
-        verify(emailService).sendEmailAsync(eq("emp-2"), any(), any(), any());
+        verify(emailService).sendEmailAsync(any(), eq("emp-2"), any(), any(), any());
     }
 }

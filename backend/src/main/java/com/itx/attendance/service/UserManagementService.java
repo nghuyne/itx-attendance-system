@@ -81,7 +81,7 @@ public class UserManagementService {
         auditLogRepository.save(new AuditLog(admin, "users", user.getId(),
             "create", null, username, "Admin tạo tài khoản mới"));
 
-        sendCredentialsEmail(user, tempPassword,
+        sendCredentialsEmail(admin.getId(), user, tempPassword,
             "[ITX] Tài khoản của bạn đã được tạo",
             "Tài khoản ITX Attendance của bạn đã được tạo.");
 
@@ -99,7 +99,7 @@ public class UserManagementService {
         auditLogRepository.save(new AuditLog(admin, "users", user.getId(),
             "password_hash", null, null, "Admin đặt lại mật khẩu"));
 
-        sendCredentialsEmail(user, tempPassword,
+        sendCredentialsEmail(admin.getId(), user, tempPassword,
             "[ITX] Mật khẩu của bạn đã được đặt lại",
             "Quản trị viên đã đặt lại mật khẩu cho tài khoản của bạn.");
     }
@@ -122,12 +122,12 @@ public class UserManagementService {
         return toDto(user);
     }
 
-    private void sendCredentialsEmail(User user, String tempPassword, String subject, String intro) {
+    private void sendCredentialsEmail(String adminId, User user, String tempPassword, String subject, String intro) {
         String body = intro + "\n\n" +
             "Tên đăng nhập: " + user.getUsername() + "\n" +
             "Mật khẩu tạm thời: " + tempPassword + "\n\n" +
             "Vui lòng đăng nhập và đổi mật khẩu ngay khi có thể.";
-        emailService.sendEmailAsync(user.getId(), user.getEmail(), subject, body);
+        emailService.sendEmailAsync(adminId, user.getId(), user.getEmail(), subject, body);
     }
 
     private String generateTempPassword() {

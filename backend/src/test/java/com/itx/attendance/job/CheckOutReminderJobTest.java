@@ -79,7 +79,7 @@ class CheckOutReminderJobTest {
 
         verify(attendanceRecordRepository, never())
             .findByDateAndCheckInTimeIsNotNullAndCheckOutTimeIsNullAndAttendanceStatusNot(any(), any());
-        verify(emailService, never()).sendEmailAsync(any(), any(), any(), any());
+        verify(emailService, never()).sendEmailAsync(any(), any(), any(), any(), any());
     }
 
     // ── Happy path ────────────────────────────────────────────────────────────
@@ -95,6 +95,7 @@ class CheckOutReminderJobTest {
         checkOutReminderJob.sendCheckOutReminders();
 
         verify(emailService).sendEmailAsync(
+            any(),
             eq("emp-1"),
             eq("emp1@itx.local"),
             eq("[ITX Chấm công] Nhắc nhở: Bạn chưa check-out hôm nay"),
@@ -113,7 +114,7 @@ class CheckOutReminderJobTest {
 
         checkOutReminderJob.sendCheckOutReminders();
 
-        verify(emailService, never()).sendEmailAsync(any(), any(), any(), any());
+        verify(emailService, never()).sendEmailAsync(any(), any(), any(), any(), any());
     }
 
     // ── Query excludes INCOMPLETE records already ────────────────────────────
@@ -161,8 +162,8 @@ class CheckOutReminderJobTest {
 
         checkOutReminderJob.sendCheckOutReminders();
 
-        verify(emailService).sendEmailAsync(eq("emp-1"), any(), any(), any());
-        verify(emailService).sendEmailAsync(eq("emp-2"), any(), any(), any());
+        verify(emailService).sendEmailAsync(any(), eq("emp-1"), any(), any(), any());
+        verify(emailService).sendEmailAsync(any(), eq("emp-2"), any(), any(), any());
     }
 
     // ── Resilience ────────────────────────────────────────────────────────────
@@ -175,7 +176,7 @@ class CheckOutReminderJobTest {
                 any(LocalDate.class), eq(AttendanceStatus.INCOMPLETE)))
             .thenReturn(List.of(candidateRecord()));
         doThrow(new RuntimeException("mail server down"))
-            .when(emailService).sendEmailAsync(any(), any(), any(), any());
+            .when(emailService).sendEmailAsync(any(), any(), any(), any(), any());
 
         checkOutReminderJob.sendCheckOutReminders();
         // No exception propagated — failure is logged and swallowed

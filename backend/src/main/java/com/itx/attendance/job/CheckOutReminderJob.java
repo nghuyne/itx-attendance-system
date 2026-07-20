@@ -55,7 +55,7 @@ public class CheckOutReminderJob {
                 shiftEndTime
             );
             try {
-                emailService.sendEmailAsync(employee.getId(), employee.getEmail(), subject, body);
+                emailService.sendEmailAsync(null, employee.getId(), employee.getEmail(), subject, body);
                 sentCount++;
             } catch (Exception e) {
                 log.warn("CheckOutReminderJob: failed to queue reminder for {} — {}", employee.getId(), e.getMessage());

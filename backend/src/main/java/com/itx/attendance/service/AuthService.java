@@ -176,7 +176,7 @@ public class AuthService {
             String body = "Link đặt lại mật khẩu (hết hạn sau 30 phút):\n" +
                     "http://localhost:5173/reset-password?token=" + token + "\n\n" +
                     "Nếu bạn không yêu cầu, hãy bỏ qua email này.";
-            emailService.sendEmailAsync(user.getId(), user.getEmail(), "[ITX] Đặt lại mật khẩu", body);
+            emailService.sendEmailAsync(null, user.getId(), user.getEmail(), "[ITX] Đặt lại mật khẩu", body);
         });
     }
 

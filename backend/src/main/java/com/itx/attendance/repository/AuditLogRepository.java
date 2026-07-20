@@ -4,9 +4,12 @@ import com.itx.attendance.domain.AuditLog;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -61,4 +64,24 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
         @Param("fromDate") LocalDateTime fromDate,
         @Param("toDate") LocalDateTime toDate,
         Pageable pageable);
+
+    // Plain-values native insert (no entity graph): safe to call from a thread with no
+    // Hibernate Session of its own, e.g. the @Async email-sending callback in EmailService.
+    @Modifying
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Query(
+        value = """
+            INSERT INTO audit_logs (admin_id, target_table, target_id, field_changed, old_value, new_value, reason)
+            VALUES (:adminId, :targetTable, :targetId, :fieldChanged, :oldValue, :newValue, :reason)
+            """,
+        nativeQuery = true
+    )
+    void insertPlain(
+        @Param("adminId") String adminId,
+        @Param("targetTable") String targetTable,
+        @Param("targetId") String targetId,
+        @Param("fieldChanged") String fieldChanged,
+        @Param("oldValue") String oldValue,
+        @Param("newValue") String newValue,
+        @Param("reason") String reason);
 }
