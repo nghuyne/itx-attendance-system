@@ -1,0 +1,24 @@
+# Local-dev override: MailHog instead of real SMTP, dev Spring profile (ip-check disabled,
+# permissive localhost CORS, dev-only Flyway seed data). Never use this for a real deployment.
+#
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+
+services:
+  backend:
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_MAIL_HOST: mailhog
+      SPRING_MAIL_PORT: 1025
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED: "false"
+    depends_on:
+      mailhog:
+        condition: service_started
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    networks:
+      - itx-network
+    restart: unless-stopped
