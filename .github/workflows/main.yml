@@ -212,8 +212,8 @@ jobs:
     # 127.0.0.1:8080 host port mapping the health-check step above already uses.
     - name: Install k6
       run: |
-        curl -sfL https://github.com/grafana/k6/releases/download/v2.1.0/k6-v2.1.0-linux-amd64.tar.gz | tar xz --strip-components 1
-        sudo mv k6 /usr/local/bin/k6
+        curl -sfL https://github.com/grafana/k6/releases/download/v2.1.0/k6-v2.1.0-linux-amd64.tar.gz | tar xz --strip-components 1 -C /tmp
+        sudo mv /tmp/k6 /usr/local/bin/k6
         k6 version
 
     - name: Run k6 performance smoke test
