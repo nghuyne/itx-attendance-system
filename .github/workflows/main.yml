@@ -41,10 +41,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Use Node.js 18.x
+    - name: Use Node.js 22.x
       uses: actions/setup-node@v4
       with:
-        node-version: '18.x'
+        node-version: '22.x'
         cache: 'npm'
         cache-dependency-path: './frontend/package-lock.json'
     - name: Install dependencies
@@ -85,10 +85,10 @@ jobs:
     - name: Build backend (compiles bytecode for Sonar's Java analyzer)
       working-directory: ./backend
       run: ./mvnw -B verify -DskipTests
-    - name: Use Node.js 18.x
+    - name: Use Node.js 22.x
       uses: actions/setup-node@v4
       with:
-        node-version: '18.x'
+        node-version: '22.x'
         cache: 'npm'
         cache-dependency-path: './frontend/package-lock.json'
     - name: Install frontend dependencies
@@ -104,6 +104,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ backend-build, frontend-build ]
     env:
+      # mailhog only exists in the dev override (docker-compose.yml no longer
+      # ships it in prod, see 2babf58) — CI needs it to read temp passwords.
+      COMPOSE_FILE: docker-compose.yml:docker-compose.dev.yml
       DB_ROOT_PASSWORD: ci_root_password
       DB_USERNAME: root
       DB_PASSWORD: ci_root_password
@@ -133,10 +136,10 @@ jobs:
         docker compose logs backend
         exit 1
 
-    - name: Use Node.js 18.x
+    - name: Use Node.js 22.x
       uses: actions/setup-node@v4
       with:
-        node-version: '18.x'
+        node-version: '22.x'
         cache: 'npm'
         cache-dependency-path: './frontend/package-lock.json'
 
@@ -172,6 +175,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ backend-build ]
     env:
+      # mailhog only exists in the dev override (docker-compose.yml no longer
+      # ships it in prod, see 2babf58) — CI needs it to read temp passwords.
+      COMPOSE_FILE: docker-compose.yml:docker-compose.dev.yml
       DB_ROOT_PASSWORD: ci_root_password
       DB_USERNAME: root
       DB_PASSWORD: ci_root_password
@@ -234,6 +240,9 @@ jobs:
     needs: [ backend-build, frontend-build ]
     if: github.event_name == 'pull_request'
     env:
+      # mailhog only exists in the dev override (docker-compose.yml no longer
+      # ships it in prod, see 2babf58) — CI needs it to read temp passwords.
+      COMPOSE_FILE: docker-compose.yml:docker-compose.dev.yml
       DB_ROOT_PASSWORD: ci_root_password
       DB_USERNAME: root
       DB_PASSWORD: ci_root_password
@@ -282,11 +291,11 @@ jobs:
         docker compose logs backend
         exit 1
 
-    - name: Use Node.js 18.x
+    - name: Use Node.js 22.x
       if: steps.changed-specs.outputs.changed != ''
       uses: actions/setup-node@v4
       with:
-        node-version: '18.x'
+        node-version: '22.x'
         cache: 'npm'
         cache-dependency-path: './frontend/package-lock.json'
 
