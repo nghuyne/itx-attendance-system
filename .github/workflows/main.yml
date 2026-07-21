@@ -116,6 +116,9 @@ jobs:
       CORS_ALLOWED_ORIGINS: http://localhost:5173
       MAIL_HOST: mailhog
       ADMIN_BOOTSTRAP_PASSWORD: ci_admin_password
+      # Hundreds of e2e-real logins from one runner IP would otherwise trip
+      # LoginRateLimitFilter's real 5/60s default now that it actually works.
+      RATE_LIMIT_LOGIN_MAX_ATTEMPTS: "1000"
     steps:
     - uses: actions/checkout@v4
 
@@ -187,6 +190,9 @@ jobs:
       CORS_ALLOWED_ORIGINS: http://localhost:5173
       MAIL_HOST: mailhog
       ADMIN_BOOTSTRAP_PASSWORD: ci_admin_password
+      # Hundreds of e2e-real logins from one runner IP would otherwise trip
+      # LoginRateLimitFilter's real 5/60s default now that it actually works.
+      RATE_LIMIT_LOGIN_MAX_ATTEMPTS: "1000"
     steps:
     - uses: actions/checkout@v4
 
@@ -252,6 +258,9 @@ jobs:
       CORS_ALLOWED_ORIGINS: http://localhost:5173
       MAIL_HOST: mailhog
       ADMIN_BOOTSTRAP_PASSWORD: ci_admin_password
+      # Hundreds of e2e-real logins from one runner IP would otherwise trip
+      # LoginRateLimitFilter's real 5/60s default now that it actually works.
+      RATE_LIMIT_LOGIN_MAX_ATTEMPTS: "1000"
       # Security: base SHA passed through env:, not interpolated directly into run: blocks
       BASE_SHA: ${{ github.event.pull_request.base.sha }}
       BURN_IN_COUNT: 3

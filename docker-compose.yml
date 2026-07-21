@@ -40,6 +40,10 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-noreply@itx.local}
       ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-}
+      # Unset/empty = LoginRateLimitFilter's 5-attempts/60s production default.
+      # CI raises this (see .github/workflows/main.yml) so hundreds of e2e-real
+      # test logins from the single runner IP don't trip the real limiter.
+      APP_RATE_LIMIT_LOGIN_MAX_ATTEMPTS: ${RATE_LIMIT_LOGIN_MAX_ATTEMPTS:-5}
       JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=65.0 -XX:+ExitOnOutOfMemoryError"
     depends_on:
       mysql:
