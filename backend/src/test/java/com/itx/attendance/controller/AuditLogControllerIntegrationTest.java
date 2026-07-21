@@ -15,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -228,6 +229,48 @@ class AuditLogControllerIntegrationTest {
         org.junit.jupiter.api.Assertions.assertThrows(
             UnsupportedOperationException.class,
             auditLogRepository::deleteAll);
+    }
+
+    @Test
+    void auditLogRepository_deleteAllById_throwsUnsupportedOperationException() {
+        AuditLog log = saveAuditLog(adminUser, "attendance_records", "rec-1", "check_in_time", "old1", "new1", "Lý do sửa lần 1 đủ dài");
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+            UnsupportedOperationException.class,
+            () -> auditLogRepository.deleteAllById(java.util.List.of(log.getId())));
+    }
+
+    @Test
+    void auditLogRepository_deleteEntity_throwsUnsupportedOperationException() {
+        AuditLog log = saveAuditLog(adminUser, "attendance_records", "rec-1", "check_in_time", "old1", "new1", "Lý do sửa lần 1 đủ dài");
+
+        org.junit.jupiter.api.Assertions.assertThrows(
+            UnsupportedOperationException.class,
+            () -> auditLogRepository.delete(log));
+    }
+
+    /**
+     * Contract test for P1-005 (R-004 sibling, test-design-qa.md): the entity has no setters,
+     * so normal application code can't mutate a persisted log ("immutable by omission"). This
+     * locks the stronger invariant — even a field mutated via reflection (simulating any future
+     * code path that bypasses the missing-setter protection) is rejected at the column level,
+     * because every mutable field is mapped {@code updatable = false}.
+     */
+    @Test
+    void auditLogRepository_save_ignoresReflectivelyMutatedFields_columnsAreUpdatableFalse() throws Exception {
+        AuditLog log = saveAuditLog(adminUser, "attendance_records", "rec-1", "check_in_time",
+            "old1", "new1", "Lý do sửa lần 1 đủ dài");
+
+        java.lang.reflect.Field reasonField = AuditLog.class.getDeclaredField("reason");
+        reasonField.setAccessible(true);
+        reasonField.set(log, "Lý do đã bị sửa trái phép");
+
+        auditLogRepository.save(log);
+        auditLogRepository.flush();
+
+        String persistedReason = jdbcTemplate.queryForObject(
+            "SELECT reason FROM audit_logs WHERE id = ?", String.class, log.getId());
+        assertThat(persistedReason).isEqualTo("Lý do sửa lần 1 đủ dài");
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
