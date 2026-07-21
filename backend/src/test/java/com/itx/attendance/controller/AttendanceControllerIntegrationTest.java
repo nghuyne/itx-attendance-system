@@ -46,6 +46,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "spring.datasource.driver-class-name=org.h2.Driver",
     "spring.datasource.password=test",
     "spring.flyway.enabled=false",
+    "app.rate-limit.login.max-attempts=1000",
     "spring.jpa.hibernate.ddl-auto=create-drop",
     "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
     "app.jwt.secret=test-secret-key-minimum-32-characters-abc",
@@ -128,6 +129,29 @@ class AttendanceControllerIntegrationTest {
             .andExpect(jsonPath("$.attendanceStatus").isNotEmpty())
             .andExpect(jsonPath("$.isClientSite").value(false))
             .andExpect(jsonPath("$.gpsUnavailable").value(true));
+    }
+
+    @Test
+    void checkIn_photoUploadFails_stillReturns201AndRecordIsQueryable() throws Exception {
+        // P0-006 / R-007: MinIO is unreachable in this test env (see class Javadoc) — every
+        // check-in here already exercises PhotoService.uploadPhotoAsync's failure path via
+        // .exceptionally(). This test names and locks that degraded-mode contract explicitly:
+        // a photo-upload failure must not block check-in, and the record (with its
+        // optimistically assigned photo key) must still be created and queryable afterward.
+        String body = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.checkInPhotoUrl").isNotEmpty());
+
+        mockMvc.perform(get("/api/attendance/today")
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.checkInPhotoUrl").isNotEmpty());
     }
 
     @Test

@@ -36,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "spring.datasource.driver-class-name=org.h2.Driver",
     "spring.datasource.password=test",
     "spring.flyway.enabled=false",
+    "app.rate-limit.login.max-attempts=1000",
     "spring.jpa.hibernate.ddl-auto=create-drop",
     "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
     "app.jwt.secret=test-secret-key-minimum-32-characters-abc",

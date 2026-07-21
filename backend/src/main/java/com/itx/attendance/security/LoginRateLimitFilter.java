@@ -8,6 +8,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -22,17 +23,28 @@ import java.util.concurrent.ConcurrentHashMap;
 public class LoginRateLimitFilter extends OncePerRequestFilter {
 
     private static final String LOGIN_PATH = "/api/auth/login";
-    // 5 attempts per minute per IP
-    private static final int MAX_ATTEMPTS = 5;
-    private static final Duration WINDOW = Duration.ofMinutes(1);
+
+    // Configurable so integration tests that log in many times per Spring context
+    // (once per @Test via @BeforeEach, sharing this bean's bucket) can raise their
+    // own budget without weakening the production default of 5/min/IP.
+    @Value("${app.rate-limit.login.max-attempts:5}")
+    private int maxAttempts;
+
+    @Value("${app.rate-limit.login.window-seconds:60}")
+    private long windowSeconds;
 
     private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
+        // NOT getServletPath(): DispatcherServlet is mapped to the default "/" pattern
+        // (no server.servlet.context-path configured), and per the Servlet spec a
+        // default-mapped servlet always reports an empty getServletPath() — so that
+        // comparison never matched anything and this filter silently rate-limited
+        // nothing since it was introduced. getRequestURI() carries the real path.
         return !(HttpMethod.POST.matches(request.getMethod())
-                && LOGIN_PATH.equals(request.getServletPath()));
+                && LOGIN_PATH.equals(request.getRequestURI()));
     }
 
     @Override
@@ -42,8 +54,8 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
         String ip = extractClientIp(request);
         Bucket bucket = buckets.computeIfAbsent(ip, k -> Bucket.builder()
                 .addLimit(Bandwidth.builder()
-                        .capacity(MAX_ATTEMPTS)
-                        .refillIntervally(MAX_ATTEMPTS, WINDOW)
+                        .capacity(maxAttempts)
+                        .refillIntervally(maxAttempts, Duration.ofSeconds(windowSeconds))
                         .build())
                 .build());
 
