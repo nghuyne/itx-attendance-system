@@ -1,4 +1,4 @@
-import api from './api';
+import api, { refreshClient } from './api';
 import type { LoginRequest, LoginResponse } from '../types/api';
 
 export const authService = {
@@ -12,7 +12,7 @@ export const authService = {
   },
 
   refresh: async (): Promise<{ accessToken: string }> => {
-    const { data } = await api.post<{ accessToken: string }>('/auth/refresh');
+    const { data } = await refreshClient.post<{ accessToken: string }>('/auth/refresh');
     return data;
   },
 

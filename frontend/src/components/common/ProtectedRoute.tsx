@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { authService } from '../../services/authService';
 import { UserRole } from '../../types/domain';
 import { LoadingSpinner } from './LoadingSpinner';
 
@@ -22,6 +23,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   skipForceChangeCheck = false,
 }) => {
   const [hasHydrated, setHasHydrated] = useState(useAuthStore.persist.hasHydrated());
+  const [sessionRestored, setSessionRestored] = useState(false);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
 
@@ -31,7 +33,26 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     }
   }, [hasHydrated]);
 
-  if (!hasHydrated) {
+  // After rehydration, isAuthenticated may be stale (persisted) while accessToken
+  // is gone (in-memory only, lost on reload). Refresh once before rendering
+  // protected content so API calls don't cascade into 401s.
+  useEffect(() => {
+    if (!hasHydrated || sessionRestored) return;
+
+    const { isAuthenticated: authed, accessToken } = useAuthStore.getState();
+    if (!authed || accessToken) {
+      setSessionRestored(true);
+      return;
+    }
+
+    authService
+      .refresh()
+      .then(({ accessToken: token }) => useAuthStore.getState().setAccessToken(token))
+      .catch(() => useAuthStore.getState().clearAuth())
+      .finally(() => setSessionRestored(true));
+  }, [hasHydrated, sessionRestored]);
+
+  if (!hasHydrated || !sessionRestored) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <LoadingSpinner size="lg" />

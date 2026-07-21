@@ -7,6 +7,15 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// Plain instance with no interceptors — the refresh call must never re-enter
+// the 401 handler below (a failed refresh would otherwise try to refresh
+// itself and deadlock waiting on its own subscriber queue).
+export const refreshClient = axios.create({
+  baseURL: '/api',
+  headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
+});
+
 // Attach access token from store to every request
 api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().accessToken;
@@ -25,8 +34,9 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const isAuthEndpoint = originalRequest?.url?.includes('/auth/login');
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !isAuthEndpoint && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           refreshSubscribers.push({
@@ -43,7 +53,7 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const response = await api.post<{ accessToken: string }>('/auth/refresh');
+        const response = await refreshClient.post<{ accessToken: string }>('/auth/refresh');
         const { accessToken } = response.data;
         useAuthStore.getState().setAccessToken(accessToken);
         refreshSubscribers.forEach(({ onToken }) => onToken(accessToken));

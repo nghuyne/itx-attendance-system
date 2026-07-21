@@ -103,4 +103,30 @@ test.describe('Token Refresh Interceptor', () => {
     // The login form is rendered, confirming auth was cleared and the user was logged out
     await expect(page.locator('#username')).toBeVisible();
   });
+
+  // P0-010: explicit post-expiry-401 case — distinct from the 500 case above. This is the
+  // real-world trigger (refresh token itself has expired past its 7-day TTL, not a server
+  // error), and api.ts's catch block treats any rejected /auth/refresh call identically, so
+  // this locks that specific status code down as a named regression case rather than relying
+  // on the 500 test to stand in for it.
+  test('refresh token expired (401) clears auth and redirects to /login', async ({ page }) => {
+    await seedEmployeeAuth(page);
+
+    await page.route('**/api/**', (route) => route.abort());
+
+    // access token expired — every history call is unauthorized
+    await page.route('**/api/attendance/history**', (route) =>
+      route.fulfill({ status: 401, json: { error: 'UNAUTHORIZED', message: 'Token expired' } })
+    );
+
+    // refresh token itself is expired (past its TTL) — refresh endpoint returns 401
+    await page.route('**/api/auth/refresh', (route) =>
+      route.fulfill({ status: 401, json: { error: 'UNAUTHORIZED', message: 'Refresh token expired' } })
+    );
+
+    await page.goto('/history');
+
+    await page.waitForURL('**/login', { timeout: 8000 });
+    await expect(page.locator('#username')).toBeVisible();
+  });
 });
