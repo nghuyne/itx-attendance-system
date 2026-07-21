@@ -146,11 +146,11 @@ jobs:
 
     - name: Install Playwright browsers
       working-directory: ./frontend
-      run: npx playwright install --with-deps chromium
+      run: node_modules/.bin/playwright install --with-deps chromium
 
     - name: Run Playwright E2E tests
       working-directory: ./frontend
-      run: npx playwright test
+      run: node_modules/.bin/playwright test
 
     - name: Upload Playwright report
       if: always()
@@ -298,7 +298,7 @@ jobs:
     - name: Install Playwright browsers
       if: steps.changed-specs.outputs.changed != ''
       working-directory: ./frontend
-      run: npx playwright install --with-deps chromium
+      run: node_modules/.bin/playwright install --with-deps chromium
 
     # Runs changed specs BURN_IN_COUNT times with retries disabled — unlike the
     # main e2e-tests job (retries:2 in playwright.config.ts), a single failure
@@ -311,10 +311,10 @@ jobs:
         CHANGED_SPECS: ${{ steps.changed-specs.outputs.changed }}
       run: |
         # Security: CHANGED_SPECS passed through env: as file-path DATA to a fixed
-        # `npx playwright test` command — never treated as a command itself.
+        # `playwright test` command — never treated as a command itself.
         for i in $(seq 1 "$BURN_IN_COUNT"); do
           echo "Burn-in iteration $i/$BURN_IN_COUNT"
-          npx playwright test $CHANGED_SPECS --retries=0 || exit 1
+          node_modules/.bin/playwright test $CHANGED_SPECS --retries=0 || exit 1
         done
 
     - name: Dump backend logs on failure
