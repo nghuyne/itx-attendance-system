@@ -25,10 +25,7 @@ export type FactoryUser = {
   token: string;
 };
 
-const BOOTSTRAP_ADMIN = {
-  username: 'admin',
-  password: process.env.ADMIN_BOOTSTRAP_PASSWORD || 'ci_admin_password',
-};
+const BOOTSTRAP_ADMIN_USERNAME = 'admin';
 
 // Fixed, known password every factory user is switched to after its
 // admin-issued temp password is retrieved from MailHog.
@@ -38,7 +35,11 @@ let cachedAdminToken: string | null = null;
 
 async function getAdminToken(request: APIRequestContext): Promise<string> {
   if (cachedAdminToken) return cachedAdminToken;
-  const res = await loginRequest(request, BOOTSTRAP_ADMIN);
+  const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD;
+  if (!bootstrapPassword) {
+    throw new Error('ADMIN_BOOTSTRAP_PASSWORD is not set — required to bootstrap the admin token for e2e-real factories');
+  }
+  const res = await loginRequest(request, { username: BOOTSTRAP_ADMIN_USERNAME, password: bootstrapPassword });
   if (!res.ok()) {
     throw new Error(`Factory bootstrap admin login failed: ${res.status()} ${await res.text()}`);
   }
