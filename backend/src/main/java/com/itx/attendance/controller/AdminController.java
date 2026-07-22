@@ -32,6 +32,7 @@ import com.itx.attendance.service.CurrentUserService;
 import com.itx.attendance.service.DepartmentService;
 import com.itx.attendance.service.HolidayService;
 import com.itx.attendance.service.OfficeLocationService;
+import com.itx.attendance.service.RequestService;
 import com.itx.attendance.service.ShiftService;
 import com.itx.attendance.service.UserManagementService;
 import com.itx.attendance.service.ValidIpService;
@@ -73,6 +74,7 @@ public class AdminController {
     private final AttendanceExportService attendanceExportService;
     private final DepartmentService departmentService;
     private final UserManagementService userManagementService;
+    private final RequestService requestService;
 
     // ── Shift endpoints ───────────────────────────────────────────────────────
 
@@ -343,5 +345,13 @@ public class AdminController {
     public ResponseEntity<AdminUserDto> activateUser(@PathVariable String id) {
         return ResponseEntity.ok(
             userManagementService.setActive(id, true, currentUserService.getCurrentUser()));
+    }
+
+    // ── Request cleanup (test/ops tooling — hard delete, not a user-facing action) ──
+
+    @DeleteMapping("/requests/{id}")
+    public ResponseEntity<Void> deleteRequest(@PathVariable String id) {
+        requestService.deleteRequest(id);
+        return ResponseEntity.noContent().build();
     }
 }

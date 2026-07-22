@@ -36,26 +36,38 @@ test.describe('Real API — Leader cross-team authorization', () => {
     expect(createRes.status(), await createRes.text()).toBe(201);
     const { id: requestId } = await createRes.json();
 
-    const wrongLeaderToken = await loginAs(request, SEEDED_USERS.leader1);
-    const forbiddenApprove = await request.put(`/api/requests/${requestId}/approve`, {
-      headers: authHeaders(wrongLeaderToken),
-    });
-    expect(forbiddenApprove.status()).toBe(403);
-    const forbiddenBody = await forbiddenApprove.json();
-    expect(forbiddenBody.error).toBe('FORBIDDEN');
+    try {
+      const wrongLeaderToken = await loginAs(request, SEEDED_USERS.leader1);
+      const forbiddenApprove = await request.put(`/api/requests/${requestId}/approve`, {
+        headers: authHeaders(wrongLeaderToken),
+      });
+      expect(forbiddenApprove.status()).toBe(403);
+      const forbiddenBody = await forbiddenApprove.json();
+      expect(forbiddenBody.error).toBe('FORBIDDEN');
 
-    const forbiddenReject = await request.put(`/api/requests/${requestId}/reject`, {
-      headers: authHeaders(wrongLeaderToken),
-      data: { reason: 'Should not be allowed' },
-    });
-    expect(forbiddenReject.status()).toBe(403);
+      const forbiddenReject = await request.put(`/api/requests/${requestId}/reject`, {
+        headers: authHeaders(wrongLeaderToken),
+        data: { reason: 'Should not be allowed' },
+      });
+      expect(forbiddenReject.status()).toBe(403);
 
-    const correctLeaderToken = await loginAs(request, SEEDED_USERS.leader2);
-    const approveRes = await request.put(`/api/requests/${requestId}/approve`, {
-      headers: authHeaders(correctLeaderToken),
-    });
-    expect(approveRes.status(), await approveRes.text()).toBe(200);
-    const approved = await approveRes.json();
-    expect(approved.status).toBe('APPROVED');
+      const correctLeaderToken = await loginAs(request, SEEDED_USERS.leader2);
+      const approveRes = await request.put(`/api/requests/${requestId}/approve`, {
+        headers: authHeaders(correctLeaderToken),
+      });
+      expect(approveRes.status(), await approveRes.text()).toBe(200);
+      const approved = await approveRes.json();
+      expect(approved.status).toBe('APPROVED');
+    } finally {
+      // Hard-delete the fixture leave request (and reverse its leave-balance
+      // effect) via DELETE /api/admin/requests/{id} so this real-DB run doesn't
+      // leave a permanent APPROVED row behind for employee4.
+      const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD;
+      if (!bootstrapPassword) {
+        throw new Error('ADMIN_BOOTSTRAP_PASSWORD must be set for real-API tests (see docker-compose.yml / CI env).');
+      }
+      const adminToken = await loginAs(request, { username: 'admin', password: bootstrapPassword });
+      await request.delete(`/api/admin/requests/${requestId}`, { headers: authHeaders(adminToken) });
+    }
   });
 });

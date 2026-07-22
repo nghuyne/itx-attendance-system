@@ -192,7 +192,10 @@ class AttendanceControllerIntegrationTest {
 
     @Test
     void checkIn_duplicateOnSameDay_returns409WithALREADY_CHECKED_IN() throws Exception {
-        LocalDate today = LocalDate.now();
+        // Must match AttendanceService's zone (UTC_PLUS_7) — JVM-default-zone LocalDate.now()
+        // would seed a different calendar date during the UTC 17:00-23:59 window, making the
+        // duplicate-check-in guard miss the fixture and this test flake on UTC-zoned CI.
+        LocalDate today = LocalDate.now(TimeUtil.UTC_PLUS_7);
         attendanceRecordRepository.save(AttendanceRecord.builder()
             .employee(employee)
             .shift(shift)
@@ -373,7 +376,8 @@ class AttendanceControllerIntegrationTest {
 
     @Test
     void getToday_recordExists_returns200WithRecord() throws Exception {
-        LocalDate today = LocalDate.now();
+        // Must match AttendanceService's zone (UTC_PLUS_7) — see checkIn_duplicateOnSameDay note above.
+        LocalDate today = LocalDate.now(TimeUtil.UTC_PLUS_7);
         attendanceRecordRepository.save(AttendanceRecord.builder()
             .employee(employee)
             .shift(shift)

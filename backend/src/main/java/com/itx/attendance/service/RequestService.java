@@ -301,6 +301,51 @@ public class RequestService {
         throw new BusinessException("Request not found", HttpStatus.NOT_FOUND, "REQUEST_NOT_FOUND");
     }
 
+    /**
+     * Admin-only hard delete — for removing test/fixture requests, not a general user-facing
+     * action. Reverses the leave-balance side effect for an APPROVED leave request (mirrors
+     * approveLeaveRequest's usedDays increment); exception/adjustment/OT requests are deleted
+     * as-is since no current caller needs their approval side effects reversed.
+     */
+    public void deleteRequest(String requestId) {
+        Optional<ExceptionRequest> exOpt = exceptionRequestRepository.findById(requestId);
+        if (exOpt.isPresent()) {
+            exceptionRequestRepository.delete(exOpt.get());
+            return;
+        }
+        Optional<AdjustmentRequest> adjOpt = adjustmentRequestRepository.findById(requestId);
+        if (adjOpt.isPresent()) {
+            adjustmentRequestRepository.delete(adjOpt.get());
+            return;
+        }
+        Optional<OtRequest> otOpt = otRequestRepository.findById(requestId);
+        if (otOpt.isPresent()) {
+            otRequestRepository.delete(otOpt.get());
+            return;
+        }
+        try {
+            Long leaveId = Long.parseLong(requestId);
+            Optional<LeaveRequest> leaveOpt = leaveRequestRepository.findById(leaveId);
+            if (leaveOpt.isPresent()) {
+                LeaveRequest request = leaveOpt.get();
+                if (request.getStatus() == RequestStatus.APPROVED) {
+                    Map<Integer, Integer> daysByYear = splitDaysByYear(request.getStartDate(), request.getEndDate());
+                    for (Map.Entry<Integer, Integer> yearDays : daysByYear.entrySet()) {
+                        leaveBalanceRepository.findByEmployeeIdAndYearAndLeaveType(
+                                request.getEmployee().getId(), yearDays.getKey(), request.getLeaveType())
+                            .ifPresent(balance -> {
+                                balance.setUsedDays(balance.getUsedDays() - yearDays.getValue());
+                                leaveBalanceRepository.save(balance);
+                            });
+                    }
+                }
+                leaveRequestRepository.delete(request);
+                return;
+            }
+        } catch (NumberFormatException ignored) {}
+        throw new BusinessException("Request not found", HttpStatus.NOT_FOUND, "REQUEST_NOT_FOUND");
+    }
+
     public List<RequestSummaryDto> getMyRequests(User employee) {
         List<ExceptionRequest> exceptions = exceptionRequestRepository.findByEmployeeId(employee.getId());
         List<AdjustmentRequest> adjustments = adjustmentRequestRepository.findByEmployeeId(employee.getId());

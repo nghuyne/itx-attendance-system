@@ -29,21 +29,34 @@ test.describe('Real API — Optimistic locking on admin attendance override', ()
     const adminToken = await loginAs(request, { username: 'admin', password: bootstrapPassword });
     const adminAuth = authHeaders(adminToken);
 
-    const shiftRes = await request.post('/api/admin/shifts', {
-      headers: adminAuth,
-      data: {
-        name: `Real-API Optimistic Lock ${Date.now()}`,
-        startTime: '00:00',
-        endTime: '23:59',
-        checkInOpenMinutes: 0,
-        lateInThreshold: 999,
-        earlyOutThreshold: 0,
-        halfDayThreshold: 999,
-        otBuffer: 30,
-      },
-    });
-    expect(shiftRes.status(), await shiftRes.text()).toBe(201);
-    const { id: shiftId } = await shiftRes.json();
+    // Fixed (not Date.now()-suffixed) fixture name: reuse the same Shift row across
+    // runs instead of creating a new orphan every time, mirroring the 409-tolerant
+    // valid-ip fixture below and the today's-record reuse further down.
+    const FIXTURE_SHIFT_NAME = 'Real-API Optimistic Lock Fixture';
+    const existingShiftsRes = await request.get('/api/admin/shifts', { headers: adminAuth, params: { size: 100 } });
+    expect(existingShiftsRes.status(), await existingShiftsRes.text()).toBe(200);
+    const existingShift = (await existingShiftsRes.json()).content.find((s: { name: string }) => s.name === FIXTURE_SHIFT_NAME);
+
+    let shiftId: string;
+    if (existingShift) {
+      shiftId = existingShift.id;
+    } else {
+      const shiftRes = await request.post('/api/admin/shifts', {
+        headers: adminAuth,
+        data: {
+          name: FIXTURE_SHIFT_NAME,
+          startTime: '00:00',
+          endTime: '23:59',
+          checkInOpenMinutes: 0,
+          lateInThreshold: 999,
+          earlyOutThreshold: 0,
+          halfDayThreshold: 999,
+          otBuffer: 30,
+        },
+      });
+      expect(shiftRes.status(), await shiftRes.text()).toBe(201);
+      shiftId = (await shiftRes.json()).id;
+    }
 
     const employeeToken = await loginAs(request, SEEDED_USERS.employee5);
 
