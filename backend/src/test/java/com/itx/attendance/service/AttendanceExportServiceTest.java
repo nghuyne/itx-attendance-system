@@ -218,6 +218,63 @@ class AttendanceExportServiceTest {
 
     // ── Employee filter ────────────────────────────────────────────────────
 
+    // ── Large dataset ───────────────────────────────────────────────────────
+
+    @Test
+    void exportToExcel_largeDataset_writesAllRowsCorrectlyWithinTimeBudget() throws IOException {
+        int recordCount = 5000;
+        List<AttendanceRecord> records = new java.util.ArrayList<>(recordCount);
+        List<OtRecord> otRecords = new java.util.ArrayList<>(recordCount);
+        for (int i = 0; i < recordCount; i++) {
+            AttendanceRecord record = AttendanceRecord.builder()
+                .id("rec-" + i)
+                .employee(employee("emp-" + i, "emp" + i, "Employee " + i))
+                .date(FROM.plusDays(i % 30))
+                .checkInTime(LocalDateTime.of(2026, 6, 1 + (i % 28), 1, 0))
+                .checkOutTime(LocalDateTime.of(2026, 6, 1 + (i % 28), 9, 0))
+                .attendanceStatus(AttendanceStatus.ON_TIME)
+                .build();
+            records.add(record);
+            // Every third record has an OT entry — exercises the otMap join at scale,
+            // not just the happy path of one-record-at-a-time (see the 6 tests above).
+            if (i % 3 == 0) {
+                otRecords.add(OtRecord.builder()
+                    .id("ot-" + i)
+                    .employee(record.getEmployee())
+                    .attendanceRecord(record)
+                    .date(record.getDate())
+                    .otDurationMinutes(60)
+                    .dayType(DayType.WEEKDAY)
+                    .otMultiplier(BigDecimal.valueOf(1.5))
+                    .build());
+            }
+        }
+
+        when(attendanceRecordRepository.findByDateBetweenOrderByDateDesc(FROM, TO)).thenReturn(records);
+        when(otRecordRepository.findForExport(FROM, TO, null)).thenReturn(otRecords);
+
+        long start = System.nanoTime();
+        byte[] bytes = attendanceExportService.exportToExcel(FROM, TO, null);
+        long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+
+        // Generous regression-guard bound, not a tight perf gate — CI runners vary and
+        // POI's autoSizeColumn (AWT font metrics over every cell) dominates this for large
+        // sheets. Catches an accidental algorithmic regression (e.g. swapping the otMap for
+        // a linear scan) long before it would matter, without flaking on normal variance.
+        assertThat(elapsedMs).isLessThan(30_000);
+
+        try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
+            Sheet sheet = workbook.getSheetAt(0);
+            assertThat(sheet.getLastRowNum()).isEqualTo(recordCount);
+            Row lastRow = sheet.getRow(recordCount);
+            assertThat(lastRow.getCell(1).getStringCellValue()).isEqualTo("emp" + (recordCount - 1));
+            // Row 3001 (i=3000, divisible by 3) must carry its OT figures from the join.
+            Row otRow = sheet.getRow(3001);
+            assertThat(otRow.getCell(9).getStringCellValue()).isEqualTo("1.0");
+            assertThat(otRow.getCell(10).getStringCellValue()).isEqualTo("1.5");
+        }
+    }
+
     @Test
     void exportToExcel_withEmployeeId_usesFilteredRepositoryMethod() throws IOException {
         when(attendanceRecordRepository.findByEmployeeIdAndDateBetweenOrderByDateDesc("emp-1", FROM, TO))

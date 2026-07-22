@@ -55,7 +55,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "minio.endpoint=http://localhost:9000",
     "minio.access-key=minioadmin",
     "minio.secret-key=minioadmin",
-    "minio.bucket-name=test-bucket"
+    "minio.bucket-name=test-bucket",
+    "app.rate-limit.login.max-attempts=1000"
 })
 class AttendanceSuspiciousLocationIntegrationTest {
 
@@ -209,6 +210,29 @@ class AttendanceSuspiciousLocationIntegrationTest {
                 .header("Authorization", "Bearer " + employeeToken))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.suspiciousLocation").value(false));
+    }
+
+    @Test
+    void checkIn_currentGpsIsNull_skipsSuspiciousCheckEvenWithFarPreviousCheckIn() throws Exception {
+        // AttendanceService guards the entire suspicious-location block behind
+        // "request.lat() != null && request.lng() != null". GPS is only optional in office
+        // mode (isClientSite=false — client-site check-ins reject null GPS with 400
+        // GPS_REQUIRED), so a GPS-unavailable check-in must go through office mode here.
+        seedPreviousCheckIn(PREV_LAT, PREV_LNG, LocalDateTime.now(ZoneOffset.UTC).minusMinutes(20));
+
+        String body = objectMapper.writeValueAsString(
+            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+
+        mockMvc.perform(post("/api/attendance/check-in")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body)
+                .header("Authorization", "Bearer " + employeeToken))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.suspiciousLocation").value(false))
+            .andExpect(jsonPath("$.gpsUnavailable").value(true));
+
+        Thread.sleep(300);
+        assertThat(notificationRepository.findByRecipientIdAndIsReadFalse(adminOne.getId())).isEmpty();
     }
 
     @Test
