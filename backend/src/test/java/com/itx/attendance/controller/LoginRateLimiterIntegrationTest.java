@@ -23,25 +23,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * login attempts don't share LoginRateLimitFilter's in-memory bucket with any other class —
  * that bean is a singleton keyed by IP with no per-test reset.
  */
-@SpringBootTest
-@AutoConfigureMockMvc
 @TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:ratelimitertestdb;DB_CLOSE_DELAY=-1;MODE=MySQL",
-    "spring.datasource.driver-class-name=org.h2.Driver",
-    "spring.datasource.password=test",
-    "spring.flyway.enabled=false",
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
-    "minio.access-key=minioadmin",
-    "minio.secret-key=minioadmin",
-    "app.jwt.secret=test-secret-key-minimum-32-characters-abc",
-    "app.jwt.access-token-expiration-ms=900000",
-    "app.jwt.refresh-token-expiration-ms=604800000"
+    "spring.datasource.url=jdbc:h2:mem:ratelimitertestdb;DB_CLOSE_DELAY=-1;MODE=MySQL"
 })
-class LoginRateLimiterIntegrationTest {
-
-    @Autowired private MockMvc mockMvc;
-    @Autowired private ObjectMapper objectMapper;
+class LoginRateLimiterIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void login_spoofedForwardedForHeader_doesNotBypassPerIpRateLimit() throws Exception {

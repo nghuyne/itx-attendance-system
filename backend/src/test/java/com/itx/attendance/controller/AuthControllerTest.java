@@ -18,27 +18,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@AutoConfigureMockMvc
 @TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:authtestdb;DB_CLOSE_DELAY=-1;MODE=MySQL",
-    "spring.datasource.driver-class-name=org.h2.Driver",
-    "spring.datasource.password=test",
-    "spring.flyway.enabled=false",
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
-    "minio.access-key=minioadmin",
-    "minio.secret-key=minioadmin",
-    "app.jwt.secret=test-secret-key-minimum-32-characters-abc",
-    "app.jwt.access-token-expiration-ms=900000",
-    "app.jwt.refresh-token-expiration-ms=604800000"
+    "spring.datasource.url=jdbc:h2:mem:authtestdb;DB_CLOSE_DELAY=-1;MODE=MySQL"
 })
-class AuthControllerTest {
+class AuthControllerTest extends AbstractIntegrationTest {
 
-    @Autowired private MockMvc mockMvc;
     @Autowired private UserRepository userRepository;
     @Autowired private PasswordEncoder passwordEncoder;
-    @Autowired private ObjectMapper objectMapper;
 
     @BeforeEach
     void setUp() {

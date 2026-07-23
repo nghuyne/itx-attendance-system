@@ -34,29 +34,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   AC-7 — approve/reject via the shared PUT /api/requests/{id}/approve|reject endpoints
  *   AC-8 — GET /api/requests/me surfaces OT requests with requestCategory="OT"
  */
-@SpringBootTest
-@AutoConfigureMockMvc
 @TestPropertySource(properties = {
     "spring.datasource.url=jdbc:h2:mem:requestotintegrationtestdb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
-    "spring.datasource.driver-class-name=org.h2.Driver",
-    "spring.datasource.password=test",
-    "spring.flyway.enabled=false",
-    "app.rate-limit.login.max-attempts=1000",
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
-    "minio.access-key=minioadmin",
-    "minio.secret-key=minioadmin",
-    "app.jwt.secret=test-secret-key-minimum-32-characters-abc",
-    "app.jwt.access-token-expiration-ms=900000",
-    "app.jwt.refresh-token-expiration-ms=604800000"
+    "app.rate-limit.login.max-attempts=1000"
 })
-class RequestControllerOtIntegrationTest {
+class RequestControllerOtIntegrationTest extends AbstractIntegrationTest {
 
-    @Autowired private MockMvc mockMvc;
     @Autowired private UserRepository userRepository;
     @Autowired private OtRequestRepository otRequestRepository;
     @Autowired private PasswordEncoder passwordEncoder;
-    @Autowired private ObjectMapper objectMapper;
     @Autowired private JdbcTemplate jdbcTemplate;
 
     private String employeeToken;
@@ -333,13 +319,5 @@ class RequestControllerOtIntegrationTest {
             .andExpect(status().isCreated())
             .andReturn().getResponse().getContentAsString();
         return objectMapper.readTree(json).get("id").asText();
-    }
-
-    private String loginAndGetToken(String username, String password) throws Exception {
-        String body = mockMvc.perform(post("/api/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new LoginRequest(username, password))))
-            .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(body).get("accessToken").asText();
     }
 }

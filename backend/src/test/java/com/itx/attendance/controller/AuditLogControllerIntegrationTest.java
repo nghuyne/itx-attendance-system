@@ -28,30 +28,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   AC-2 — audit_logs immutability enforced at repository level
  *   AC-3 — GET /api/admin/admins returns only ADMIN-role users
  */
-@SpringBootTest
-@AutoConfigureMockMvc
 @TestPropertySource(properties = {
     "spring.datasource.url=jdbc:h2:mem:auditlogtestdb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
-    "spring.datasource.driver-class-name=org.h2.Driver",
-    "spring.datasource.password=test",
-    "spring.flyway.enabled=false",
-    "app.rate-limit.login.max-attempts=1000",
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
-    "minio.access-key=minioadmin",
-    "minio.secret-key=minioadmin",
-    "app.jwt.secret=test-secret-key-minimum-32-characters-abc",
-    "app.jwt.access-token-expiration-ms=900000",
-    "app.jwt.refresh-token-expiration-ms=604800000"
+    "app.rate-limit.login.max-attempts=1000"
 })
-class AuditLogControllerIntegrationTest {
+class AuditLogControllerIntegrationTest extends AbstractIntegrationTest {
 
-    @Autowired private MockMvc mockMvc;
     @Autowired private UserRepository userRepository;
     @Autowired private AuditLogRepository auditLogRepository;
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private PasswordEncoder passwordEncoder;
-    @Autowired private ObjectMapper objectMapper;
 
     private String adminToken;
     private String employeeToken;
@@ -279,13 +265,5 @@ class AuditLogControllerIntegrationTest {
                                    String fieldChanged, String oldValue, String newValue, String reason) {
         return auditLogRepository.save(
             new AuditLog(admin, targetTable, targetId, fieldChanged, oldValue, newValue, reason));
-    }
-
-    private String loginAndGetToken(String username, String password) throws Exception {
-        String body = mockMvc.perform(post("/api/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new LoginRequest(username, password))))
-            .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(body).get("accessToken").asText();
     }
 }

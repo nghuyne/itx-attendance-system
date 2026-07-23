@@ -39,34 +39,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * the HTTP response), so assertions on notifications poll with a bounded timeout instead of
  * reading immediately after the check-in call returns.
  */
-@SpringBootTest
-@AutoConfigureMockMvc
 @TestPropertySource(properties = {
     "spring.datasource.url=jdbc:h2:mem:suspiciouslocationtestdb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
-    "spring.datasource.driver-class-name=org.h2.Driver",
-    "spring.datasource.password=test",
-    "spring.flyway.enabled=false",
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
-    "app.jwt.secret=test-secret-key-minimum-32-characters-abc",
-    "app.jwt.access-token-expiration-ms=900000",
-    "app.jwt.refresh-token-expiration-ms=604800000",
     "app.ip-check.enabled=false",
     "minio.endpoint=http://localhost:9000",
-    "minio.access-key=minioadmin",
-    "minio.secret-key=minioadmin",
     "minio.bucket-name=test-bucket",
     "app.rate-limit.login.max-attempts=1000"
 })
-class AttendanceSuspiciousLocationIntegrationTest {
+class AttendanceSuspiciousLocationIntegrationTest extends AbstractIntegrationTest {
 
-    @Autowired private MockMvc mockMvc;
     @Autowired private UserRepository userRepository;
     @Autowired private ShiftRepository shiftRepository;
     @Autowired private AttendanceRecordRepository attendanceRecordRepository;
     @Autowired private NotificationRepository notificationRepository;
     @Autowired private PasswordEncoder passwordEncoder;
-    @Autowired private ObjectMapper objectMapper;
 
     private String employeeToken;
     private User adminOne;
@@ -276,13 +262,5 @@ class AttendanceSuspiciousLocationIntegrationTest {
         }
         throw new AssertionError("Expected SUSPICIOUS_LOCATION notification for recipient="
             + recipientId + ", referenceId=" + referenceId + " was not created within 5s");
-    }
-
-    private String loginAndGetToken(String username, String password) throws Exception {
-        String body = mockMvc.perform(post("/api/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new LoginRequest(username, password))))
-            .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(body).get("accessToken").asText();
     }
 }

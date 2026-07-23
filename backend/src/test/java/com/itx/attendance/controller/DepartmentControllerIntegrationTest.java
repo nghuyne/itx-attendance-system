@@ -37,32 +37,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Tests CRUD on departments, DEPARTMENT_HAS_EMPLOYEES/DEPARTMENT_EMPTY guards,
  * bulk shift assignment with audit log trail, and employee-department assignment.
  */
-@SpringBootTest
-@AutoConfigureMockMvc
 @TestPropertySource(properties = {
     "spring.datasource.url=jdbc:h2:mem:departmentintegtestdb;DB_CLOSE_DELAY=-1;MODE=MySQL",
-    "spring.datasource.driver-class-name=org.h2.Driver",
-    "spring.datasource.password=test",
-    "spring.flyway.enabled=false",
-    "app.rate-limit.login.max-attempts=1000",
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
-    "minio.access-key=minioadmin",
-    "minio.secret-key=minioadmin",
-    "app.jwt.secret=test-secret-key-minimum-32-characters-abc",
-    "app.jwt.access-token-expiration-ms=900000",
-    "app.jwt.refresh-token-expiration-ms=604800000"
+    "app.rate-limit.login.max-attempts=1000"
 })
-class DepartmentControllerIntegrationTest {
+class DepartmentControllerIntegrationTest extends AbstractIntegrationTest {
 
-    @Autowired private MockMvc mockMvc;
     @Autowired private DepartmentRepository departmentRepository;
     @Autowired private ShiftRepository shiftRepository;
     @Autowired private UserRepository userRepository;
     @Autowired private AuditLogRepository auditLogRepository;
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private PasswordEncoder passwordEncoder;
-    @Autowired private ObjectMapper objectMapper;
 
     private String adminToken;
     private String employeeToken;
@@ -406,15 +392,5 @@ class DepartmentControllerIntegrationTest {
                 .header("Authorization", "Bearer " + adminToken))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.error").value("USER_NOT_FOUND"));
-    }
-
-    // ── Helper ────────────────────────────────────────────────────────────
-
-    private String loginAndGetToken(String username, String password) throws Exception {
-        String body = mockMvc.perform(post("/api/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new LoginRequest(username, password))))
-            .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(body).get("accessToken").asText();
     }
 }

@@ -39,28 +39,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * returns early from validateRadius() when no active office locations exist in the DB.
  * IP check is disabled via app.ip-check.enabled=false.
  */
-@SpringBootTest
-@AutoConfigureMockMvc
 @TestPropertySource(properties = {
     "spring.datasource.url=jdbc:h2:mem:attendanceintegtestdb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
-    "spring.datasource.driver-class-name=org.h2.Driver",
-    "spring.datasource.password=test",
-    "spring.flyway.enabled=false",
     "app.rate-limit.login.max-attempts=1000",
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
-    "app.jwt.secret=test-secret-key-minimum-32-characters-abc",
-    "app.jwt.access-token-expiration-ms=900000",
-    "app.jwt.refresh-token-expiration-ms=604800000",
     "app.ip-check.enabled=false",
     "minio.endpoint=http://localhost:9000",
-    "minio.access-key=minioadmin",
-    "minio.secret-key=minioadmin",
     "minio.bucket-name=test-bucket"
 })
-class AttendanceControllerIntegrationTest {
+class AttendanceControllerIntegrationTest extends AbstractIntegrationTest {
 
-    @Autowired private MockMvc mockMvc;
     @Autowired private UserRepository userRepository;
     @Autowired private ShiftRepository shiftRepository;
     @Autowired private AttendanceRecordRepository attendanceRecordRepository;
@@ -68,7 +55,6 @@ class AttendanceControllerIntegrationTest {
     @Autowired private OtRequestRepository otRequestRepository;
     @Autowired private HolidayRepository holidayRepository;
     @Autowired private PasswordEncoder passwordEncoder;
-    @Autowired private ObjectMapper objectMapper;
 
     private String employeeToken;
     private User employee;
@@ -578,13 +564,4 @@ class AttendanceControllerIntegrationTest {
             .andExpect(status().isForbidden());
     }
 
-    // ── Helper ──────────────────────────────────────────────────────────────
-
-    private String loginAndGetToken(String username, String password) throws Exception {
-        String body = mockMvc.perform(post("/api/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new LoginRequest(username, password))))
-            .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(body).get("accessToken").asText();
-    }
 }

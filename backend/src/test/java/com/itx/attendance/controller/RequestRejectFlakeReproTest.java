@@ -43,31 +43,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * independent of full-suite load / virtual threads (Hypothesis 1, tested separately by running
  * the full suite with -Dspring.threads.virtual.enabled=false).
  */
-@SpringBootTest
-@AutoConfigureMockMvc
 @TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:rejectflakereprodb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
-    "spring.datasource.driver-class-name=org.h2.Driver",
-    "spring.datasource.password=test",
-    "spring.flyway.enabled=false",
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
-    "minio.access-key=minioadmin",
-    "minio.secret-key=minioadmin",
-    "app.jwt.secret=test-secret-key-minimum-32-characters-abc",
-    "app.jwt.access-token-expiration-ms=900000",
-    "app.jwt.refresh-token-expiration-ms=604800000"
+    "spring.datasource.url=jdbc:h2:mem:rejectflakereprodb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR"
 })
-class RequestRejectFlakeReproTest {
+class RequestRejectFlakeReproTest extends AbstractIntegrationTest {
 
     private static final int ITERATIONS = 40;
 
-    @Autowired private MockMvc mockMvc;
     @Autowired private UserRepository userRepository;
     @Autowired private OtRequestRepository otRequestRepository;
     @Autowired private LeaveRequestRepository leaveRequestRepository;
     @Autowired private PasswordEncoder passwordEncoder;
-    @Autowired private ObjectMapper objectMapper;
     @Autowired private JdbcTemplate jdbcTemplate;
 
     private String adminToken;
@@ -167,13 +153,5 @@ class RequestRejectFlakeReproTest {
                 .content(objectMapper.writeValueAsString(Map.of("reason", reason)))
                 .header("Authorization", "Bearer " + adminToken))
             .andExpect(status().isOk());
-    }
-
-    private String loginAndGetToken(String username, String password) throws Exception {
-        String body = mockMvc.perform(post("/api/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new LoginRequest(username, password))))
-            .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(body).get("accessToken").asText();
     }
 }
