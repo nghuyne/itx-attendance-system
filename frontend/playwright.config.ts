@@ -54,7 +54,12 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // Was 1 to avoid contending over LoginRateLimitFilter's 5/min/IP budget
+  // across parallel workers; CI now raises that to 1000/min (see
+  // RATE_LIMIT_LOGIN_MAX_ATTEMPTS in main.yml), so that constraint no
+  // longer applies. e2e-real's per-worker token cache (support/api.ts)
+  // just re-logs in once per worker instead of once per process.
+  workers: process.env.CI ? 2 : undefined,
   reporter: 'html',
   use: {
     baseURL: 'http://localhost:5173',
