@@ -21,6 +21,18 @@
 .claude/
 _bmad/
 _bmad-output/
+.cursor/
+.cursorrules
+.gemini/
+.kiro/
+.qoder/
+.opencode.json
+.windsurfrules
+.mcp.json
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+QODER.md
 
 # ========================
 # BACKEND (Java / Spring Boot / Maven)
@@ -56,3 +68,11 @@ test-results/
 # SCRIPTS
 # ========================
 scripts/app-screenshot.png
+# Added by code-review-graph
+.code-review-graph/
+.github/code-review-graph.instruction.md
+
+# ========================
+# K6 LOAD TEST OUTPUT
+# ========================
+k6/*.json
