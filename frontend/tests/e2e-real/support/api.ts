@@ -33,34 +33,53 @@ export async function loginRequest(request: APIRequestContext, user: { username:
   }
 }
 
+// The access token (15min TTL, see application.yml) is a bearer credential,
+// not tied to the APIRequestContext that fetched it — reusable across specs
+// in the same worker process. This suite is short enough that expiry never
+// enters into it. Caching by username sidesteps the 5-attempts/min login
+// rate limit that specs used to burn through independently (each paying a
+// 65s retry sleep); with `workers: 1` in CI (see playwright.config.ts), all
+// e2e-real specs share one process, so the cache actually applies.
+const tokenCache = new Map<string, Promise<string>>();
+
 export async function loginAs(
   request: APIRequestContext,
   user: { username: string; password: string }
 ): Promise<string> {
-  const res = await loginRequest(request, user);
-  if (!res.ok()) {
-    throw new Error(`Login failed for ${user.username}: ${res.status()} ${await res.text()}`);
-  }
-  const body = await res.json();
-  let token = body.accessToken as string;
+  const cached = tokenCache.get(user.username);
+  if (cached) return cached;
 
-  if (body.user?.mustChangePassword) {
-    const changeRes = await request.post('/api/auth/change-password', {
-      headers: authHeaders(token),
-      data: { oldPassword: user.password, newPassword: user.password },
-    });
-    if (!changeRes.ok()) {
-      throw new Error(`Clearing mustChangePassword failed for ${user.username}: ${changeRes.status()} ${await changeRes.text()}`);
+  const promise = (async () => {
+    const res = await loginRequest(request, user);
+    if (!res.ok()) {
+      throw new Error(`Login failed for ${user.username}: ${res.status()} ${await res.text()}`);
     }
-    // The old token predates passwordChangedAt and is now rejected; re-login.
-    const reloginRes = await loginRequest(request, user);
-    if (!reloginRes.ok()) {
-      throw new Error(`Re-login after password change failed for ${user.username}: ${reloginRes.status()} ${await reloginRes.text()}`);
-    }
-    token = (await reloginRes.json()).accessToken as string;
-  }
+    const body = await res.json();
+    let token = body.accessToken as string;
 
-  return token;
+    if (body.user?.mustChangePassword) {
+      const changeRes = await request.post('/api/auth/change-password', {
+        headers: authHeaders(token),
+        data: { oldPassword: user.password, newPassword: user.password },
+      });
+      if (!changeRes.ok()) {
+        throw new Error(`Clearing mustChangePassword failed for ${user.username}: ${changeRes.status()} ${await changeRes.text()}`);
+      }
+      // The old token predates passwordChangedAt and is now rejected; re-login.
+      const reloginRes = await loginRequest(request, user);
+      if (!reloginRes.ok()) {
+        throw new Error(`Re-login after password change failed for ${user.username}: ${reloginRes.status()} ${await reloginRes.text()}`);
+      }
+      token = (await reloginRes.json()).accessToken as string;
+    }
+
+    return token;
+  })();
+
+  // Don't let a failed login poison the cache for a retried run.
+  promise.catch(() => tokenCache.delete(user.username));
+  tokenCache.set(user.username, promise);
+  return promise;
 }
 
 export function authHeaders(token: string) {
