@@ -8,10 +8,26 @@ const projects: Project[] = [
   {
     name: 'chromium',
     testDir: './tests/e2e',
+    testIgnore: '**/check-in.spec.ts',
     use: {
       ...devices['Desktop Chrome'],
       // react-webcam needs a MediaStream; these flags give Chromium a
       // synthetic camera feed instead of prompting for permission.
+      permissions: ['camera'],
+      launchOptions: {
+        args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+      },
+    },
+  },
+  {
+    // slowMo only affects the check-in spec: react-webcam needs a moment
+    // between actions to settle the synthetic camera stream, other specs
+    // don't touch it and were paying the 500ms/action tax for nothing.
+    name: 'chromium-webcam',
+    testDir: './tests/e2e',
+    testMatch: '**/check-in.spec.ts',
+    use: {
+      ...devices['Desktop Chrome'],
       permissions: ['camera'],
       launchOptions: {
         slowMo: 500,
