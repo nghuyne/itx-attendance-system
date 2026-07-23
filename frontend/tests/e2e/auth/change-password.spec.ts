@@ -1,32 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-
-type Role = 'EMPLOYEE' | 'LEADER' | 'ADMIN';
-
-async function seedAuth(page: Page, role: Role, mustChangePassword = false) {
-  const ids: Record<Role, string> = { EMPLOYEE: 'emp-id', LEADER: 'leader-id', ADMIN: 'admin-id' };
-  const usernames: Record<Role, string> = { EMPLOYEE: 'emp1', LEADER: 'leader1', ADMIN: 'admin' };
-  const fullNames: Record<Role, string> = {
-    EMPLOYEE: 'Employee One',
-    LEADER: 'Leader One',
-    ADMIN: 'System Administrator',
-  };
-
-  await page.addInitScript(
-    (storage: { key: string; value: unknown }) => {
-      localStorage.setItem(storage.key, JSON.stringify(storage.value));
-    },
-    {
-      key: 'itx-auth',
-      value: {
-        state: {
-          user: { id: ids[role], username: usernames[role], fullName: fullNames[role], role, mustChangePassword },
-          isAuthenticated: true,
-        },
-        version: 0,
-      },
-    }
-  );
-}
+import { seedAdminAuth, seedEmployeeAuth } from '../support/auth';
 
 async function stubNonAuthApi(page: Page) {
   await page.route('**/api/**', (route) => {
@@ -40,8 +13,11 @@ async function stubNonAuthApi(page: Page) {
 
 test.describe('Change Password Page — voluntary change', () => {
   test.beforeEach(async ({ page }) => {
-    await seedAuth(page, 'EMPLOYEE', false);
+    // Register the broad catch-all first so the /api/auth/refresh mock
+    // registered by seedEmployeeAuth (added after, LIFO-highest priority)
+    // isn't shadowed by it.
     await stubNonAuthApi(page);
+    await seedEmployeeAuth(page, { mustChangePassword: false });
     await page.goto('/change-password');
   });
 
@@ -128,8 +104,8 @@ test.describe('Change Password Page — voluntary change', () => {
 
 test.describe('Change Password Page — forced change', () => {
   test.beforeEach(async ({ page }) => {
-    await seedAuth(page, 'EMPLOYEE', true);
     await stubNonAuthApi(page);
+    await seedEmployeeAuth(page, { mustChangePassword: true });
     await page.goto('/change-password');
   });
 
@@ -159,12 +135,8 @@ test.describe('Change Password Page — forced change', () => {
 
 test.describe('Change Password Page — ADMIN role', () => {
   test('success: redirects ADMIN to /admin/shifts', async ({ page }) => {
-    await seedAuth(page, 'ADMIN', false);
-    await page.route('**/api/**', (route) => {
-      const url = route.request().url();
-      if (url.includes('/api/auth/')) route.continue();
-      else route.abort();
-    });
+    await stubNonAuthApi(page);
+    await seedAdminAuth(page, { mustChangePassword: false });
     await page.route('**/api/auth/change-password', (route) =>
       route.fulfill({ status: 200, body: '' })
     );

@@ -216,13 +216,20 @@ test.describe('Employee — Chấm công (Story 3.1 → 3.4)', () => {
   // ── Loading state ──────────────────────────────────────────────────────
 
   test('hiển thị skeleton loader khi đang tải bản ghi hôm nay', async ({ page }) => {
+    // Hold the response open until after the skeleton assertion runs, rather
+    // than racing a fixed delay against this project's slowMo (both were 500ms,
+    // so the mocked response could resolve before the assertion ever checked).
+    let releaseToday!: () => void;
+    const todayBlocked = new Promise<void>((resolve) => { releaseToday = resolve; });
     await page.route('**/api/attendance/today', async route => {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await todayBlocked;
       await route.fulfill({ status: 204, body: '' });
     });
     await page.goto('/check-in');
 
     await expect(page.locator('.animate-pulse').first()).toBeVisible();
+
+    releaseToday();
   });
 
   test('API lỗi khi tải today → hiển thị thông báo lỗi', async ({ page }) => {

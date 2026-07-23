@@ -44,8 +44,10 @@ test.describe('Token Refresh Interceptor', () => {
     await expect(page).not.toHaveURL(/\/login/);
     await expect(page).toHaveURL(/\/history/);
 
-    // At least 2 calls: first (401) + interceptor retry (200); StrictMode may add more
-    expect(historyCallCount).toBeGreaterThanOrEqual(2);
+    // At least 2 calls: first (401) + interceptor retry (200); StrictMode may add more.
+    // Poll rather than assert once — toHaveURL(/\/history/) above passes as soon as
+    // page.goto lands there, which can be before the 401→refresh→retry sequence settles.
+    await expect.poll(() => historyCallCount).toBeGreaterThanOrEqual(2);
   });
 
   test('retried request carries the new access token in Authorization header', async ({ page }) => {

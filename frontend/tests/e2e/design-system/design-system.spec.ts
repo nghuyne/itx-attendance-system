@@ -162,8 +162,6 @@ test.describe('LoadingSpinner Component', () => {
 
 test.describe('SkeletonCard Component', () => {
   test('renders while attendance history is loading', async ({ page }) => {
-    await seedEmployeeAuth(page);
-
     let releaseAttendanceRoute!: () => void;
     const attendanceRouteBlocked = new Promise<void>((resolve) => {
       releaseAttendanceRoute = resolve;
@@ -178,6 +176,11 @@ test.describe('SkeletonCard Component', () => {
       route.abort();
     });
 
+    // seedEmployeeAuth's own /api/auth/refresh mock must be registered last
+    // so it isn't shadowed by the broad catch-all above (Playwright matches
+    // routes LIFO — most-recently-registered wins).
+    await seedEmployeeAuth(page);
+
     await page.goto('/history');
 
     const skeleton = page.locator('[aria-busy="true"][aria-label="Đang tải nội dung..."]');
@@ -187,8 +190,6 @@ test.describe('SkeletonCard Component', () => {
   });
 
   test('skeleton renders header placeholder and line placeholders', async ({ page }) => {
-    await seedEmployeeAuth(page);
-
     let releaseRoute!: () => void;
     const blocked = new Promise<void>((resolve) => { releaseRoute = resolve; });
 
@@ -197,6 +198,10 @@ test.describe('SkeletonCard Component', () => {
       await blocked;
       route.abort();
     });
+
+    // Registered last so its /api/auth/refresh mock isn't shadowed by the
+    // broad catch-all above (Playwright matches routes LIFO).
+    await seedEmployeeAuth(page);
 
     await page.goto('/history');
 
