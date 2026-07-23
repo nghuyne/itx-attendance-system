@@ -21,6 +21,14 @@ function nextWeekdayAtLeast(minDaysOut: number): string {
 
 test.describe('Real API — Leader cross-team authorization', () => {
   test('leader from a different team cannot approve or reject a leave request', async ({ request }) => {
+    // Checked up front (not in the finally below) so a missing env var fails
+    // fast instead of throwing inside a finally, which would mask whatever
+    // the try block's own assertions found (no-unsafe-finally).
+    const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD;
+    if (!bootstrapPassword) {
+      throw new Error('ADMIN_BOOTSTRAP_PASSWORD must be set for real-API tests (see docker-compose.yml / CI env).');
+    }
+
     const employeeToken = await loginAs(request, SEEDED_USERS.employee4);
     const leaveDate = nextWeekdayAtLeast(30 + Math.floor(Math.random() * 200));
 
@@ -62,10 +70,6 @@ test.describe('Real API — Leader cross-team authorization', () => {
       // Hard-delete the fixture leave request (and reverse its leave-balance
       // effect) via DELETE /api/admin/requests/{id} so this real-DB run doesn't
       // leave a permanent APPROVED row behind for employee4.
-      const bootstrapPassword = process.env.ADMIN_BOOTSTRAP_PASSWORD;
-      if (!bootstrapPassword) {
-        throw new Error('ADMIN_BOOTSTRAP_PASSWORD must be set for real-API tests (see docker-compose.yml / CI env).');
-      }
       const adminToken = await loginAs(request, { username: 'admin', password: bootstrapPassword });
       await request.delete(`/api/admin/requests/${requestId}`, { headers: authHeaders(adminToken) });
     }
