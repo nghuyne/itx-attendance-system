@@ -7,6 +7,9 @@ import com.itx.attendance.dto.request.LoginRequest;
 import com.itx.attendance.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,6 +17,9 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+
+import java.util.stream.Stream;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -33,28 +39,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * @PreAuthorize; testing 403 there requires a valid request body and is
  * covered by integration tests that exercise the full happy-path.
  */
-@SpringBootTest
-@AutoConfigureMockMvc
 @TestPropertySource(properties = {
     "spring.datasource.url=jdbc:h2:mem:roleaccesstestdb;DB_CLOSE_DELAY=-1;MODE=MySQL",
-    "spring.datasource.driver-class-name=org.h2.Driver",
-    "spring.datasource.password=test",
-    "spring.flyway.enabled=false",
-    "app.rate-limit.login.max-attempts=1000",
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
-    "minio.access-key=minioadmin",
-    "minio.secret-key=minioadmin",
-    "app.jwt.secret=test-secret-key-minimum-32-characters-abc",
-    "app.jwt.access-token-expiration-ms=900000",
-    "app.jwt.refresh-token-expiration-ms=604800000"
+    "app.rate-limit.login.max-attempts=1000"
 })
-class RoleBasedAccessControlTest {
+class RoleBasedAccessControlTest extends AbstractIntegrationTest {
 
-    @Autowired private MockMvc mockMvc;
     @Autowired private UserRepository userRepository;
     @Autowired private PasswordEncoder passwordEncoder;
-    @Autowired private ObjectMapper objectMapper;
 
     private String adminToken;
     private String leaderToken;
@@ -93,237 +85,76 @@ class RoleBasedAccessControlTest {
         employeeToken = loginAndGetToken("rbac_employee", "emp123");
     }
 
-    // ── /api/admin/** — URL-level: requires ADMIN ────────────────────────────
-
-    @Test
-    void adminShifts_employee_gets403() throws Exception {
-        mockMvc.perform(get("/api/admin/shifts")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isForbidden());
+    // Endpoint × role → expected status, covering URL-level (SecurityConfig requestMatchers)
+    // and method-level (@PreAuthorize) enforcement plus the unauthenticated (401) and
+    // correct-role (200) cases in one matrix. One row per case previously covered by its
+    // own @Test method — same URLs, roles, bodies and expected statuses, just tabulated
+    // instead of copy-pasted so a new endpoint is one row, not a new method.
+    static Stream<Arguments> roleEndpointMatrix() {
+        return Stream.of(
+            // ── /api/admin/** — URL-level: requires ADMIN ────────────────────
+            Arguments.of("GET", "/api/admin/shifts", null, "employee", 403),
+            Arguments.of("GET", "/api/admin/shifts", null, "leader", 403),
+            Arguments.of("GET", "/api/admin/valid-ips", null, "employee", 403),
+            Arguments.of("GET", "/api/admin/valid-ips", null, "leader", 403),
+            Arguments.of("GET", "/api/admin/valid-macs", null, "employee", 403),
+            Arguments.of("GET", "/api/admin/valid-macs", null, "leader", 403),
+            Arguments.of("GET", "/api/admin/holidays", null, "employee", 403),
+            Arguments.of("GET", "/api/admin/holidays", null, "leader", 403),
+            Arguments.of("GET", "/api/admin/employees", null, "employee", 403),
+            Arguments.of("GET", "/api/admin/employees", null, "leader", 403),
+            Arguments.of("GET", "/api/admin/audit-logs?from=2026-01-01&to=2026-12-31", null, "employee", 403),
+            Arguments.of("GET", "/api/admin/audit-logs?from=2026-01-01&to=2026-12-31", null, "leader", 403),
+            Arguments.of("POST", "/api/admin/shifts", "{}", "employee", 403),
+            Arguments.of("POST", "/api/admin/valid-ips", "{}", "leader", 403),
+            // ── /api/leader/** — URL-level: requires LEADER or ADMIN ─────────
+            Arguments.of("GET", "/api/leader/team-roster", null, "employee", 403),
+            // ── /api/attendance/** — method-level @PreAuthorize: EMPLOYEE only
+            Arguments.of("GET", "/api/attendance/today", null, "admin", 403),
+            Arguments.of("GET", "/api/attendance/today", null, "leader", 403),
+            Arguments.of("GET", "/api/attendance/history?from=2026-01-01&to=2026-12-31", null, "admin", 403),
+            // ── /api/requests/** — method-level @PreAuthorize: mixed roles ───
+            Arguments.of("GET", "/api/requests/pending", null, "employee", 403),
+            Arguments.of("PUT", "/api/requests/nonexistent-id/approve", null, "employee", 403),
+            Arguments.of("PUT", "/api/requests/nonexistent-id/reject", "{\"reason\":\"test\"}", "employee", 403),
+            // ── Positive: correct roles pass auth ────────────────────────────
+            Arguments.of("GET", "/api/admin/shifts", null, "admin", 200),
+            Arguments.of("GET", "/api/admin/valid-ips", null, "admin", 200),
+            Arguments.of("GET", "/api/leader/team-roster", null, "leader", 200),
+            Arguments.of("GET", "/api/requests/pending", null, "leader", 200),
+            Arguments.of("GET", "/api/requests/pending", null, "admin", 200),
+            // ── Unauthenticated → 401 ─────────────────────────────────────────
+            Arguments.of("GET", "/api/admin/shifts", null, null, 401),
+            Arguments.of("GET", "/api/leader/team-roster", null, null, 401),
+            Arguments.of("GET", "/api/attendance/today", null, null, 401)
+        );
     }
 
-    @Test
-    void adminShifts_leader_gets403() throws Exception {
-        mockMvc.perform(get("/api/admin/shifts")
-                .header("Authorization", "Bearer " + leaderToken))
-            .andExpect(status().isForbidden());
+    @ParameterizedTest(name = "[{index}] {0} {1} as {3} → {4}")
+    @MethodSource("roleEndpointMatrix")
+    void endpointRoleMatrix(String method, String url, String body, String role, int expectedStatus) throws Exception {
+        MockHttpServletRequestBuilder requestBuilder = switch (method) {
+            case "GET" -> get(url);
+            case "POST" -> post(url);
+            case "PUT" -> put(url);
+            default -> throw new IllegalArgumentException("Unsupported method: " + method);
+        };
+        if (body != null) {
+            requestBuilder.contentType(MediaType.APPLICATION_JSON).content(body);
+        }
+        if (role != null) {
+            requestBuilder.header("Authorization", "Bearer " + tokenFor(role));
+        }
+        mockMvc.perform(requestBuilder).andExpect(status().is(expectedStatus));
     }
 
-    @Test
-    void adminValidIps_employee_gets403() throws Exception {
-        mockMvc.perform(get("/api/admin/valid-ips")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isForbidden());
+    private String tokenFor(String role) {
+        return switch (role) {
+            case "admin" -> adminToken;
+            case "leader" -> leaderToken;
+            case "employee" -> employeeToken;
+            default -> throw new IllegalArgumentException("Unknown role: " + role);
+        };
     }
 
-    @Test
-    void adminValidIps_leader_gets403() throws Exception {
-        mockMvc.perform(get("/api/admin/valid-ips")
-                .header("Authorization", "Bearer " + leaderToken))
-            .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void adminValidMacs_employee_gets403() throws Exception {
-        mockMvc.perform(get("/api/admin/valid-macs")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void adminValidMacs_leader_gets403() throws Exception {
-        mockMvc.perform(get("/api/admin/valid-macs")
-                .header("Authorization", "Bearer " + leaderToken))
-            .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void adminHolidays_employee_gets403() throws Exception {
-        mockMvc.perform(get("/api/admin/holidays")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void adminHolidays_leader_gets403() throws Exception {
-        mockMvc.perform(get("/api/admin/holidays")
-                .header("Authorization", "Bearer " + leaderToken))
-            .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void adminEmployees_employee_gets403() throws Exception {
-        mockMvc.perform(get("/api/admin/employees")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void adminEmployees_leader_gets403() throws Exception {
-        mockMvc.perform(get("/api/admin/employees")
-                .header("Authorization", "Bearer " + leaderToken))
-            .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void adminAuditLogs_employee_gets403() throws Exception {
-        mockMvc.perform(get("/api/admin/audit-logs")
-                .param("from", "2026-01-01")
-                .param("to", "2026-12-31")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void adminAuditLogs_leader_gets403() throws Exception {
-        mockMvc.perform(get("/api/admin/audit-logs")
-                .param("from", "2026-01-01")
-                .param("to", "2026-12-31")
-                .header("Authorization", "Bearer " + leaderToken))
-            .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void adminCreateShift_employee_gets403() throws Exception {
-        mockMvc.perform(post("/api/admin/shifts")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{}")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void adminCreateValidIp_leader_gets403() throws Exception {
-        mockMvc.perform(post("/api/admin/valid-ips")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{}")
-                .header("Authorization", "Bearer " + leaderToken))
-            .andExpect(status().isForbidden());
-    }
-
-    // ── /api/leader/** — URL-level: requires LEADER or ADMIN ─────────────────
-
-    @Test
-    void leaderTeamRoster_employee_gets403() throws Exception {
-        mockMvc.perform(get("/api/leader/team-roster")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isForbidden());
-    }
-
-    // ── /api/attendance/** — method-level @PreAuthorize: requires EMPLOYEE ───
-
-    @Test
-    void attendanceToday_admin_gets403() throws Exception {
-        mockMvc.perform(get("/api/attendance/today")
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void attendanceToday_leader_gets403() throws Exception {
-        mockMvc.perform(get("/api/attendance/today")
-                .header("Authorization", "Bearer " + leaderToken))
-            .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void attendanceHistory_admin_gets403() throws Exception {
-        mockMvc.perform(get("/api/attendance/history")
-                .param("from", "2026-01-01")
-                .param("to", "2026-12-31")
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isForbidden());
-    }
-
-    // ── /api/requests/** — method-level @PreAuthorize: mixed roles ───────────
-
-    @Test
-    void requestsPending_employee_gets403() throws Exception {
-        mockMvc.perform(get("/api/requests/pending")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void requestsApprove_employee_gets403() throws Exception {
-        mockMvc.perform(put("/api/requests/nonexistent-id/approve")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void requestsReject_employee_gets403() throws Exception {
-        mockMvc.perform(put("/api/requests/nonexistent-id/reject")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"reason\":\"test\"}")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isForbidden());
-    }
-
-    // ── Positive: correct roles pass auth ────────────────────────────────────
-
-    @Test
-    void adminShifts_admin_returns200() throws Exception {
-        mockMvc.perform(get("/api/admin/shifts")
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk());
-    }
-
-    @Test
-    void adminValidIps_admin_returns200() throws Exception {
-        mockMvc.perform(get("/api/admin/valid-ips")
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk());
-    }
-
-    @Test
-    void leaderTeamRoster_leader_returns200() throws Exception {
-        mockMvc.perform(get("/api/leader/team-roster")
-                .header("Authorization", "Bearer " + leaderToken))
-            .andExpect(status().isOk());
-    }
-
-    @Test
-    void requestsPending_leader_returns200() throws Exception {
-        mockMvc.perform(get("/api/requests/pending")
-                .header("Authorization", "Bearer " + leaderToken))
-            .andExpect(status().isOk());
-    }
-
-    @Test
-    void requestsPending_admin_returns200() throws Exception {
-        mockMvc.perform(get("/api/requests/pending")
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk());
-    }
-
-    // ── Unauthenticated → 401 ────────────────────────────────────────────────
-
-    @Test
-    void adminShifts_noToken_returns401() throws Exception {
-        mockMvc.perform(get("/api/admin/shifts"))
-            .andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    void leaderTeamRoster_noToken_returns401() throws Exception {
-        mockMvc.perform(get("/api/leader/team-roster"))
-            .andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    void attendanceToday_noToken_returns401() throws Exception {
-        mockMvc.perform(get("/api/attendance/today"))
-            .andExpect(status().isUnauthorized());
-    }
-
-    // ── Helpers ──────────────────────────────────────────────────────────────
-
-    private String loginAndGetToken(String username, String password) throws Exception {
-        String body = mockMvc.perform(post("/api/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(new LoginRequest(username, password))))
-            .andReturn().getResponse().getContentAsString();
-        return objectMapper.readTree(body).get("accessToken").asText();
-    }
 }
