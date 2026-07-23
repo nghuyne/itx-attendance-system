@@ -26,6 +26,11 @@ Verify: Check-in SUCCESS ✅
 
 **1. Lấy Admin Token**
 
+> Password `admin123` bên dưới chỉ đúng nếu `ADMIN_BOOTSTRAP_PASSWORD=admin123`
+> đã được set trong `.env` **trước** lần khởi động đầu tiên của backend (DB
+> rỗng). Admin không còn password cố định mặc định — xem
+> `docs/TEST_ACCOUNTS.md` nếu không đăng nhập được.
+
 ```http
 POST http://localhost/api/auth/login
 Content-Type: application/json

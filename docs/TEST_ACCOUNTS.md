@@ -5,11 +5,33 @@
 ### ADMIN Account (Hệ Thống)
 ```
 Username: admin
-Password: admin123
 Email:    admin@itx.local
 Role:     ADMIN
 ```
 **Quyền**: Quản lý toàn bộ hệ thống, xem tất cả requests từ mọi nhân viên
+
+⚠️ **Không còn password cố định.** Từ commit `b23bcdb` (fix bảo mật, 2026-07-13),
+`admin` không được insert sẵn bằng migration nữa. `AdminUserSeeder`
+(`backend/src/main/java/com/itx/attendance/config/AdminUserSeeder.java`) tự tạo
+tài khoản này **một lần duy nhất** khi backend khởi động lần đầu trên DB trống:
+- Nếu env var `ADMIN_BOOTSTRAP_PASSWORD` được set (xem `.env.example`) → dùng
+  password đó.
+- Nếu không set → sinh password ngẫu nhiên bằng `SecureRandom`, chỉ log **một
+  lần** ra console lúc khởi động (dòng `Seeded default admin account with a
+  generated one-time password: ...`) rồi không lưu lại ở đâu khác.
+- Tài khoản luôn được tạo với `must_change_password = true`.
+
+Nếu bạn cần password `admin123` cho môi trường dev/local:
+1. **Trước khi backend chạy lần đầu** (DB rỗng, chưa có row `admin`): set
+   `ADMIN_BOOTSTRAP_PASSWORD=admin123` trong `.env` rồi khởi động.
+2. **Nếu `admin` đã tồn tại và bạn không biết password hiện tại** (log gốc đã
+   mất, hoặc ai đó đã đổi password qua flow force-change): không có cách khôi
+   phục từ log — phải reset trực tiếp trong DB:
+   ```bash
+   docker exec itx-mysql-1 mysql -uroot -p<DB_ROOT_PASSWORD> itx_attendance -e \
+     "UPDATE users SET password_hash='\$2a\$10\$XjCq.Z6n1spYh4K0Ac14HOnbegYb9HnaB1MbFCT7/qFic1/nUO7yK', must_change_password=1 WHERE username='admin';"
+   ```
+   (hash trên là BCrypt của `admin123`, cùng hash dùng cho các test user bên dưới.)
 
 ---
 
@@ -20,7 +42,7 @@ Role:     ADMIN
 #### Leader 1 - IT Department
 ```
 Username: leader1
-Password: test123
+Password: admin123
 Email:    leader1@itx.local
 Role:     LEADER
 Team:     3 nhân viên (employee1, employee2, employee3)
@@ -30,7 +52,7 @@ Team:     3 nhân viên (employee1, employee2, employee3)
 #### Leader 2 - HR Department
 ```
 Username: leader2
-Password: test123
+Password: admin123
 Email:    leader2@itx.local
 Role:     LEADER
 Team:     2 nhân viên (employee4, employee5)
@@ -44,7 +66,7 @@ Team:     2 nhân viên (employee4, employee5)
 #### Team IT (under leader1)
 ```
 Username: employee1
-Password: test123
+Password: admin123
 Email:    employee1@itx.local
 Full Name: Nguyễn Văn B
 Role:     EMPLOYEE
@@ -53,7 +75,7 @@ Leader:   leader1
 
 ```
 Username: employee2
-Password: test123
+Password: admin123
 Email:    employee2@itx.local
 Full Name: Phạm Thị C
 Role:     EMPLOYEE
@@ -62,7 +84,7 @@ Leader:   leader1
 
 ```
 Username: employee3
-Password: test123
+Password: admin123
 Email:    employee3@itx.local
 Full Name: Đỗ Minh D
 Role:     EMPLOYEE
@@ -72,7 +94,7 @@ Leader:   leader1
 #### Team HR (under leader2)
 ```
 Username: employee4
-Password: test123
+Password: admin123
 Email:    employee4@itx.local
 Full Name: Hoàng Văn F
 Role:     EMPLOYEE
@@ -81,7 +103,7 @@ Leader:   leader2
 
 ```
 Username: employee5
-Password: test123
+Password: admin123
 Email:    employee5@itx.local
 Full Name: Vũ Thanh G
 Role:     EMPLOYEE
@@ -93,7 +115,17 @@ Leader:   leader2
 ## 🚀 Cách Sử Dụng
 
 ### Bước 1: Đảm Bảo Database Đã Chạy Migration
-Migration file `V13__add_test_users.sql` sẽ tự động chạy khi backend khởi động.
+Migration file nằm ở `backend/src/main/resources/db/migration/dev/V13__add_test_users.sql`.
+
+⚠️ **Caveat**: `application.yml` cấu hình `flyway.locations: classpath:db/migration`
+(không liệt kê `db/migration/dev` riêng). Vì `dev/` là thư mục con của
+`db/migration`, Flyway coi đây là vị trí trùng lặp và **discard** nó khi khởi
+động (log sẽ có dòng `WARN ... Discarding location 'classpath:db/migration/dev'
+as it is a sub-location of 'classpath:db/migration'`) — nghĩa là trên **DB mới
+hoàn toàn**, V13 sẽ **không** tự chạy như mô tả trước đây. Trên DB dev hiện tại
+V13 đã từng chạy thành công từ trước (kiểm tra `flyway_schema_history`), nên
+leader1/employee1-5 vẫn tồn tại — nhưng đừng giả định điều này đúng cho mọi
+môi trường mới. Nếu setup fresh DB mà không thấy các user này, đây là lý do.
 
 ### Bước 2: Truy Cập Ứng Dụng
 1. Mở trình duyệt
@@ -102,7 +134,8 @@ Migration file `V13__add_test_users.sql` sẽ tự động chạy khi backend kh
 ### Bước 3: Đăng Nhập
 Tại trang Login, nhập:
 - **Username**: (chọn một từ danh sách trên)
-- **Password**: `admin123` (cho admin) hoặc `test123` (cho leader/employee)
+- **Password**: `admin123` cho leader/employee. Riêng **admin không dùng
+  chung quy tắc này** — xem phần "ADMIN Account" ở đầu file.
 
 ---
 
@@ -119,7 +152,7 @@ Tại trang Login, nhập:
 
 ### Test với Leader Account
 ```
-1. Đăng nhập: leader1 / test123
+1. Đăng nhập: leader1 / admin123
 2. Vào: Dashboard > Duyệt Yêu cầu (Review Requests)
 3. Kỳ vọng: Chỉ xem requests từ team của mình
    - employee1, employee2, employee3
@@ -128,7 +161,7 @@ Tại trang Login, nhập:
 
 ### Test với Employee Account
 ```
-1. Đăng nhập: employee1 / test123
+1. Đăng nhập: employee1 / admin123
 2. Có thể:
    - Check In / Check Out
    - Xem lịch sử chấm công (History)
@@ -185,7 +218,7 @@ Tại trang Login, nhập:
 
 ### Scenario 1: Nhân viên Submit Exception Request
 ```
-1. Đăng nhập: employee1 / test123
+1. Đăng nhập: employee1 / admin123
 2. Check In và quên Check Out
 3. Vào History → Tìm record INCOMPLETE
 4. Click "Adjustment Request" → Đề xuất checkout time
@@ -206,7 +239,7 @@ Tại trang Login, nhập:
 
 ### Scenario 3: Leader Không Thấy Requests Từ Teams Khác
 ```
-1. Đăng nhập: leader1 / test123
+1. Đăng nhập: leader1 / admin123
 2. Vào Dashboard > Duyệt Yêu cầu
 3. Chỉ thấy requests từ:
    - employee1, employee2, employee3
@@ -231,7 +264,7 @@ VALUES (
     UUID(),
     'username_moi',
     'email@itx.local',
-    '$2a$10$8P5/Q7.E.R5nJ9pYQ5R5He0PJpVpvTOv3Qr4pGzR7W4mK3A9L1tl2', -- password: test123
+    '$2a$10$8P5/Q7.E.R5nJ9pYQ5R5He0PJpVpvTOv3Qr4pGzR7W4mK3A9L1tl2', -- password: admin123
     'Full Name',
     'EMPLOYEE',  -- hoặc 'LEADER'
     TRUE,
@@ -280,11 +313,14 @@ System.out.println(hash);
 
 ### Lỗi: "Invalid username or password"
 - Kiểm tra username/password có chính xác không
-- Admin mặc định: `admin` / `admin123`
-- Test users mặc định: `test123`
+- Test users (leader/employee) mặc định: `admin123`
+- **Admin không có password mặc định cố định** — xem phần "ADMIN Account" ở
+  đầu file để biết cách lấy/reset password (không phải lỗi nếu `admin123`
+  không vào được, đó là hành vi thiết kế từ commit `b23bcdb`)
 
 ### Lỗi: "User not found"
-- Migration file chưa chạy
+- Migration file chưa chạy, HOẶC Flyway đang discard `db/migration/dev` (xem
+  caveat ở "Bước 1" phía trên) trên DB mới
 - Kiểm tra backend logs xem V13 đã chạy chưa
 - Restart backend
 

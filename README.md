@@ -71,7 +71,11 @@ docker-compose up -d --build
 ```
 
 - **Frontend/API Gateway:** `http://localhost:5173`
-- **Tài khoản Admin mặc định:** `admin` / `admin123` (Cần đổi ngay khi lên Production)
+- **Tài khoản Admin:** không có password cố định. `admin` được tự tạo lần đầu
+  khởi động: dùng password từ env var `ADMIN_BOOTSTRAP_PASSWORD` (xem
+  `.env.example`) nếu đã set, hoặc một password ngẫu nhiên được log ra console
+  đúng một lần lúc khởi động nếu chưa set. Chi tiết + cách reset khi mất
+  password: xem `docs/TEST_ACCOUNTS.md`.
 
 ## 🔒 Bảo mật (Security Posture)
 
