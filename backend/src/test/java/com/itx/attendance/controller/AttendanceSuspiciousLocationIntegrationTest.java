@@ -40,11 +40,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * reading immediately after the check-in call returns.
  */
 @TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:suspiciouslocationtestdb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
+    "spring.datasource.url=jdbc:h2:mem:sharedctxb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
+    "app.rate-limit.login.max-attempts=1000",
     "app.ip-check.enabled=false",
     "minio.endpoint=http://localhost:9000",
-    "minio.bucket-name=test-bucket",
-    "app.rate-limit.login.max-attempts=1000"
+    "minio.bucket-name=test-bucket"
 })
 class AttendanceSuspiciousLocationIntegrationTest extends AbstractIntegrationTest {
 

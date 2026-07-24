@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * each test. Coordinates ~2km away are used to simulate an out-of-radius check-in.
  */
 @TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:attendancegpsradiustestdb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
+    "spring.datasource.url=jdbc:h2:mem:sharedctxb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
     "app.rate-limit.login.max-attempts=1000",
     "app.ip-check.enabled=false",
     "minio.endpoint=http://localhost:9000",

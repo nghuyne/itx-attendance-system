@@ -28,7 +28,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * null/blank → fall back to the existing IP validation (valid_ips).
  *
  * app.ip-check.enabled=true here (opposite of AttendanceControllerIntegrationTest,
- * which disables it) so both validation branches actually execute.
+ * which disables it) so both validation branches actually execute — genuinely
+ * different behavior from every sharedctx* group, so this class keeps its own
+ * private context/DB rather than joining one (deliberate, not an oversight).
  */
 @TestPropertySource(properties = {
     "spring.datasource.url=jdbc:h2:mem:attendancehybridtestdb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",

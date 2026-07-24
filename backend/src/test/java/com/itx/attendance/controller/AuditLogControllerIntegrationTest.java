@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   AC-3 — GET /api/admin/admins returns only ADMIN-role users
  */
 @TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:auditlogtestdb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
+    "spring.datasource.url=jdbc:h2:mem:sharedctxa;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
     "app.rate-limit.login.max-attempts=1000"
 })
 class AuditLogControllerIntegrationTest extends AbstractIntegrationTest {

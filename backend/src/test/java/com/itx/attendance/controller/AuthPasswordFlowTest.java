@@ -22,7 +22,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:pwflowtestdb;DB_CLOSE_DELAY=-1;MODE=MySQL"
+    "spring.datasource.url=jdbc:h2:mem:sharedctxd;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR"
 })
 class AuthPasswordFlowTest extends AbstractIntegrationTest {
 

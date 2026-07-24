@@ -33,6 +33,12 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
     @Value("${app.rate-limit.login.window-seconds:60}")
     private long windowSeconds;
 
+    // Off by default so a stray reference to this bean (reflection, an admin/JMX tool
+    // added later) can never flush live rate-limit state in production; only
+    // AbstractIntegrationTest's @TestPropertySource turns it on.
+    @Value("${app.rate-limit.login.test-reset-enabled:false}")
+    private boolean testResetEnabled;
+
     private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
     private final ObjectMapper objectMapper;
 
@@ -68,6 +74,19 @@ public class LoginRateLimitFilter extends OncePerRequestFilter {
                 Map.of("error", "TOO_MANY_REQUESTS",
                        "message", "Quá nhiều lần thử đăng nhập. Vui lòng thử lại sau 1 phút.")
             ));
+        }
+    }
+
+    /**
+     * Test-support hook: clears all per-IP buckets. Integration tests that share this
+     * bean across a cached Spring context (see AbstractIntegrationTest) would otherwise
+     * accumulate login attempts across unrelated test classes/methods and trip the
+     * default 5/min/IP limit. No-op unless {@code app.rate-limit.login.test-reset-enabled}
+     * is explicitly set — production never sets it, so this is inert outside tests.
+     */
+    public void resetForTests() {
+        if (testResetEnabled) {
+            buckets.clear();
         }
     }
 

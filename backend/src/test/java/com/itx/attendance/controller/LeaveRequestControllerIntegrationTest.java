@@ -35,7 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   AC-6 — approve deducts used_days; reject leaves balance untouched and records reason
  */
 @TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:leaverequesttestdb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
+    "spring.datasource.url=jdbc:h2:mem:sharedctxa;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
     "app.rate-limit.login.max-attempts=1000"
 })
 class LeaveRequestControllerIntegrationTest extends AbstractIntegrationTest {

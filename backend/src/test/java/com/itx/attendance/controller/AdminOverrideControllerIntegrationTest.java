@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *   AC-5 — GET /api/admin/attendance search + filters
  */
 @TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:adminoverridetestdb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
+    "spring.datasource.url=jdbc:h2:mem:sharedctxa;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
     "app.rate-limit.login.max-attempts=1000"
 })
 class AdminOverrideControllerIntegrationTest extends AbstractIntegrationTest {

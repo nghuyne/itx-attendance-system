@@ -19,12 +19,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * request.getRemoteAddr(), never on a client-supplied X-Forwarded-For header — otherwise
  * an attacker bypasses the 5-attempts/min/IP budget by varying the header on every request.
  *
- * Own H2 DB / Spring context (isolated from every other test class) so this test's own
- * login attempts don't share LoginRateLimitFilter's in-memory bucket with any other class —
- * that bean is a singleton keyed by IP with no per-test reset.
+ * Shares the {@code sharedctxd} context/DB with AuthControllerTest, AuthPasswordFlowTest,
+ * and RequestRejectFlakeReproTest (see AbstractIntegrationTest); relies on that base
+ * class's {@code resetTestState()} clearing LoginRateLimitFilter's in-memory bucket
+ * before this test method, not on having its own private context.
  */
 @TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:ratelimitertestdb;DB_CLOSE_DELAY=-1;MODE=MySQL"
+    "spring.datasource.url=jdbc:h2:mem:sharedctxd;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR"
 })
 class LoginRateLimiterIntegrationTest extends AbstractIntegrationTest {
 

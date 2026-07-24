@@ -44,7 +44,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * the full suite with -Dspring.threads.virtual.enabled=false).
  */
 @TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:rejectflakereprodb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR"
+    "spring.datasource.url=jdbc:h2:mem:sharedctxd;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR"
 })
 class RequestRejectFlakeReproTest extends AbstractIntegrationTest {
 

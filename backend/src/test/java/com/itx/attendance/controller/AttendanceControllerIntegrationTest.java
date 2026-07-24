@@ -40,7 +40,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * IP check is disabled via app.ip-check.enabled=false.
  */
 @TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:attendanceintegtestdb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
+    "spring.datasource.url=jdbc:h2:mem:sharedctxb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
     "app.rate-limit.login.max-attempts=1000",
     "app.ip-check.enabled=false",
     "minio.endpoint=http://localhost:9000",

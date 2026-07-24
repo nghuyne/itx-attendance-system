@@ -32,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * type validation, and behavior that existing OT records are NOT recalculated.
  */
 @TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:holidayintegtestdb;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
+    "spring.datasource.url=jdbc:h2:mem:sharedctxa;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
     "app.rate-limit.login.max-attempts=1000"
 })
 class HolidayControllerIntegrationTest extends AbstractIntegrationTest {

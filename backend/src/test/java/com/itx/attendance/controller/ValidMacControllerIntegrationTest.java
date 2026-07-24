@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * reactivation-on-re-add, and duplicate detection.
  */
 @TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:validmactestdb;DB_CLOSE_DELAY=-1;MODE=MySQL",
+    "spring.datasource.url=jdbc:h2:mem:sharedctxa;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR",
     "app.rate-limit.login.max-attempts=1000"
 })
 class ValidMacControllerIntegrationTest extends AbstractIntegrationTest {
