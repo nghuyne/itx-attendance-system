@@ -8,8 +8,8 @@ import { SEEDED_USERS, loginAs, authHeaders } from './support/api';
 // reports to leader2 (both seeded by V13__add_test_users.sql), so leader1 approving
 // employee4's request must be rejected regardless of what the UI would show.
 
-// Picks the next Monday at least `minDaysOut` days out so the leave range always
-// contains a business day and never collides with a previous run's dates.
+// Returns the next weekday (Mon-Fri) that is at least `minDaysOut` days from today,
+// as an ISO date string.
 function nextWeekdayAtLeast(minDaysOut: number): string {
   const d = new Date();
   d.setDate(d.getDate() + minDaysOut);
@@ -20,7 +20,7 @@ function nextWeekdayAtLeast(minDaysOut: number): string {
 }
 
 test.describe('Real API — Leader cross-team authorization', () => {
-  test('leader from a different team cannot approve or reject a leave request', async ({ request }) => {
+  test('leader from a different team cannot approve or reject a leave request', async ({ request }, testInfo) => {
     // Checked up front (not in the finally below) so a missing env var fails
     // fast instead of throwing inside a finally, which would mask whatever
     // the try block's own assertions found (no-unsafe-finally).
@@ -30,7 +30,14 @@ test.describe('Real API — Leader cross-team authorization', () => {
     }
 
     const employeeToken = await loginAs(request, SEEDED_USERS.employee4);
-    const leaveDate = nextWeekdayAtLeast(30 + Math.floor(Math.random() * 200));
+    // Deterministic per attempt (was an unseeded Math.random(), making failures
+    // impossible to reproduce). 30 is just an arbitrary "far enough out" buffer —
+    // no server-side minimum-notice rule to honor. Offsetting by `testInfo.retry`
+    // keeps CI's configured retries (playwright.config.ts) self-healing: if the
+    // admin-DELETE cleanup in the `finally` block below didn't run for a prior
+    // attempt, a retry still gets a fresh date instead of repeating the same
+    // fixture and deterministically 409-ing every time.
+    const leaveDate = nextWeekdayAtLeast(30 + testInfo.retry * 5);
 
     const createRes = await request.post('/api/requests/leave', {
       headers: authHeaders(employeeToken),
