@@ -161,8 +161,7 @@ class AttendanceSuspiciousLocationIntegrationTest extends AbstractIntegrationTes
 
         // No async notification path is even triggered when suspiciousLocation is false —
         // give the executor a brief grace window, then assert no notification was written.
-        Thread.sleep(300);
-        assertThat(notificationRepository.findByRecipientIdAndIsReadFalse(adminOne.getId())).isEmpty();
+        assertNoNotificationCreated(adminOne.getId());
     }
 
     @Test
@@ -217,8 +216,7 @@ class AttendanceSuspiciousLocationIntegrationTest extends AbstractIntegrationTes
             .andExpect(jsonPath("$.suspiciousLocation").value(false))
             .andExpect(jsonPath("$.gpsUnavailable").value(true));
 
-        Thread.sleep(300);
-        assertThat(notificationRepository.findByRecipientIdAndIsReadFalse(adminOne.getId())).isEmpty();
+        assertNoNotificationCreated(adminOne.getId());
     }
 
     @Test
@@ -262,5 +260,18 @@ class AttendanceSuspiciousLocationIntegrationTest extends AbstractIntegrationTes
         }
         throw new AssertionError("Expected SUSPICIOUS_LOCATION notification for recipient="
             + recipientId + ", referenceId=" + referenceId + " was not created within 5s");
+    }
+
+    /**
+     * Mirrors {@link #awaitNotification}'s bounded-poll mechanism for the negative case: repeatedly
+     * asserts no notification exists throughout the async executor's grace window, failing fast the
+     * moment one appears rather than sleeping the full window unconditionally.
+     */
+    private void assertNoNotificationCreated(String recipientId) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + 300;
+        while (System.currentTimeMillis() < deadline) {
+            assertThat(notificationRepository.findByRecipientIdAndIsReadFalse(recipientId)).isEmpty();
+            Thread.sleep(50);
+        }
     }
 }
