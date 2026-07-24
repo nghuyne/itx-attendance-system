@@ -38,8 +38,12 @@ export async function loginRequest(request: APIRequestContext, user: { username:
 // in the same worker process. This suite is short enough that expiry never
 // enters into it. Caching by username sidesteps the 5-attempts/min login
 // rate limit that specs used to burn through independently (each paying a
-// 65s retry sleep); with `workers: 1` in CI (see playwright.config.ts), all
-// e2e-real specs share one process, so the cache actually applies.
+// 65s retry sleep). CI runs 2 workers (see playwright.config.ts), so the
+// cache is scoped per worker, not suite-wide — it dedupes logins only for
+// e2e-real spec files that happen to land on the same worker. Bounded
+// impact either way: CI separately raises the login rate limit to 1000/min
+// (see RATE_LIMIT_LOGIN_MAX_ATTEMPTS in main.yml), so a cache miss just
+// costs one extra login, not a 65s rate-limit retry.
 const tokenCache = new Map<string, Promise<string>>();
 
 export async function loginAs(
