@@ -15,9 +15,15 @@ import { SEEDED_USERS, loginAs, authHeaders } from './support/api';
 const TINY_JPEG_BASE64 =
   'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/2wBDAQMDAwQDBAgEBAgQCwkLEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBD/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAj/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=';
 
+// Attendance dates are Asia/Ho_Chi_Minh-relative (see backend TimeUtil.UTC_PLUS_7); computing
+// "today" via the test runner's local/UTC clock can land on the wrong calendar day when CI
+// runs in UTC during the 17:00-23:59 UTC window (VN's next calendar day has already started).
+const vnToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+const vnWeekday = () => new Date(`${vnToday()}T00:00:00Z`).getUTCDay();
+
 test.describe('Real API — Optimistic locking on admin attendance override', () => {
   test.skip(
-    [0, 6].includes(new Date().getDay()),
+    [0, 6].includes(vnWeekday()),
     'Weekend check-in requires a pre-approved OT request; not set up by this fixture.'
   );
 
@@ -87,7 +93,7 @@ test.describe('Real API — Optimistic locking on admin attendance override', ()
       recordId = (await checkInRes.json()).id;
     }
 
-    const todayDate = new Date().toISOString().slice(0, 10);
+    const todayDate = vnToday();
     const overridePayload = (minute: number) => ({
       checkInTime: `${todayDate}T08:${String(minute).padStart(2, '0')}:00`,
       auditReason: `Optimistic lock race test override (minute ${minute})`,
