@@ -8,6 +8,7 @@ import com.itx.attendance.dto.request.CreateShiftRequest;
 import com.itx.attendance.dto.request.LoginRequest;
 import com.itx.attendance.repository.ShiftRepository;
 import com.itx.attendance.repository.UserRepository;
+import com.itx.attendance.support.ShiftFixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -72,11 +73,7 @@ class ShiftControllerIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void getShifts_withData_returnsPaginatedList() throws Exception {
-        shiftRepository.save(Shift.builder()
-            .name("Ca Sáng")
-            .shiftStartTime(LocalTime.of(8, 0))
-            .shiftEndTime(LocalTime.of(17, 0))
-            .build());
+        shiftRepository.save(ShiftFixtures.daySchedule().build());
         shiftRepository.save(Shift.builder()
             .name("Ca Chiều")
             .shiftStartTime(LocalTime.of(13, 0))
@@ -171,11 +168,7 @@ class ShiftControllerIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void createShift_duplicateName_returns409WithSHIFT_NAME_EXISTS() throws Exception {
-        shiftRepository.save(Shift.builder()
-            .name("Ca Sáng")
-            .shiftStartTime(LocalTime.of(8, 0))
-            .shiftEndTime(LocalTime.of(17, 0))
-            .build());
+        shiftRepository.save(ShiftFixtures.daySchedule().build());
 
         String body = objectMapper.writeValueAsString(new CreateShiftRequest(
             "Ca Sáng", LocalTime.of(9, 0), LocalTime.of(18, 0),
@@ -219,11 +212,7 @@ class ShiftControllerIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void updateShift_validRequest_returns200() throws Exception {
-        Shift existing = shiftRepository.save(Shift.builder()
-            .name("Ca Sáng")
-            .shiftStartTime(LocalTime.of(8, 0))
-            .shiftEndTime(LocalTime.of(17, 0))
-            .build());
+        Shift existing = shiftRepository.save(ShiftFixtures.daySchedule().build());
 
         String body = objectMapper.writeValueAsString(new CreateShiftRequest(
             "Ca Sáng (Cập nhật)", LocalTime.of(8, 30), LocalTime.of(17, 30),

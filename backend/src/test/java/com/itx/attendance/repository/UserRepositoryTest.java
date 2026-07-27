@@ -11,7 +11,7 @@ import org.springframework.test.context.TestPropertySource;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
 @TestPropertySource(properties = {
@@ -38,15 +38,15 @@ class UserRepositoryTest {
 
         Optional<User> found = userRepository.findByUsername("admin");
 
-        assertTrue(found.isPresent());
-        assertEquals(UserRole.ADMIN, found.get().getRole());
-        assertEquals("admin@itx.local", found.get().getEmail());
+        assertThat(found).isPresent();
+        assertThat(found.get().getRole()).isEqualTo(UserRole.ADMIN);
+        assertThat(found.get().getEmail()).isEqualTo("admin@itx.local");
     }
 
     @Test
     void findByUsername_returnsEmpty_whenNotExists() {
         Optional<User> found = userRepository.findByUsername("nonexistent");
-        assertTrue(found.isEmpty());
+        assertThat(found).isEmpty();
     }
 
     @Test
@@ -62,9 +62,9 @@ class UserRepositoryTest {
             .role(UserRole.EMPLOYEE).leader(leader).build());
 
         Optional<User> found = userRepository.findByUsername("emp1");
-        assertTrue(found.isPresent());
-        assertNotNull(found.get().getLeader());
-        assertEquals("leader1", found.get().getLeader().getUsername());
+        assertThat(found).isPresent();
+        assertThat(found.get().getLeader()).isNotNull();
+        assertThat(found.get().getLeader().getUsername()).isEqualTo("leader1");
     }
 
     @Test
@@ -74,8 +74,8 @@ class UserRepositoryTest {
             .passwordHash("hash").fullName("Admin").role(UserRole.ADMIN).build());
 
         Optional<User> found = userRepository.findByUsername("admin2");
-        assertTrue(found.isPresent());
-        assertNull(found.get().getLeader());
+        assertThat(found).isPresent();
+        assertThat(found.get().getLeader()).isNull();
     }
 
     @Test
@@ -88,6 +88,6 @@ class UserRepositoryTest {
             .passwordHash("h").fullName("L1").role(UserRole.LEADER).build());
 
         List<User> employees = userRepository.findByRole(UserRole.EMPLOYEE);
-        assertEquals(2, employees.size());
+        assertThat(employees).hasSize(2);
     }
 }

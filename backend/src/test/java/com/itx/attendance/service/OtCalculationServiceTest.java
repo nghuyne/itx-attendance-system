@@ -4,6 +4,7 @@ import com.itx.attendance.domain.*;
 import com.itx.attendance.repository.HolidayRepository;
 import com.itx.attendance.repository.OtRecordRepository;
 import com.itx.attendance.repository.OtRequestRepository;
+import com.itx.attendance.support.ShiftFixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,7 +15,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -49,13 +49,7 @@ class OtCalculationServiceTest {
             .role(UserRole.EMPLOYEE)
             .build();
 
-        shift = Shift.builder()
-            .id("shift-1")
-            .name("Ca Sáng")
-            .shiftStartTime(LocalTime.of(8, 0))
-            .shiftEndTime(LocalTime.of(17, 0))
-            .otBuffer(30)
-            .build();
+        shift = ShiftFixtures.daySchedule("shift-1", 30);
     }
 
     private AttendanceRecord makeRecord(AttendanceStatus status, LocalDateTime checkOutUtc, LocalDate date) {

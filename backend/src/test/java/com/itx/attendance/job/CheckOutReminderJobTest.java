@@ -4,6 +4,7 @@ import com.itx.attendance.domain.*;
 import com.itx.attendance.repository.AttendanceRecordRepository;
 import com.itx.attendance.repository.HolidayRepository;
 import com.itx.attendance.service.EmailService;
+import com.itx.attendance.support.ShiftFixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,7 +14,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -41,12 +41,7 @@ class CheckOutReminderJobTest {
 
     @BeforeEach
     void setUp() {
-        shift = Shift.builder()
-            .id("shift-1")
-            .name("Ca Sáng")
-            .shiftStartTime(LocalTime.of(8, 0))
-            .shiftEndTime(LocalTime.of(17, 0))
-            .build();
+        shift = ShiftFixtures.daySchedule("shift-1");
 
         employee = User.builder()
             .id("emp-1")

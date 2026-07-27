@@ -3,6 +3,7 @@ package com.itx.attendance.job;
 import com.itx.attendance.domain.*;
 import com.itx.attendance.repository.AttendanceRecordRepository;
 import com.itx.attendance.repository.NotificationRepository;
+import com.itx.attendance.support.ShiftFixtures;
 import com.itx.attendance.util.TimeUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,7 +17,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,13 +51,7 @@ class IncompleteAttendanceJobTest {
             .build();
 
         // Shift 08:00–17:00, ot_buffer=30 → grace cutoff = 17:00 + 30 + 30 = 18:00 VN
-        shift = Shift.builder()
-            .id("shift-1")
-            .name("Ca Sáng")
-            .shiftStartTime(LocalTime.of(8, 0))
-            .shiftEndTime(LocalTime.of(17, 0))
-            .otBuffer(30)
-            .build();
+        shift = ShiftFixtures.daySchedule("shift-1", 30);
     }
 
     private AttendanceRecord makeRecord(LocalDate date, ApprovalSubStatus subStatus) {
@@ -230,13 +224,7 @@ class IncompleteAttendanceJobTest {
         // Regression check: a naive LocalTime-only comparison wraps this cutoff to "01:00"
         // same-day, so any daytime "now" (e.g. 10:00, mid-shift) would incorrectly look
         // past cutoff and get marked INCOMPLETE hours before the shift even ends.
-        Shift overnightShift = Shift.builder()
-            .id("shift-overnight")
-            .name("Ca Đêm")
-            .shiftStartTime(LocalTime.of(22, 0))
-            .shiftEndTime(LocalTime.of(23, 30))
-            .otBuffer(60)
-            .build();
+        Shift overnightShift = ShiftFixtures.nightSchedule("shift-overnight");
 
         LocalDate fixedDate = LocalDate.of(2026, 6, 30);
         LocalDateTime fixedNowVn = LocalDateTime.of(2026, 6, 30, 10, 0); // mid-shift, well before real cutoff
@@ -262,13 +250,7 @@ class IncompleteAttendanceJobTest {
     @Test
     void markIncompleteRecords_overnightShiftPastRealCutoffNextDay_isMarkedIncomplete() {
         // Same shift as above; "now" is 01:01 the day after — past the real grace cutoff (01:00).
-        Shift overnightShift = Shift.builder()
-            .id("shift-overnight")
-            .name("Ca Đêm")
-            .shiftStartTime(LocalTime.of(22, 0))
-            .shiftEndTime(LocalTime.of(23, 30))
-            .otBuffer(60)
-            .build();
+        Shift overnightShift = ShiftFixtures.nightSchedule("shift-overnight");
 
         LocalDate fixedDate = LocalDate.of(2026, 6, 30);
         LocalDateTime fixedNowVn = LocalDateTime.of(2026, 7, 1, 1, 1);

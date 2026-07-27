@@ -10,6 +10,7 @@ import com.itx.attendance.repository.AuditLogRepository;
 import com.itx.attendance.repository.DepartmentRepository;
 import com.itx.attendance.repository.ShiftRepository;
 import com.itx.attendance.repository.UserRepository;
+import com.itx.attendance.support.ShiftFixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,11 +22,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.time.LocalTime;
-
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -98,15 +96,14 @@ class AdminUserManagementIntegrationTest extends AbstractIntegrationTest {
             .andExpect(jsonPath("$.mustChangePassword").value(true));
 
         User created = userRepository.findByUsername("new_emp").orElseThrow();
-        assertTrue(created.isMustChangePassword());
-        assertTrue(created.isActive());
+        assertThat(created.isMustChangePassword()).isTrue();
+        assertThat(created.isActive()).isTrue();
     }
 
     @Test
     void createUser_withDepartmentAndShift_returnsDeptAndShiftNames() throws Exception {
         Department dept = departmentRepository.save(Department.builder().name("Kỹ thuật").build());
-        Shift shift = shiftRepository.save(Shift.builder()
-            .name("Ca Sáng").shiftStartTime(LocalTime.of(8, 0)).shiftEndTime(LocalTime.of(17, 0)).build());
+        Shift shift = shiftRepository.save(ShiftFixtures.daySchedule().build());
 
         String body = objectMapper.writeValueAsString(new Object() {
             public final String username = "dept_emp";
@@ -215,8 +212,8 @@ class AdminUserManagementIntegrationTest extends AbstractIntegrationTest {
             .andExpect(status().isOk());
 
         User updated = userRepository.findById(employee.getId()).orElseThrow();
-        assertTrue(updated.isMustChangePassword());
-        assertFalse(oldHash.equals(updated.getPasswordHash()));
+        assertThat(updated.isMustChangePassword()).isTrue();
+        assertThat(updated.getPasswordHash()).isNotEqualTo(oldHash);
     }
 
     @Test

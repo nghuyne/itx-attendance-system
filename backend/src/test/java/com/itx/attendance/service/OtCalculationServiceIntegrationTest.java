@@ -2,6 +2,7 @@ package com.itx.attendance.service;
 
 import com.itx.attendance.domain.*;
 import com.itx.attendance.repository.*;
+import com.itx.attendance.support.ShiftFixtures;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -67,12 +67,7 @@ class OtCalculationServiceIntegrationTest {
         holidayRepository.deleteAll();
         userRepository.deleteAll();
 
-        shift = shiftRepository.save(Shift.builder()
-            .name("Ca Sáng")
-            .shiftStartTime(LocalTime.of(8, 0))
-            .shiftEndTime(LocalTime.of(17, 0))
-            .otBuffer(30)
-            .build());
+        shift = shiftRepository.save(ShiftFixtures.daySchedule(30));
 
         employee = userRepository.save(User.builder()
             .username("ot_snapshot_emp")
