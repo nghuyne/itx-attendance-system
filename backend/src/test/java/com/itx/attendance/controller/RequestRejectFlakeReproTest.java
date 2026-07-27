@@ -27,21 +27,23 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Diagnostic-only test (Hibernate flakiness investigation, backlog item 4:
+ * Regression guard for the Hibernate flakiness investigation (backlog item 4:
  * see _bmad-output/implementation-artifacts/investigations/hibernate-loadcontexts-flakiness-investigation.md).
+ * The root cause ("Illegal pop() with non-matching JdbcValuesSourceProcessingState",
+ * an entity crossing an {@code @Async} boundary) was found and fixed 2026-07-09; this
+ * class is kept as an intentional repro/regression guard rather than deleted as
+ * scaffolding, so the fix stays proven under the load pattern that originally
+ * surfaced it.
  *
  * Repeatedly calls PUT /api/requests/{id}/reject for a fresh OT request and a fresh Leave
- * request back-to-back, 40 times, in complete isolation from the rest of the suite (own H2
- * database, no other test class runs concurrently). Reject was chosen because it is the
+ * request back-to-back, 40 times. Shares the {@code sharedctxd} Spring context group (see
+ * {@code @TestPropertySource} below) rather than running in full isolation — the repro
+ * doesn't depend on being the only class on its H2 database, only on the chained
+ * pessimistic-lock probing within a single test method. Reject was chosen because it is the
  * deepest dispatch chain (Leave = 4 sequential PESSIMISTIC_WRITE probe queries on one
  * session, per RequestService.rejectRequest/253-302) and the two paths reported flaky in
  * the prior full-suite runs (rejectOtRequest, rejectLeaveRequest) are exactly the two
  * deepest branches.
- *
- * Goal: determine whether the chained pessimistic-lock probing is *sufficient on its own*
- * to reproduce "Illegal pop() with non-matching JdbcValuesSourceProcessingState" (Hypothesis 2),
- * independent of full-suite load / virtual threads (Hypothesis 1, tested separately by running
- * the full suite with -Dspring.threads.virtual.enabled=false).
  */
 @TestPropertySource(properties = {
     "spring.datasource.url=jdbc:h2:mem:sharedctxd;DB_CLOSE_DELAY=-1;MODE=MySQL;NON_KEYWORDS=YEAR"
