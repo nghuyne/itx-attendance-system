@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { seedAdminAuth } from '../support/auth';
+import { MOCK_EMPLOYEES } from '../support/fixtures';
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
@@ -15,11 +16,6 @@ const MOCK_RECORDS = [
 ];
 
 const MOCK_PAGE = { content: MOCK_RECORDS, totalElements: 1, totalPages: 1, size: 20, number: 0 };
-
-const MOCK_EMPLOYEES = [
-  { id: 'emp-1', username: 'emp1', fullName: 'Nguyen Van A' },
-  { id: 'emp-2', username: 'emp2', fullName: 'Tran Thi B' },
-];
 
 // ── Excel Export & Employee Filter (Story 7.2) ──────────────────────────────
 

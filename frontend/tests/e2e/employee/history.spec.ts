@@ -1,40 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { seedEmployeeAuth } from '../support/auth';
+import { makeAttendanceRecord, EMPTY_ATTENDANCE_PAGE as EMPTY_PAGE } from '../support/fixtures';
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
-function makeRecord(id: string, overrides: Record<string, unknown> = {}) {
-  return {
-    id,
-    employeeId: 'emp-id',
-    shiftId: 'shift-1',
-    shiftName: 'Ca Sáng',
-    shiftStartTime: '08:00',
-    shiftEndTime: '17:00',
-    date: '2026-06-30',
-    checkInTime: '2026-06-30T01:10:00',
-    checkInIp: '203.0.113.10',
-    checkInLat: 10.77,
-    checkInLng: 106.69,
-    checkInPhotoUrl: `emp-id/2026-06-30/checkin_${id}.jpg`,
-    checkOutTime: '2026-06-30T10:00:00',
-    checkOutIp: null,
-    checkOutLat: null,
-    checkOutLng: null,
-    checkOutPhotoUrl: null,
-    attendanceStatus: 'ON_TIME',
-    approvalSubStatus: null,
-    isClientSite: false,
-    gpsUnavailable: false,
-    suspiciousLocation: false,
-    isAdminOverride: false,
-    version: 0,
-    createdAt: '2026-06-30T01:10:00',
-    ...overrides,
-  };
-}
-
-const EMPTY_PAGE = { content: [], totalElements: 0, totalPages: 0, size: 20, number: 0 };
+const makeRecord = makeAttendanceRecord;
 
 // ── History Page ──────────────────────────────────────────────────────────
 

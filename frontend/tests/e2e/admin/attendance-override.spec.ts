@@ -1,34 +1,13 @@
 import { test, expect } from '@playwright/test';
 import { seedAdminAuth } from '../support/auth';
+import {
+  TWO_ATTENDANCE_RECORDS as MOCK_RECORDS,
+  TWO_ATTENDANCE_RECORDS_PAGE as MOCK_PAGE,
+  EMPTY_ATTENDANCE_PAGE as EMPTY_PAGE,
+  MOCK_EMPLOYEES,
+} from '../support/fixtures';
 
 // ── helpers ───────────────────────────────────────────────────────────────
-
-const MOCK_RECORDS = [
-  {
-    id: 'rec-1', employeeId: 'emp-1', employeeName: 'Nguyen Van A',
-    shiftId: 'shift-1', shiftName: 'Ca Sáng', date: '2026-06-15',
-    checkInTime: '2026-06-15T01:05:00', checkOutTime: '2026-06-15T10:00:00',
-    checkInPhotoUrl: 'https://cdn.itx.local/photos/old.jpg', checkOutPhotoUrl: null,
-    attendanceStatus: 'LATE_IN', approvalSubStatus: 'APPROVED',
-    isAdminOverride: false, version: 0, createdAt: '2026-06-15T01:05:00',
-  },
-  {
-    id: 'rec-2', employeeId: 'emp-2', employeeName: 'Tran Thi B',
-    shiftId: 'shift-1', shiftName: 'Ca Sáng', date: '2026-06-15',
-    checkInTime: null, checkOutTime: null,
-    checkInPhotoUrl: null, checkOutPhotoUrl: null,
-    attendanceStatus: 'ABSENT', approvalSubStatus: 'ADMIN_OVERRIDE',
-    isAdminOverride: true, version: 1, createdAt: '2026-06-15T00:00:00',
-  },
-];
-
-const MOCK_PAGE = { content: MOCK_RECORDS, totalElements: 2, totalPages: 1, size: 20, number: 0 };
-const EMPTY_PAGE = { content: [], totalElements: 0, totalPages: 0, size: 20, number: 0 };
-
-const MOCK_EMPLOYEES = [
-  { id: 'emp-1', username: 'emp1', fullName: 'Nguyen Van A' },
-  { id: 'emp-2', username: 'emp2', fullName: 'Tran Thi B' },
-];
 
 // ── Admin Manual Override of Attendance Records (Story 5.1) ────────────────
 

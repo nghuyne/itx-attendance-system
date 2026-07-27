@@ -1,38 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { seedEmployeeAuth } from '../support/auth';
+import { makeAttendanceRecord } from '../support/fixtures';
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
-function makeRecord(id: string, overrides: Record<string, unknown> = {}) {
-  return {
-    id,
-    employeeId: 'emp-id',
-    shiftId: 'shift-1',
-    shiftName: 'Ca Sáng',
-    shiftStartTime: '08:00',
-    shiftEndTime: '17:00',
-    date: '2026-06-30',
-    checkInTime: '2026-06-30T01:10:00',
-    checkInIp: '203.0.113.10',
-    checkInLat: 10.77,
-    checkInLng: 106.69,
-    checkInPhotoUrl: null,
-    checkOutTime: '2026-06-30T10:00:00',
-    checkOutIp: null,
-    checkOutLat: null,
-    checkOutLng: null,
-    checkOutPhotoUrl: null,
-    attendanceStatus: 'ON_TIME',
-    approvalSubStatus: null,
-    isClientSite: false,
-    gpsUnavailable: false,
-    suspiciousLocation: false,
-    isAdminOverride: false,
-    version: 0,
-    createdAt: '2026-06-30T01:10:00',
-    ...overrides,
-  };
-}
+const makeRecord = makeAttendanceRecord;
 
 const latePage = (id = 'rec-late') => ({
   content: [makeRecord(id, { attendanceStatus: 'LATE_IN' })],

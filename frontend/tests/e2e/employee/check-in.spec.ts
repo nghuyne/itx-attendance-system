@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { seedEmployeeAuth } from '../support/auth';
+import { makeAttendanceRecord } from '../support/fixtures';
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
@@ -13,36 +14,7 @@ async function capturePhoto(page: import('@playwright/test').Page) {
   await expect(page.getByRole('button', { name: 'Chụp lại' })).toBeVisible();
 }
 
-function makeRecord(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'rec-1',
-    employeeId: 'emp-id',
-    shiftId: 'shift-1',
-    shiftName: 'Ca Sáng',
-    shiftStartTime: '08:00',
-    shiftEndTime: '17:00',
-    date: '2026-06-30',
-    checkInTime: '2026-06-30T01:10:00',
-    checkInIp: '203.0.113.10',
-    checkInLat: 10.77,
-    checkInLng: 106.69,
-    checkInPhotoUrl: 'emp-id/2026-06-30/checkin_abc.jpg',
-    checkOutTime: null,
-    checkOutIp: null,
-    checkOutLat: null,
-    checkOutLng: null,
-    checkOutPhotoUrl: null,
-    attendanceStatus: 'ON_TIME',
-    approvalSubStatus: null,
-    isClientSite: false,
-    gpsUnavailable: false,
-    suspiciousLocation: false,
-    isAdminOverride: false,
-    version: 0,
-    createdAt: '2026-06-30T01:10:00',
-    ...overrides,
-  };
-}
+const makeRecord = (overrides: Record<string, unknown> = {}) => makeAttendanceRecord('rec-1', overrides);
 
 // ── Check-in Page ─────────────────────────────────────────────────────────
 

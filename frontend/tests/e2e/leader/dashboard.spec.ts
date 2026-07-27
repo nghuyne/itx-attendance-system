@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { seedLeaderAuth } from '../support/auth';
+import { makeExceptionRequest } from '../support/fixtures';
 
 // ── helpers ───────────────────────────────────────────────────────────────
 
@@ -22,33 +23,7 @@ function makeRosterItem(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function makeRequest(id: string, overrides: Record<string, unknown> = {}) {
-  return {
-    id,
-    requestCategory: 'EXCEPTION',
-    employeeId: 'emp-1',
-    employeeName: 'Nguyen Van A',
-    attendanceRecordId: 'rec-1',
-    attendanceDate: '2026-06-30',
-    requestType: 'LATE_IN',
-    proposedCheckoutTime: null,
-    checkInTime: '2026-06-30T01:30:00',
-    checkOutTime: null,
-    reason: 'Lý do xin ngoại lệ hợp lý và chi tiết',
-    status: 'PENDING',
-    reviewedBy: null,
-    reviewReason: null,
-    createdAt: '2026-06-30T02:00:00',
-    updatedAt: '2026-06-30T02:00:00',
-    leaveType: null,
-    startDate: null,
-    endDate: null,
-    totalDays: null,
-    plannedDate: null,
-    plannedOtHours: null,
-    ...overrides,
-  };
-}
+const makeRequest = makeExceptionRequest;
 
 // ── Leader Dashboard ──────────────────────────────────────────────────────
 
