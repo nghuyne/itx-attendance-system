@@ -5,6 +5,8 @@ import com.itx.attendance.domain.*;
 import com.itx.attendance.dto.request.LoginRequest;
 import com.itx.attendance.repository.*;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -95,379 +97,385 @@ class AdminOverrideControllerIntegrationTest extends AbstractIntegrationTest {
         employeeToken = loginAndGetToken("ov_employee", "emp123");
     }
 
-    // ── PUT /api/admin/attendance/{id}/override ─────────────────────────────
+    @Nested
+    @DisplayName("PUT /api/admin/attendance/{id}/override")
+    class OverrideAttendance {
 
-    @Test
-    void override_validTimesBothProvided_recalculatesStatusAndWritesAuditLogs() throws Exception {
-        AttendanceRecord record = attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee)
-            .shift(shift)
-            .date(LocalDate.of(2026, 6, 15))
-            .checkInTime(LocalDateTime.of(2026, 6, 15, 1, 0))   // 08:00 VN
-            .checkOutTime(LocalDateTime.of(2026, 6, 15, 10, 0)) // 17:00 VN
-            .attendanceStatus(AttendanceStatus.ON_TIME)
-            .build());
+        @Test
+        void override_validTimesBothProvided_recalculatesStatusAndWritesAuditLogs() throws Exception {
+            AttendanceRecord record = attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee)
+                .shift(shift)
+                .date(LocalDate.of(2026, 6, 15))
+                .checkInTime(LocalDateTime.of(2026, 6, 15, 1, 0))   // 08:00 VN
+                .checkOutTime(LocalDateTime.of(2026, 6, 15, 10, 0)) // 17:00 VN
+                .attendanceStatus(AttendanceStatus.ON_TIME)
+                .build());
 
-        String body = objectMapper.writeValueAsString(Map.of(
-            "checkInTime", "2026-06-15T08:30:00",  // 08:30 VN local -> stored as-is
-            "auditReason", "Nhân viên quên chấm công đúng giờ, xác nhận qua camera"
-        ));
+            String body = objectMapper.writeValueAsString(Map.of(
+                "checkInTime", "2026-06-15T08:30:00",  // 08:30 VN local -> stored as-is
+                "auditReason", "Nhân viên quên chấm công đúng giờ, xác nhận qua camera"
+            ));
 
-        mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.isAdminOverride").value(true))
-            .andExpect(jsonPath("$.approvalSubStatus").value("ADMIN_OVERRIDE"));
+            mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isAdminOverride").value(true))
+                .andExpect(jsonPath("$.approvalSubStatus").value("ADMIN_OVERRIDE"));
 
-        assertThat(auditLogRepository.findAll()).isNotEmpty();
-        assertThat(auditLogRepository.findAll())
-            .anyMatch(log -> log.getFieldChanged().equals("check_in_time")
-                && log.getReason().equals("Nhân viên quên chấm công đúng giờ, xác nhận qua camera"));
+            assertThat(auditLogRepository.findAll()).isNotEmpty();
+            assertThat(auditLogRepository.findAll())
+                .anyMatch(log -> log.getFieldChanged().equals("check_in_time")
+                    && log.getReason().equals("Nhân viên quên chấm công đúng giờ, xác nhận qua camera"));
+        }
+
+        @Test
+        void override_blankAuditReason_returns400() throws Exception {
+            AttendanceRecord record = createRecord();
+
+            String body = objectMapper.writeValueAsString(Map.of(
+                "checkInTime", "2026-06-15T08:00:00",
+                "auditReason", ""
+            ));
+
+            mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        void override_auditReasonTooShort_returns400() throws Exception {
+            AttendanceRecord record = createRecord();
+
+            String body = objectMapper.writeValueAsString(Map.of(
+                "checkInTime", "2026-06-15T08:00:00",
+                "auditReason", "quá ngắn"
+            ));
+
+            mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        void override_nonAdmin_returns403WithForbiddenBody() throws Exception {
+            AttendanceRecord record = createRecord();
+
+            String body = objectMapper.writeValueAsString(Map.of(
+                "checkInTime", "2026-06-15T08:00:00",
+                "auditReason", "Sửa lại giờ vào cho đúng thực tế"
+            ));
+
+            mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+        }
+
+        @Test
+        void override_recordNotFound_returns404WithRECORD_NOT_FOUND() throws Exception {
+            String body = objectMapper.writeValueAsString(Map.of(
+                "checkInTime", "2026-06-15T08:00:00",
+                "auditReason", "Sửa lại giờ vào cho đúng thực tế"
+            ));
+
+            mockMvc.perform(put("/api/admin/attendance/nonexistent-id/override")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("RECORD_NOT_FOUND"));
+        }
+
+        @Test
+        void override_statusAndTimeBothProvided_returns400WithAMBIGUOUS_OVERRIDE() throws Exception {
+            AttendanceRecord record = createRecord();
+
+            String body = objectMapper.writeValueAsString(Map.of(
+                "checkInTime", "2026-06-15T08:00:00",
+                "attendanceStatus", "ON_TIME",
+                "auditReason", "Sửa lại giờ vào cho đúng thực tế"
+            ));
+
+            mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("AMBIGUOUS_OVERRIDE"));
+        }
+
+        @Test
+        void override_checkOutBeforeCheckIn_returns400WithINVALID_TIME_RANGE() throws Exception {
+            AttendanceRecord record = createRecord();
+
+            String body = objectMapper.writeValueAsString(Map.of(
+                "checkInTime", "2026-06-15T17:00:00",
+                "checkOutTime", "2026-06-15T08:00:00",
+                "auditReason", "Thử nghiệm giờ ra trước giờ vào"
+            ));
+
+            mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_TIME_RANGE"));
+        }
+
+        @Test
+        void override_absentRecordWithBothTimes_recalculatesToComputedStatus() throws Exception {
+            AttendanceRecord record = attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee)
+                .shift(shift)
+                .date(LocalDate.of(2026, 6, 16))
+                .attendanceStatus(AttendanceStatus.ABSENT)
+                .build());
+
+            String body = objectMapper.writeValueAsString(Map.of(
+                "checkInTime", "2026-06-16T01:00:00",  // 08:00 VN
+                "checkOutTime", "2026-06-16T10:00:00", // 17:00 VN
+                "auditReason", "Nhân viên có mặt thực tế, admin bổ sung dữ liệu chấm công"
+            ));
+
+            mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attendanceStatus").value("ON_TIME"))
+                .andExpect(jsonPath("$.isAdminOverride").value(true));
+        }
+
+        @Test
+        void override_onlyCheckInTimeNoCheckout_statusIsNotOverwrittenToIncomplete() throws Exception {
+            AttendanceRecord record = attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee)
+                .shift(shift)
+                .date(LocalDate.of(2026, 6, 17))
+                .attendanceStatus(AttendanceStatus.ABSENT)
+                .build());
+
+            String body = objectMapper.writeValueAsString(Map.of(
+                "checkInTime", "2026-06-17T01:00:00",
+                "auditReason", "Chỉ bổ sung giờ vào, chưa có giờ ra"
+            ));
+
+            mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attendanceStatus").value("ABSENT"))
+                .andExpect(jsonPath("$.isAdminOverride").value(true));
+        }
+
+        @Test
+        void override_explicitStatusOnly_updatesStatusDirectlyWithoutTimeChange() throws Exception {
+            AttendanceRecord record = createRecord();
+
+            String body = objectMapper.writeValueAsString(Map.of(
+                "attendanceStatus", "EXCUSED",
+                "auditReason", "Nhân viên nghỉ có phép, admin cập nhật trạng thái"
+            ));
+
+            mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attendanceStatus").value("EXCUSED"));
+        }
+
+        @Test
+        void override_photoUrlOnly_updatesCheckInPhotoUrlAndWritesAuditLog() throws Exception {
+            AttendanceRecord record = createRecord();
+
+            String body = objectMapper.writeValueAsString(Map.of(
+                "photoUrl", "https://cdn.itx.local/photos/new.jpg",
+                "auditReason", "Ảnh gốc bị lỗi, admin thay ảnh minh chứng khác"
+            ));
+
+            mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.checkInPhotoUrl").value("https://cdn.itx.local/photos/new.jpg"));
+
+            assertThat(auditLogRepository.findAll())
+                .anyMatch(log -> log.getFieldChanged().equals("check_in_photo_url"));
+        }
     }
 
-    @Test
-    void override_blankAuditReason_returns400() throws Exception {
-        AttendanceRecord record = createRecord();
+    @Nested
+    @DisplayName("GET /api/admin/attendance")
+    class SearchAttendance {
 
-        String body = objectMapper.writeValueAsString(Map.of(
-            "checkInTime", "2026-06-15T08:00:00",
-            "auditReason", ""
-        ));
+        @Test
+        void searchAttendance_returnsPaginatedRecordsWithinRange() throws Exception {
+            attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee).shift(shift)
+                .date(LocalDate.of(2026, 6, 15))
+                .attendanceStatus(AttendanceStatus.ON_TIME)
+                .build());
+            attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee).shift(shift)
+                .date(LocalDate.of(2026, 6, 16))
+                .attendanceStatus(AttendanceStatus.LATE_IN)
+                .build());
 
-        mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isBadRequest());
-    }
+            mockMvc.perform(get("/api/admin/attendance")
+                    .param("from", "2026-06-15")
+                    .param("to", "2026-06-16")
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.totalElements").value(2));
+        }
 
-    @Test
-    void override_auditReasonTooShort_returns400() throws Exception {
-        AttendanceRecord record = createRecord();
+        @Test
+        void searchAttendance_filterByEmployeeId_returnsOnlyMatchingRecords() throws Exception {
+            User otherEmployee = userRepository.save(User.builder()
+                .username("ov_employee2")
+                .email("ov_employee2@itx.local")
+                .passwordHash(passwordEncoder.encode("emp123"))
+                .fullName("Other Employee")
+                .role(UserRole.EMPLOYEE)
+                .shift(shift)
+                .build());
 
-        String body = objectMapper.writeValueAsString(Map.of(
-            "checkInTime", "2026-06-15T08:00:00",
-            "auditReason", "quá ngắn"
-        ));
+            attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee).shift(shift)
+                .date(LocalDate.of(2026, 6, 15))
+                .attendanceStatus(AttendanceStatus.ON_TIME)
+                .build());
+            attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(otherEmployee).shift(shift)
+                .date(LocalDate.of(2026, 6, 15))
+                .attendanceStatus(AttendanceStatus.LATE_IN)
+                .build());
 
-        mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isBadRequest());
-    }
+            mockMvc.perform(get("/api/admin/attendance")
+                    .param("from", "2026-06-15")
+                    .param("to", "2026-06-15")
+                    .param("employeeId", employee.getId())
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].employeeId").value(employee.getId()));
+        }
 
-    @Test
-    void override_nonAdmin_returns403WithForbiddenBody() throws Exception {
-        AttendanceRecord record = createRecord();
+        @Test
+        void searchAttendance_filterByStatus_returnsOnlyMatchingStatus() throws Exception {
+            attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee).shift(shift)
+                .date(LocalDate.of(2026, 6, 15))
+                .attendanceStatus(AttendanceStatus.ON_TIME)
+                .build());
+            attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee).shift(shift)
+                .date(LocalDate.of(2026, 6, 16))
+                .attendanceStatus(AttendanceStatus.LATE_IN)
+                .build());
 
-        String body = objectMapper.writeValueAsString(Map.of(
-            "checkInTime", "2026-06-15T08:00:00",
-            "auditReason", "Sửa lại giờ vào cho đúng thực tế"
-        ));
+            mockMvc.perform(get("/api/admin/attendance")
+                    .param("from", "2026-06-15")
+                    .param("to", "2026-06-16")
+                    .param("status", "LATE_IN")
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].attendanceStatus").value("LATE_IN"));
+        }
 
-        mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isForbidden())
-            .andExpect(jsonPath("$.error").value("FORBIDDEN"));
-    }
+        @Test
+        void searchAttendance_multipleStatuses_returnsRecordsMatchingEitherStatus() throws Exception {
+            attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee).shift(shift)
+                .date(LocalDate.of(2026, 6, 15))
+                .attendanceStatus(AttendanceStatus.ON_TIME)
+                .build());
+            attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee).shift(shift)
+                .date(LocalDate.of(2026, 6, 16))
+                .attendanceStatus(AttendanceStatus.LATE_IN)
+                .build());
+            attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee).shift(shift)
+                .date(LocalDate.of(2026, 6, 17))
+                .attendanceStatus(AttendanceStatus.ABSENT)
+                .build());
 
-    @Test
-    void override_recordNotFound_returns404WithRECORD_NOT_FOUND() throws Exception {
-        String body = objectMapper.writeValueAsString(Map.of(
-            "checkInTime", "2026-06-15T08:00:00",
-            "auditReason", "Sửa lại giờ vào cho đúng thực tế"
-        ));
+            mockMvc.perform(get("/api/admin/attendance")
+                    .param("from", "2026-06-15")
+                    .param("to", "2026-06-17")
+                    .param("status", "LATE_IN", "ABSENT")
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.content[*].attendanceStatus", containsInAnyOrder("LATE_IN", "ABSENT")));
+        }
 
-        mockMvc.perform(put("/api/admin/attendance/nonexistent-id/override")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isNotFound())
-            .andExpect(jsonPath("$.error").value("RECORD_NOT_FOUND"));
-    }
+        @Test
+        void searchAttendance_noStatusParam_returnsAllStatuses() throws Exception {
+            attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee).shift(shift)
+                .date(LocalDate.of(2026, 6, 15))
+                .attendanceStatus(AttendanceStatus.ON_TIME)
+                .build());
+            attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee).shift(shift)
+                .date(LocalDate.of(2026, 6, 16))
+                .attendanceStatus(AttendanceStatus.LATE_IN)
+                .build());
 
-    @Test
-    void override_statusAndTimeBothProvided_returns400WithAMBIGUOUS_OVERRIDE() throws Exception {
-        AttendanceRecord record = createRecord();
+            mockMvc.perform(get("/api/admin/attendance")
+                    .param("from", "2026-06-15")
+                    .param("to", "2026-06-16")
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)));
+        }
 
-        String body = objectMapper.writeValueAsString(Map.of(
-            "checkInTime", "2026-06-15T08:00:00",
-            "attendanceStatus", "ON_TIME",
-            "auditReason", "Sửa lại giờ vào cho đúng thực tế"
-        ));
+        @Test
+        void searchAttendance_invalidStatusValue_returns400WithINVALID_STATUS() throws Exception {
+            mockMvc.perform(get("/api/admin/attendance")
+                    .param("from", "2026-06-15")
+                    .param("to", "2026-06-16")
+                    .param("status", "NOT_A_REAL_STATUS")
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_STATUS"));
+        }
 
-        mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("AMBIGUOUS_OVERRIDE"));
-    }
+        @Test
+        void searchAttendance_fromAfterTo_returns400WithINVALID_DATE_RANGE() throws Exception {
+            mockMvc.perform(get("/api/admin/attendance")
+                    .param("from", "2026-06-16")
+                    .param("to", "2026-06-15")
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_DATE_RANGE"));
+        }
 
-    @Test
-    void override_checkOutBeforeCheckIn_returns400WithINVALID_TIME_RANGE() throws Exception {
-        AttendanceRecord record = createRecord();
-
-        String body = objectMapper.writeValueAsString(Map.of(
-            "checkInTime", "2026-06-15T17:00:00",
-            "checkOutTime", "2026-06-15T08:00:00",
-            "auditReason", "Thử nghiệm giờ ra trước giờ vào"
-        ));
-
-        mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("INVALID_TIME_RANGE"));
-    }
-
-    @Test
-    void override_absentRecordWithBothTimes_recalculatesToComputedStatus() throws Exception {
-        AttendanceRecord record = attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee)
-            .shift(shift)
-            .date(LocalDate.of(2026, 6, 16))
-            .attendanceStatus(AttendanceStatus.ABSENT)
-            .build());
-
-        String body = objectMapper.writeValueAsString(Map.of(
-            "checkInTime", "2026-06-16T01:00:00",  // 08:00 VN
-            "checkOutTime", "2026-06-16T10:00:00", // 17:00 VN
-            "auditReason", "Nhân viên có mặt thực tế, admin bổ sung dữ liệu chấm công"
-        ));
-
-        mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.attendanceStatus").value("ON_TIME"))
-            .andExpect(jsonPath("$.isAdminOverride").value(true));
-    }
-
-    @Test
-    void override_onlyCheckInTimeNoCheckout_statusIsNotOverwrittenToIncomplete() throws Exception {
-        AttendanceRecord record = attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee)
-            .shift(shift)
-            .date(LocalDate.of(2026, 6, 17))
-            .attendanceStatus(AttendanceStatus.ABSENT)
-            .build());
-
-        String body = objectMapper.writeValueAsString(Map.of(
-            "checkInTime", "2026-06-17T01:00:00",
-            "auditReason", "Chỉ bổ sung giờ vào, chưa có giờ ra"
-        ));
-
-        mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.attendanceStatus").value("ABSENT"))
-            .andExpect(jsonPath("$.isAdminOverride").value(true));
-    }
-
-    @Test
-    void override_explicitStatusOnly_updatesStatusDirectlyWithoutTimeChange() throws Exception {
-        AttendanceRecord record = createRecord();
-
-        String body = objectMapper.writeValueAsString(Map.of(
-            "attendanceStatus", "EXCUSED",
-            "auditReason", "Nhân viên nghỉ có phép, admin cập nhật trạng thái"
-        ));
-
-        mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.attendanceStatus").value("EXCUSED"));
-    }
-
-    @Test
-    void override_photoUrlOnly_updatesCheckInPhotoUrlAndWritesAuditLog() throws Exception {
-        AttendanceRecord record = createRecord();
-
-        String body = objectMapper.writeValueAsString(Map.of(
-            "photoUrl", "https://cdn.itx.local/photos/new.jpg",
-            "auditReason", "Ảnh gốc bị lỗi, admin thay ảnh minh chứng khác"
-        ));
-
-        mockMvc.perform(put("/api/admin/attendance/" + record.getId() + "/override")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.checkInPhotoUrl").value("https://cdn.itx.local/photos/new.jpg"));
-
-        assertThat(auditLogRepository.findAll())
-            .anyMatch(log -> log.getFieldChanged().equals("check_in_photo_url"));
-    }
-
-    // ── GET /api/admin/attendance ─────────────────────────────────────────────
-
-    @Test
-    void searchAttendance_returnsPaginatedRecordsWithinRange() throws Exception {
-        attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee).shift(shift)
-            .date(LocalDate.of(2026, 6, 15))
-            .attendanceStatus(AttendanceStatus.ON_TIME)
-            .build());
-        attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee).shift(shift)
-            .date(LocalDate.of(2026, 6, 16))
-            .attendanceStatus(AttendanceStatus.LATE_IN)
-            .build());
-
-        mockMvc.perform(get("/api/admin/attendance")
-                .param("from", "2026-06-15")
-                .param("to", "2026-06-16")
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.content", hasSize(2)))
-            .andExpect(jsonPath("$.totalElements").value(2));
-    }
-
-    @Test
-    void searchAttendance_filterByEmployeeId_returnsOnlyMatchingRecords() throws Exception {
-        User otherEmployee = userRepository.save(User.builder()
-            .username("ov_employee2")
-            .email("ov_employee2@itx.local")
-            .passwordHash(passwordEncoder.encode("emp123"))
-            .fullName("Other Employee")
-            .role(UserRole.EMPLOYEE)
-            .shift(shift)
-            .build());
-
-        attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee).shift(shift)
-            .date(LocalDate.of(2026, 6, 15))
-            .attendanceStatus(AttendanceStatus.ON_TIME)
-            .build());
-        attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(otherEmployee).shift(shift)
-            .date(LocalDate.of(2026, 6, 15))
-            .attendanceStatus(AttendanceStatus.LATE_IN)
-            .build());
-
-        mockMvc.perform(get("/api/admin/attendance")
-                .param("from", "2026-06-15")
-                .param("to", "2026-06-15")
-                .param("employeeId", employee.getId())
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.content", hasSize(1)))
-            .andExpect(jsonPath("$.content[0].employeeId").value(employee.getId()));
-    }
-
-    @Test
-    void searchAttendance_filterByStatus_returnsOnlyMatchingStatus() throws Exception {
-        attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee).shift(shift)
-            .date(LocalDate.of(2026, 6, 15))
-            .attendanceStatus(AttendanceStatus.ON_TIME)
-            .build());
-        attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee).shift(shift)
-            .date(LocalDate.of(2026, 6, 16))
-            .attendanceStatus(AttendanceStatus.LATE_IN)
-            .build());
-
-        mockMvc.perform(get("/api/admin/attendance")
-                .param("from", "2026-06-15")
-                .param("to", "2026-06-16")
-                .param("status", "LATE_IN")
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.content", hasSize(1)))
-            .andExpect(jsonPath("$.content[0].attendanceStatus").value("LATE_IN"));
-    }
-
-    @Test
-    void searchAttendance_multipleStatuses_returnsRecordsMatchingEitherStatus() throws Exception {
-        attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee).shift(shift)
-            .date(LocalDate.of(2026, 6, 15))
-            .attendanceStatus(AttendanceStatus.ON_TIME)
-            .build());
-        attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee).shift(shift)
-            .date(LocalDate.of(2026, 6, 16))
-            .attendanceStatus(AttendanceStatus.LATE_IN)
-            .build());
-        attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee).shift(shift)
-            .date(LocalDate.of(2026, 6, 17))
-            .attendanceStatus(AttendanceStatus.ABSENT)
-            .build());
-
-        mockMvc.perform(get("/api/admin/attendance")
-                .param("from", "2026-06-15")
-                .param("to", "2026-06-17")
-                .param("status", "LATE_IN", "ABSENT")
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.content", hasSize(2)))
-            .andExpect(jsonPath("$.content[*].attendanceStatus", containsInAnyOrder("LATE_IN", "ABSENT")));
-    }
-
-    @Test
-    void searchAttendance_noStatusParam_returnsAllStatuses() throws Exception {
-        attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee).shift(shift)
-            .date(LocalDate.of(2026, 6, 15))
-            .attendanceStatus(AttendanceStatus.ON_TIME)
-            .build());
-        attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee).shift(shift)
-            .date(LocalDate.of(2026, 6, 16))
-            .attendanceStatus(AttendanceStatus.LATE_IN)
-            .build());
-
-        mockMvc.perform(get("/api/admin/attendance")
-                .param("from", "2026-06-15")
-                .param("to", "2026-06-16")
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.content", hasSize(2)));
-    }
-
-    @Test
-    void searchAttendance_invalidStatusValue_returns400WithINVALID_STATUS() throws Exception {
-        mockMvc.perform(get("/api/admin/attendance")
-                .param("from", "2026-06-15")
-                .param("to", "2026-06-16")
-                .param("status", "NOT_A_REAL_STATUS")
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("INVALID_STATUS"));
-    }
-
-    @Test
-    void searchAttendance_fromAfterTo_returns400WithINVALID_DATE_RANGE() throws Exception {
-        mockMvc.perform(get("/api/admin/attendance")
-                .param("from", "2026-06-16")
-                .param("to", "2026-06-15")
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("INVALID_DATE_RANGE"));
-    }
-
-    @Test
-    void searchAttendance_nonAdmin_returns403() throws Exception {
-        mockMvc.perform(get("/api/admin/attendance")
-                .param("from", "2026-06-15")
-                .param("to", "2026-06-16")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isForbidden())
-            .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+        @Test
+        void searchAttendance_nonAdmin_returns403() throws Exception {
+            mockMvc.perform(get("/api/admin/attendance")
+                    .param("from", "2026-06-15")
+                    .param("to", "2026-06-16")
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("FORBIDDEN"));
+        }
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

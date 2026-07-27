@@ -8,6 +8,8 @@ import com.itx.attendance.dto.request.LoginRequest;
 import com.itx.attendance.repository.*;
 import com.itx.attendance.util.TimeUtil;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -98,470 +100,491 @@ class AttendanceControllerIntegrationTest extends AbstractIntegrationTest {
         employeeToken = loginAndGetToken("att_employee", "emp123");
     }
 
-    // ── POST /api/attendance/check-in ───────────────────────────────────────
+    @Nested
+    @DisplayName("POST /api/attendance/check-in")
+    class CheckIn {
 
-    @Test
-    void checkIn_validPayload_returns201WithRecord() throws Exception {
-        // lat/lng null → skips OfficeLocationService.validateRadius() call
-        String body = objectMapper.writeValueAsString(
-            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+        @Test
+        void checkIn_validPayload_returns201WithRecord() throws Exception {
+            // lat/lng null → skips OfficeLocationService.validateRadius() call
+            String body = objectMapper.writeValueAsString(
+                new CheckInRequest(null, null, FAKE_PHOTO, false, null));
 
-        mockMvc.perform(post("/api/attendance/check-in")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.id").isNotEmpty())
-            .andExpect(jsonPath("$.attendanceStatus").isNotEmpty())
-            .andExpect(jsonPath("$.isClientSite").value(false))
-            .andExpect(jsonPath("$.gpsUnavailable").value(true));
+            mockMvc.perform(post("/api/attendance/check-in")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").isNotEmpty())
+                .andExpect(jsonPath("$.attendanceStatus").isNotEmpty())
+                .andExpect(jsonPath("$.isClientSite").value(false))
+                .andExpect(jsonPath("$.gpsUnavailable").value(true));
+        }
+
+        @Test
+        void checkIn_photoUploadFails_stillReturns201AndRecordIsQueryable() throws Exception {
+            // P0-006 / R-007: MinIO is unreachable in this test env (see class Javadoc) — every
+            // check-in here already exercises PhotoService.uploadPhotoAsync's failure path via
+            // .exceptionally(). This test names and locks that degraded-mode contract explicitly:
+            // a photo-upload failure must not block check-in, and the record (with its
+            // optimistically assigned photo key) must still be created and queryable afterward.
+            String body = objectMapper.writeValueAsString(
+                new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+
+            mockMvc.perform(post("/api/attendance/check-in")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.checkInPhotoUrl").isNotEmpty());
+
+            mockMvc.perform(get("/api/attendance/today")
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.checkInPhotoUrl").isNotEmpty());
+        }
+
+        @Test
+        void checkIn_withGps_setsGpsUnavailableFalse() throws Exception {
+            // GPS provided + no active office locations → validateRadius returns early (passes)
+            String body = objectMapper.writeValueAsString(
+                new CheckInRequest(10.77, 106.69, FAKE_PHOTO, false, null));
+
+            mockMvc.perform(post("/api/attendance/check-in")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.gpsUnavailable").value(false));
+        }
+
+        @Test
+        void checkIn_noShiftAssigned_returns400WithNO_SHIFT_ASSIGNED() throws Exception {
+            User noShiftEmp = userRepository.save(User.builder()
+                .username("no_shift_emp")
+                .email("no_shift@itx.local")
+                .passwordHash(passwordEncoder.encode("emp123"))
+                .fullName("No Shift Employee")
+                .role(UserRole.EMPLOYEE)
+                .build());
+            String noShiftToken = loginAndGetToken("no_shift_emp", "emp123");
+
+            String body = objectMapper.writeValueAsString(
+                new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+
+            mockMvc.perform(post("/api/attendance/check-in")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + noShiftToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("NO_SHIFT_ASSIGNED"));
+        }
+
+        @Test
+        void checkIn_duplicateOnSameDay_returns409WithALREADY_CHECKED_IN() throws Exception {
+            // Must match AttendanceService's zone (UTC_PLUS_7) — JVM-default-zone LocalDate.now()
+            // would seed a different calendar date during the UTC 17:00-23:59 window, making the
+            // duplicate-check-in guard miss the fixture and this test flake on UTC-zoned CI.
+            LocalDate today = LocalDate.now(TimeUtil.UTC_PLUS_7);
+            attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee)
+                .shift(shift)
+                .date(today)
+                .checkInTime(LocalDateTime.now().minusHours(2))
+                .checkInIp("127.0.0.1")
+                .checkInPhotoUrl("emp-id/photo.jpg")
+                .attendanceStatus(AttendanceStatus.ON_TIME)
+                .build());
+
+            String body = objectMapper.writeValueAsString(
+                new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+
+            mockMvc.perform(post("/api/attendance/check-in")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("ALREADY_CHECKED_IN"));
+        }
+
+        @Test
+        void checkIn_missingPhotoBase64_returns400() throws Exception {
+            String body = "{\"lat\":null,\"lng\":null,\"isClientSite\":false}";
+
+            mockMvc.perform(post("/api/attendance/check-in")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isBadRequest());
+        }
     }
 
-    @Test
-    void checkIn_photoUploadFails_stillReturns201AndRecordIsQueryable() throws Exception {
-        // P0-006 / R-007: MinIO is unreachable in this test env (see class Javadoc) — every
-        // check-in here already exercises PhotoService.uploadPhotoAsync's failure path via
-        // .exceptionally(). This test names and locks that degraded-mode contract explicitly:
-        // a photo-upload failure must not block check-in, and the record (with its
-        // optimistically assigned photo key) must still be created and queryable afterward.
-        String body = objectMapper.writeValueAsString(
-            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+    @Nested
+    @DisplayName("POST /api/attendance/check-in — check-in window & weekend/holiday OT guard")
+    class CheckInWindowAndHolidayGuard {
 
-        mockMvc.perform(post("/api/attendance/check-in")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.checkInPhotoUrl").isNotEmpty());
+        @Test
+        void checkIn_beforeWindowOpens_returns400WithCHECKIN_NOT_OPEN_YET() throws Exception {
+            // Shift starts 2h from now with a 0-minute open window → window has not opened yet,
+            // regardless of the wall-clock time the test happens to run at.
+            LocalTime futureStart = LocalTime.now(TimeUtil.UTC_PLUS_7).plusHours(2).withSecond(0).withNano(0);
+            Shift futureShift = shiftRepository.save(Shift.builder()
+                .name("Ca Tuong Lai")
+                .shiftStartTime(futureStart)
+                .shiftEndTime(futureStart.plusHours(8))
+                .checkInOpenMinutes(0)
+                .lateInThreshold(15)
+                .earlyOutThreshold(15)
+                .halfDayThreshold(240)
+                .otBuffer(30)
+                .build());
+            User futureShiftEmp = userRepository.save(User.builder()
+                .username("future_shift_emp")
+                .email("future_shift@itx.local")
+                .passwordHash(passwordEncoder.encode("emp123"))
+                .fullName("Future Shift Employee")
+                .role(UserRole.EMPLOYEE)
+                .shift(futureShift)
+                .build());
+            String token = loginAndGetToken("future_shift_emp", "emp123");
 
-        mockMvc.perform(get("/api/attendance/today")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.checkInPhotoUrl").isNotEmpty());
+            String body = objectMapper.writeValueAsString(
+                new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+
+            mockMvc.perform(post("/api/attendance/check-in")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("CHECKIN_NOT_OPEN_YET"));
+        }
+
+        @Test
+        void checkIn_onHolidayWithoutApprovedOt_returns403WithNO_APPROVED_OT_REQUEST() throws Exception {
+            LocalDate today = LocalDate.now(TimeUtil.UTC_PLUS_7);
+            holidayRepository.save(Holiday.builder()
+                .date(today)
+                .name("Test Holiday")
+                .type(HolidayType.FIXED)
+                .year(today.getYear())
+                .build());
+
+            String body = objectMapper.writeValueAsString(
+                new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+
+            mockMvc.perform(post("/api/attendance/check-in")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("NO_APPROVED_OT_REQUEST"));
+        }
+
+        @Test
+        void checkIn_onHolidayWithApprovedOt_returns201() throws Exception {
+            LocalDate today = LocalDate.now(TimeUtil.UTC_PLUS_7);
+            holidayRepository.save(Holiday.builder()
+                .date(today)
+                .name("Test Holiday")
+                .type(HolidayType.FIXED)
+                .year(today.getYear())
+                .build());
+            otRequestRepository.save(OtRequest.builder()
+                .employee(employee)
+                .plannedDate(today)
+                .plannedOtHours(new BigDecimal("4.00"))
+                .reason("Cover holiday shift")
+                .status(RequestStatus.APPROVED)
+                .build());
+
+            String body = objectMapper.writeValueAsString(
+                new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+
+            mockMvc.perform(post("/api/attendance/check-in")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isCreated());
+        }
+
+        @Test
+        void checkIn_unauthenticated_returns401() throws Exception {
+            String body = objectMapper.writeValueAsString(
+                new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+
+            mockMvc.perform(post("/api/attendance/check-in")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body))
+                .andExpect(status().isUnauthorized());
+        }
     }
 
-    @Test
-    void checkIn_withGps_setsGpsUnavailableFalse() throws Exception {
-        // GPS provided + no active office locations → validateRadius returns early (passes)
-        String body = objectMapper.writeValueAsString(
-            new CheckInRequest(10.77, 106.69, FAKE_PHOTO, false, null));
+    @Nested
+    @DisplayName("POST /api/attendance/check-in — Story 3.3: Client Site Mode")
+    class CheckInClientSiteMode {
 
-        mockMvc.perform(post("/api/attendance/check-in")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.gpsUnavailable").value(false));
+        @Test
+        void checkIn_clientSiteMode_withGps_returns201AndSetsClientSiteTrue() throws Exception {
+            String body = objectMapper.writeValueAsString(
+                new CheckInRequest(10.77, 106.69, FAKE_PHOTO, true, null));
+
+            mockMvc.perform(post("/api/attendance/check-in")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.isClientSite").value(true));
+        }
+
+        @Test
+        void checkIn_clientSiteMode_missingGps_returns400WithGPS_REQUIRED() throws Exception {
+            String body = objectMapper.writeValueAsString(
+                new CheckInRequest(null, null, FAKE_PHOTO, true, null));
+
+            mockMvc.perform(post("/api/attendance/check-in")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("GPS_REQUIRED"));
+        }
+
+        @Test
+        void checkIn_clientSiteMode_withLatOnlyNoLng_returns400WithGPS_REQUIRED() throws Exception {
+            String body = "{\"lat\":10.77,\"lng\":null,\"photoBase64\":\"" + FAKE_PHOTO + "\",\"isClientSite\":true}";
+
+            mockMvc.perform(post("/api/attendance/check-in")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("GPS_REQUIRED"));
+        }
     }
 
-    @Test
-    void checkIn_noShiftAssigned_returns400WithNO_SHIFT_ASSIGNED() throws Exception {
-        User noShiftEmp = userRepository.save(User.builder()
-            .username("no_shift_emp")
-            .email("no_shift@itx.local")
-            .passwordHash(passwordEncoder.encode("emp123"))
-            .fullName("No Shift Employee")
-            .role(UserRole.EMPLOYEE)
-            .build());
-        String noShiftToken = loginAndGetToken("no_shift_emp", "emp123");
+    @Nested
+    @DisplayName("GET /api/attendance/today")
+    class GetToday {
 
-        String body = objectMapper.writeValueAsString(
-            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+        @Test
+        void getToday_noRecordForToday_returns204() throws Exception {
+            mockMvc.perform(get("/api/attendance/today")
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isNoContent());
+        }
 
-        mockMvc.perform(post("/api/attendance/check-in")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + noShiftToken))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("NO_SHIFT_ASSIGNED"));
+        @Test
+        void getToday_recordExists_returns200WithRecord() throws Exception {
+            // Must match AttendanceService's zone (UTC_PLUS_7) — see checkIn_duplicateOnSameDay note above.
+            LocalDate today = LocalDate.now(TimeUtil.UTC_PLUS_7);
+            attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee)
+                .shift(shift)
+                .date(today)
+                .checkInTime(LocalDateTime.now().minusHours(2))
+                .checkInIp("127.0.0.1")
+                .checkInPhotoUrl("emp-id/photo.jpg")
+                .attendanceStatus(AttendanceStatus.ON_TIME)
+                .build());
+
+            mockMvc.perform(get("/api/attendance/today")
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.attendanceStatus").value("ON_TIME"))
+                .andExpect(jsonPath("$.date").value(today.toString()));
+        }
     }
 
-    @Test
-    void checkIn_duplicateOnSameDay_returns409WithALREADY_CHECKED_IN() throws Exception {
-        // Must match AttendanceService's zone (UTC_PLUS_7) — JVM-default-zone LocalDate.now()
-        // would seed a different calendar date during the UTC 17:00-23:59 window, making the
-        // duplicate-check-in guard miss the fixture and this test flake on UTC-zoned CI.
-        LocalDate today = LocalDate.now(TimeUtil.UTC_PLUS_7);
-        attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee)
-            .shift(shift)
-            .date(today)
-            .checkInTime(LocalDateTime.now().minusHours(2))
-            .checkInIp("127.0.0.1")
-            .checkInPhotoUrl("emp-id/photo.jpg")
-            .attendanceStatus(AttendanceStatus.ON_TIME)
-            .build());
+    @Nested
+    @DisplayName("POST /api/attendance/check-out — Story 3.4")
+    class CheckOut {
 
-        String body = objectMapper.writeValueAsString(
-            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+        @Test
+        void checkOut_noPriorCheckIn_returns400WithNO_CHECKIN_FOUND() throws Exception {
+            String body = objectMapper.writeValueAsString(
+                new CheckOutRequest(null, null, FAKE_PHOTO, null));
 
-        mockMvc.perform(post("/api/attendance/check-in")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isConflict())
-            .andExpect(jsonPath("$.error").value("ALREADY_CHECKED_IN"));
+            mockMvc.perform(post("/api/attendance/check-out")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("NO_CHECKIN_FOUND"));
+        }
+
+        @Test
+        void checkOut_validCheckIn_returns200WithCheckOutTime() throws Exception {
+            LocalDate today = LocalDate.now();
+            attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee)
+                .shift(shift)
+                .date(today)
+                .checkInTime(LocalDateTime.now().minusHours(8))
+                .checkInIp("127.0.0.1")
+                .checkInPhotoUrl("emp-id/photo.jpg")
+                .attendanceStatus(AttendanceStatus.ON_TIME)
+                .build());
+
+            String body = objectMapper.writeValueAsString(
+                new CheckOutRequest(null, null, FAKE_PHOTO, null));
+
+            mockMvc.perform(post("/api/attendance/check-out")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.checkOutTime").isNotEmpty())
+                .andExpect(jsonPath("$.attendanceStatus").isNotEmpty());
+        }
+
+        @Test
+        void checkOut_whenAlreadyCheckedOut_returns400WithNO_CHECKIN_FOUND() throws Exception {
+            // Service queries findFirstBy...CheckOutTimeIsNull..., so an already-checked-out record
+            // is never found → returns NO_CHECKIN_FOUND (400) rather than ALREADY_CHECKED_OUT (409).
+            LocalDate today = LocalDate.now();
+            attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee)
+                .shift(shift)
+                .date(today)
+                .checkInTime(LocalDateTime.now().minusHours(8))
+                .checkOutTime(LocalDateTime.now().minusHours(1))
+                .checkInIp("127.0.0.1")
+                .checkInPhotoUrl("emp-id/photo.jpg")
+                .checkOutPhotoUrl("emp-id/checkout.jpg")
+                .attendanceStatus(AttendanceStatus.ON_TIME)
+                .build());
+
+            String body = objectMapper.writeValueAsString(
+                new CheckOutRequest(null, null, FAKE_PHOTO, null));
+
+            mockMvc.perform(post("/api/attendance/check-out")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("NO_CHECKIN_FOUND"));
+        }
+
+        @Test
+        void checkOut_missingPhoto_returns400() throws Exception {
+            String body = "{\"lat\":null,\"lng\":null}";
+
+            mockMvc.perform(post("/api/attendance/check-out")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isBadRequest());
+        }
     }
 
-    @Test
-    void checkIn_missingPhotoBase64_returns400() throws Exception {
-        String body = "{\"lat\":null,\"lng\":null,\"isClientSite\":false}";
+    @Nested
+    @DisplayName("GET /api/attendance/history")
+    class GetHistory {
 
-        mockMvc.perform(post("/api/attendance/check-in")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isBadRequest());
+        @Test
+        void getHistory_validDateRange_returnsEmptyPage() throws Exception {
+            mockMvc.perform(get("/api/attendance/history")
+                    .param("from", "2026-06-01")
+                    .param("to", "2026-06-30")
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content", hasSize(0)))
+                .andExpect(jsonPath("$.totalElements").value(0));
+        }
+
+        @Test
+        void getHistory_withRecords_returnsPaginatedList() throws Exception {
+            LocalDate day1 = LocalDate.of(2026, 6, 30);
+            LocalDate day2 = LocalDate.of(2026, 6, 29);
+
+            attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee).shift(shift).date(day1)
+                .checkInTime(day1.atTime(8, 0))
+                .checkInIp("127.0.0.1").checkInPhotoUrl("photo1.jpg")
+                .attendanceStatus(AttendanceStatus.ON_TIME).build());
+
+            attendanceRecordRepository.save(AttendanceRecord.builder()
+                .employee(employee).shift(shift).date(day2)
+                .checkInTime(day2.atTime(8, 20))
+                .checkInIp("127.0.0.1").checkInPhotoUrl("photo2.jpg")
+                .attendanceStatus(AttendanceStatus.LATE_IN).build());
+
+            mockMvc.perform(get("/api/attendance/history")
+                    .param("from", "2026-06-01")
+                    .param("to", "2026-06-30")
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)))
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[*].attendanceStatus",
+                    hasItems("ON_TIME", "LATE_IN")));
+        }
+
+        @Test
+        void getHistory_fromAfterTo_returns400WithINVALID_DATE() throws Exception {
+            mockMvc.perform(get("/api/attendance/history")
+                    .param("from", "2026-06-30")
+                    .param("to", "2026-06-01")
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("INVALID_DATE"));
+        }
+
+        @Test
+        void getHistory_paginated_respectsPageAndSize() throws Exception {
+            mockMvc.perform(get("/api/attendance/history")
+                    .param("from", "2026-01-01")
+                    .param("to", "2026-12-31")
+                    .param("page", "0")
+                    .param("size", "5")
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size").value(5))
+                .andExpect(jsonPath("$.number").value(0));
+        }
+
+        @Test
+        void getHistory_missingFromParam_returns400() throws Exception {
+            mockMvc.perform(get("/api/attendance/history")
+                    .param("to", "2026-06-30")
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        void getHistory_unauthenticated_returns401() throws Exception {
+            mockMvc.perform(get("/api/attendance/history")
+                    .param("from", "2026-06-01")
+                    .param("to", "2026-06-30"))
+                .andExpect(status().isUnauthorized());
+        }
     }
 
-    // ── POST /api/attendance/check-in — check-in window & weekend/holiday OT guard ──
+    @Nested
+    @DisplayName("Role-based access: ADMIN cannot use employee endpoints")
+    class RoleBasedAccess {
 
-    @Test
-    void checkIn_beforeWindowOpens_returns400WithCHECKIN_NOT_OPEN_YET() throws Exception {
-        // Shift starts 2h from now with a 0-minute open window → window has not opened yet,
-        // regardless of the wall-clock time the test happens to run at.
-        LocalTime futureStart = LocalTime.now(TimeUtil.UTC_PLUS_7).plusHours(2).withSecond(0).withNano(0);
-        Shift futureShift = shiftRepository.save(Shift.builder()
-            .name("Ca Tuong Lai")
-            .shiftStartTime(futureStart)
-            .shiftEndTime(futureStart.plusHours(8))
-            .checkInOpenMinutes(0)
-            .lateInThreshold(15)
-            .earlyOutThreshold(15)
-            .halfDayThreshold(240)
-            .otBuffer(30)
-            .build());
-        User futureShiftEmp = userRepository.save(User.builder()
-            .username("future_shift_emp")
-            .email("future_shift@itx.local")
-            .passwordHash(passwordEncoder.encode("emp123"))
-            .fullName("Future Shift Employee")
-            .role(UserRole.EMPLOYEE)
-            .shift(futureShift)
-            .build());
-        String token = loginAndGetToken("future_shift_emp", "emp123");
+        @Test
+        void checkIn_adminRole_returns403() throws Exception {
+            userRepository.save(User.builder()
+                .username("att_admin")
+                .email("att_admin@itx.local")
+                .passwordHash(passwordEncoder.encode("admin123"))
+                .fullName("Att Admin")
+                .role(UserRole.ADMIN)
+                .build());
+            String adminToken = loginAndGetToken("att_admin", "admin123");
 
-        String body = objectMapper.writeValueAsString(
-            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
+            String body = objectMapper.writeValueAsString(
+                new CheckInRequest(null, null, FAKE_PHOTO, false, null));
 
-        mockMvc.perform(post("/api/attendance/check-in")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + token))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("CHECKIN_NOT_OPEN_YET"));
-    }
-
-    @Test
-    void checkIn_onHolidayWithoutApprovedOt_returns403WithNO_APPROVED_OT_REQUEST() throws Exception {
-        LocalDate today = LocalDate.now(TimeUtil.UTC_PLUS_7);
-        holidayRepository.save(Holiday.builder()
-            .date(today)
-            .name("Test Holiday")
-            .type(HolidayType.FIXED)
-            .year(today.getYear())
-            .build());
-
-        String body = objectMapper.writeValueAsString(
-            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
-
-        mockMvc.perform(post("/api/attendance/check-in")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isForbidden())
-            .andExpect(jsonPath("$.error").value("NO_APPROVED_OT_REQUEST"));
-    }
-
-    @Test
-    void checkIn_onHolidayWithApprovedOt_returns201() throws Exception {
-        LocalDate today = LocalDate.now(TimeUtil.UTC_PLUS_7);
-        holidayRepository.save(Holiday.builder()
-            .date(today)
-            .name("Test Holiday")
-            .type(HolidayType.FIXED)
-            .year(today.getYear())
-            .build());
-        otRequestRepository.save(OtRequest.builder()
-            .employee(employee)
-            .plannedDate(today)
-            .plannedOtHours(new BigDecimal("4.00"))
-            .reason("Cover holiday shift")
-            .status(RequestStatus.APPROVED)
-            .build());
-
-        String body = objectMapper.writeValueAsString(
-            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
-
-        mockMvc.perform(post("/api/attendance/check-in")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isCreated());
-    }
-
-    @Test
-    void checkIn_unauthenticated_returns401() throws Exception {
-        String body = objectMapper.writeValueAsString(
-            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
-
-        mockMvc.perform(post("/api/attendance/check-in")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body))
-            .andExpect(status().isUnauthorized());
-    }
-
-    // ── POST /api/attendance/check-in — Story 3.3: Client Site Mode ─────────
-
-    @Test
-    void checkIn_clientSiteMode_withGps_returns201AndSetsClientSiteTrue() throws Exception {
-        String body = objectMapper.writeValueAsString(
-            new CheckInRequest(10.77, 106.69, FAKE_PHOTO, true, null));
-
-        mockMvc.perform(post("/api/attendance/check-in")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.isClientSite").value(true));
-    }
-
-    @Test
-    void checkIn_clientSiteMode_missingGps_returns400WithGPS_REQUIRED() throws Exception {
-        String body = objectMapper.writeValueAsString(
-            new CheckInRequest(null, null, FAKE_PHOTO, true, null));
-
-        mockMvc.perform(post("/api/attendance/check-in")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("GPS_REQUIRED"));
-    }
-
-    @Test
-    void checkIn_clientSiteMode_withLatOnlyNoLng_returns400WithGPS_REQUIRED() throws Exception {
-        String body = "{\"lat\":10.77,\"lng\":null,\"photoBase64\":\"" + FAKE_PHOTO + "\",\"isClientSite\":true}";
-
-        mockMvc.perform(post("/api/attendance/check-in")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("GPS_REQUIRED"));
-    }
-
-    // ── GET /api/attendance/today ───────────────────────────────────────────
-
-    @Test
-    void getToday_noRecordForToday_returns204() throws Exception {
-        mockMvc.perform(get("/api/attendance/today")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isNoContent());
-    }
-
-    @Test
-    void getToday_recordExists_returns200WithRecord() throws Exception {
-        // Must match AttendanceService's zone (UTC_PLUS_7) — see checkIn_duplicateOnSameDay note above.
-        LocalDate today = LocalDate.now(TimeUtil.UTC_PLUS_7);
-        attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee)
-            .shift(shift)
-            .date(today)
-            .checkInTime(LocalDateTime.now().minusHours(2))
-            .checkInIp("127.0.0.1")
-            .checkInPhotoUrl("emp-id/photo.jpg")
-            .attendanceStatus(AttendanceStatus.ON_TIME)
-            .build());
-
-        mockMvc.perform(get("/api/attendance/today")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.attendanceStatus").value("ON_TIME"))
-            .andExpect(jsonPath("$.date").value(today.toString()));
-    }
-
-    // ── POST /api/attendance/check-out — Story 3.4 ─────────────────────────
-
-    @Test
-    void checkOut_noPriorCheckIn_returns400WithNO_CHECKIN_FOUND() throws Exception {
-        String body = objectMapper.writeValueAsString(
-            new CheckOutRequest(null, null, FAKE_PHOTO, null));
-
-        mockMvc.perform(post("/api/attendance/check-out")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("NO_CHECKIN_FOUND"));
-    }
-
-    @Test
-    void checkOut_validCheckIn_returns200WithCheckOutTime() throws Exception {
-        LocalDate today = LocalDate.now();
-        attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee)
-            .shift(shift)
-            .date(today)
-            .checkInTime(LocalDateTime.now().minusHours(8))
-            .checkInIp("127.0.0.1")
-            .checkInPhotoUrl("emp-id/photo.jpg")
-            .attendanceStatus(AttendanceStatus.ON_TIME)
-            .build());
-
-        String body = objectMapper.writeValueAsString(
-            new CheckOutRequest(null, null, FAKE_PHOTO, null));
-
-        mockMvc.perform(post("/api/attendance/check-out")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.checkOutTime").isNotEmpty())
-            .andExpect(jsonPath("$.attendanceStatus").isNotEmpty());
-    }
-
-    @Test
-    void checkOut_whenAlreadyCheckedOut_returns400WithNO_CHECKIN_FOUND() throws Exception {
-        // Service queries findFirstBy...CheckOutTimeIsNull..., so an already-checked-out record
-        // is never found → returns NO_CHECKIN_FOUND (400) rather than ALREADY_CHECKED_OUT (409).
-        LocalDate today = LocalDate.now();
-        attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee)
-            .shift(shift)
-            .date(today)
-            .checkInTime(LocalDateTime.now().minusHours(8))
-            .checkOutTime(LocalDateTime.now().minusHours(1))
-            .checkInIp("127.0.0.1")
-            .checkInPhotoUrl("emp-id/photo.jpg")
-            .checkOutPhotoUrl("emp-id/checkout.jpg")
-            .attendanceStatus(AttendanceStatus.ON_TIME)
-            .build());
-
-        String body = objectMapper.writeValueAsString(
-            new CheckOutRequest(null, null, FAKE_PHOTO, null));
-
-        mockMvc.perform(post("/api/attendance/check-out")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("NO_CHECKIN_FOUND"));
-    }
-
-    @Test
-    void checkOut_missingPhoto_returns400() throws Exception {
-        String body = "{\"lat\":null,\"lng\":null}";
-
-        mockMvc.perform(post("/api/attendance/check-out")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isBadRequest());
-    }
-
-    // ── GET /api/attendance/history ─────────────────────────────────────────
-
-    @Test
-    void getHistory_validDateRange_returnsEmptyPage() throws Exception {
-        mockMvc.perform(get("/api/attendance/history")
-                .param("from", "2026-06-01")
-                .param("to", "2026-06-30")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.content").isArray())
-            .andExpect(jsonPath("$.content", hasSize(0)))
-            .andExpect(jsonPath("$.totalElements").value(0));
-    }
-
-    @Test
-    void getHistory_withRecords_returnsPaginatedList() throws Exception {
-        LocalDate day1 = LocalDate.of(2026, 6, 30);
-        LocalDate day2 = LocalDate.of(2026, 6, 29);
-
-        attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee).shift(shift).date(day1)
-            .checkInTime(day1.atTime(8, 0))
-            .checkInIp("127.0.0.1").checkInPhotoUrl("photo1.jpg")
-            .attendanceStatus(AttendanceStatus.ON_TIME).build());
-
-        attendanceRecordRepository.save(AttendanceRecord.builder()
-            .employee(employee).shift(shift).date(day2)
-            .checkInTime(day2.atTime(8, 20))
-            .checkInIp("127.0.0.1").checkInPhotoUrl("photo2.jpg")
-            .attendanceStatus(AttendanceStatus.LATE_IN).build());
-
-        mockMvc.perform(get("/api/attendance/history")
-                .param("from", "2026-06-01")
-                .param("to", "2026-06-30")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.content", hasSize(2)))
-            .andExpect(jsonPath("$.totalElements").value(2))
-            .andExpect(jsonPath("$.content[*].attendanceStatus",
-                hasItems("ON_TIME", "LATE_IN")));
-    }
-
-    @Test
-    void getHistory_fromAfterTo_returns400WithINVALID_DATE() throws Exception {
-        mockMvc.perform(get("/api/attendance/history")
-                .param("from", "2026-06-30")
-                .param("to", "2026-06-01")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("INVALID_DATE"));
-    }
-
-    @Test
-    void getHistory_paginated_respectsPageAndSize() throws Exception {
-        mockMvc.perform(get("/api/attendance/history")
-                .param("from", "2026-01-01")
-                .param("to", "2026-12-31")
-                .param("page", "0")
-                .param("size", "5")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.size").value(5))
-            .andExpect(jsonPath("$.number").value(0));
-    }
-
-    @Test
-    void getHistory_missingFromParam_returns400() throws Exception {
-        mockMvc.perform(get("/api/attendance/history")
-                .param("to", "2026-06-30")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void getHistory_unauthenticated_returns401() throws Exception {
-        mockMvc.perform(get("/api/attendance/history")
-                .param("from", "2026-06-01")
-                .param("to", "2026-06-30"))
-            .andExpect(status().isUnauthorized());
-    }
-
-    // ── Role-based access: ADMIN cannot use employee endpoints ──────────────
-
-    @Test
-    void checkIn_adminRole_returns403() throws Exception {
-        userRepository.save(User.builder()
-            .username("att_admin")
-            .email("att_admin@itx.local")
-            .passwordHash(passwordEncoder.encode("admin123"))
-            .fullName("Att Admin")
-            .role(UserRole.ADMIN)
-            .build());
-        String adminToken = loginAndGetToken("att_admin", "admin123");
-
-        String body = objectMapper.writeValueAsString(
-            new CheckInRequest(null, null, FAKE_PHOTO, false, null));
-
-        mockMvc.perform(post("/api/attendance/check-in")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isForbidden());
+            mockMvc.perform(post("/api/attendance/check-in")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isForbidden());
+        }
     }
 
 }

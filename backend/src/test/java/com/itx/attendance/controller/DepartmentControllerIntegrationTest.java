@@ -11,7 +11,10 @@ import com.itx.attendance.repository.AuditLogRepository;
 import com.itx.attendance.repository.DepartmentRepository;
 import com.itx.attendance.repository.ShiftRepository;
 import com.itx.attendance.repository.UserRepository;
+import com.itx.attendance.support.ShiftFixtures;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -26,8 +29,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -81,316 +84,335 @@ class DepartmentControllerIntegrationTest extends AbstractIntegrationTest {
         employeeToken = loginAndGetToken("dept_employee", "emp123");
     }
 
-    // ── GET /api/admin/departments ──────────────────────────────────────────
+    @Nested
+    @DisplayName("GET /api/admin/departments")
+    class GetDepartments {
 
-    @Test
-    void getDepartments_emptyDb_returnsEmptyList() throws Exception {
-        mockMvc.perform(get("/api/admin/departments")
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$").isArray())
-            .andExpect(jsonPath("$", hasSize(0)));
+        @Test
+        void getDepartments_emptyDb_returnsEmptyList() throws Exception {
+            mockMvc.perform(get("/api/admin/departments")
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$", hasSize(0)));
+        }
+
+        @Test
+        void getDepartments_withEmployees_returnsEmployeeCount() throws Exception {
+            Department dept = departmentRepository.save(Department.builder().name("Kỹ thuật").build());
+            userRepository.save(User.builder()
+                .username("kt_emp")
+                .email("kt_emp@itx.local")
+                .passwordHash(passwordEncoder.encode("emp123"))
+                .fullName("KT Employee")
+                .role(UserRole.EMPLOYEE)
+                .department(dept)
+                .build());
+
+            mockMvc.perform(get("/api/admin/departments")
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].name").value("Kỹ thuật"))
+                .andExpect(jsonPath("$[0].employeeCount").value(1));
+        }
+
+        @Test
+        void getDepartments_nonAdmin_returns403() throws Exception {
+            mockMvc.perform(get("/api/admin/departments")
+                    .header("Authorization", "Bearer " + employeeToken))
+                .andExpect(status().isForbidden());
+        }
     }
 
-    @Test
-    void getDepartments_withEmployees_returnsEmployeeCount() throws Exception {
-        Department dept = departmentRepository.save(Department.builder().name("Kỹ thuật").build());
-        userRepository.save(User.builder()
-            .username("kt_emp")
-            .email("kt_emp@itx.local")
-            .passwordHash(passwordEncoder.encode("emp123"))
-            .fullName("KT Employee")
-            .role(UserRole.EMPLOYEE)
-            .department(dept)
-            .build());
+    @Nested
+    @DisplayName("POST /api/admin/departments")
+    class CreateDepartment {
 
-        mockMvc.perform(get("/api/admin/departments")
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$", hasSize(1)))
-            .andExpect(jsonPath("$[0].name").value("Kỹ thuật"))
-            .andExpect(jsonPath("$[0].employeeCount").value(1));
+        @Test
+        void createDepartment_validRequest_returns201() throws Exception {
+            String body = objectMapper.writeValueAsString(new CreateDepartmentRequest("Kinh doanh", "Phòng kinh doanh"));
+
+            mockMvc.perform(post("/api/admin/departments")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").isNotEmpty())
+                .andExpect(jsonPath("$.name").value("Kinh doanh"))
+                .andExpect(jsonPath("$.description").value("Phòng kinh doanh"))
+                .andExpect(jsonPath("$.employeeCount").value(0));
+        }
+
+        @Test
+        void createDepartment_duplicateName_returns409WithDEPARTMENT_ALREADY_EXISTS() throws Exception {
+            departmentRepository.save(Department.builder().name("Nhân sự").build());
+            String body = objectMapper.writeValueAsString(new CreateDepartmentRequest("Nhân sự", null));
+
+            mockMvc.perform(post("/api/admin/departments")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("DEPARTMENT_ALREADY_EXISTS"));
+        }
+
+        @Test
+        void createDepartment_missingName_returns400() throws Exception {
+            String body = "{\"description\":\"Không có tên\"}";
+
+            mockMvc.perform(post("/api/admin/departments")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest());
+        }
     }
 
-    @Test
-    void getDepartments_nonAdmin_returns403() throws Exception {
-        mockMvc.perform(get("/api/admin/departments")
-                .header("Authorization", "Bearer " + employeeToken))
-            .andExpect(status().isForbidden());
+    @Nested
+    @DisplayName("PUT /api/admin/departments/{id}")
+    class UpdateDepartment {
+
+        @Test
+        void updateDepartment_validRequest_returns200() throws Exception {
+            Department dept = departmentRepository.save(Department.builder().name("Marketing").build());
+            String body = objectMapper.writeValueAsString(new CreateDepartmentRequest("Marketing (Cập nhật)", "Mô tả mới"));
+
+            mockMvc.perform(put("/api/admin/departments/" + dept.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Marketing (Cập nhật)"))
+                .andExpect(jsonPath("$.description").value("Mô tả mới"));
+        }
+
+        @Test
+        void updateDepartment_duplicateNameOnAnother_returns409() throws Exception {
+            departmentRepository.save(Department.builder().name("Phòng A").build());
+            Department deptB = departmentRepository.save(Department.builder().name("Phòng B").build());
+            String body = objectMapper.writeValueAsString(new CreateDepartmentRequest("Phòng A", null));
+
+            mockMvc.perform(put("/api/admin/departments/" + deptB.getId())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("DEPARTMENT_ALREADY_EXISTS"));
+        }
+
+        @Test
+        void updateDepartment_notFound_returns404WithDEPARTMENT_NOT_FOUND() throws Exception {
+            String body = objectMapper.writeValueAsString(new CreateDepartmentRequest("Ghost", null));
+
+            mockMvc.perform(put("/api/admin/departments/9999")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("DEPARTMENT_NOT_FOUND"));
+        }
     }
 
-    // ── POST /api/admin/departments ─────────────────────────────────────────
+    @Nested
+    @DisplayName("DELETE /api/admin/departments/{id}")
+    class DeleteDepartment {
 
-    @Test
-    void createDepartment_validRequest_returns201() throws Exception {
-        String body = objectMapper.writeValueAsString(new CreateDepartmentRequest("Kinh doanh", "Phòng kinh doanh"));
+        @Test
+        void deleteDepartment_noEmployees_returns204() throws Exception {
+            Department dept = departmentRepository.save(Department.builder().name("Phòng Trống").build());
 
-        mockMvc.perform(post("/api/admin/departments")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.id").isNotEmpty())
-            .andExpect(jsonPath("$.name").value("Kinh doanh"))
-            .andExpect(jsonPath("$.description").value("Phòng kinh doanh"))
-            .andExpect(jsonPath("$.employeeCount").value(0));
+            mockMvc.perform(delete("/api/admin/departments/" + dept.getId())
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNoContent());
+        }
+
+        @Test
+        void deleteDepartment_hasEmployees_returns400WithDEPARTMENT_HAS_EMPLOYEES() throws Exception {
+            Department dept = departmentRepository.save(Department.builder().name("Phòng Có NV").build());
+            userRepository.save(User.builder()
+                .username("has_dept_emp")
+                .email("has_dept_emp@itx.local")
+                .passwordHash(passwordEncoder.encode("emp123"))
+                .fullName("Has Dept Employee")
+                .role(UserRole.EMPLOYEE)
+                .department(dept)
+                .build());
+
+            mockMvc.perform(delete("/api/admin/departments/" + dept.getId())
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("DEPARTMENT_HAS_EMPLOYEES"));
+        }
+
+        @Test
+        void deleteDepartment_notFound_returns404() throws Exception {
+            mockMvc.perform(delete("/api/admin/departments/9999")
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("DEPARTMENT_NOT_FOUND"));
+        }
     }
 
-    @Test
-    void createDepartment_duplicateName_returns409WithDEPARTMENT_ALREADY_EXISTS() throws Exception {
-        departmentRepository.save(Department.builder().name("Nhân sự").build());
-        String body = objectMapper.writeValueAsString(new CreateDepartmentRequest("Nhân sự", null));
+    @Nested
+    @DisplayName("PUT /api/admin/departments/{id}/shift (bulk assign)")
+    class AssignShiftToDepartment {
 
-        mockMvc.perform(post("/api/admin/departments")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isConflict())
-            .andExpect(jsonPath("$.error").value("DEPARTMENT_ALREADY_EXISTS"));
+        @Test
+        void assignShiftToDepartment_validRequest_updatesAllEmployeesAndReturnsCount() throws Exception {
+            Department dept = departmentRepository.save(Department.builder().name("Phòng Gán Ca").build());
+            Shift oldShift = shiftRepository.save(Shift.builder()
+                .name("Ca Cũ").shiftStartTime(LocalTime.of(7, 0)).shiftEndTime(LocalTime.of(16, 0)).build());
+            Shift newShift = shiftRepository.save(Shift.builder()
+                .name("Ca Mới").shiftStartTime(LocalTime.of(8, 0)).shiftEndTime(LocalTime.of(17, 0)).build());
+
+            userRepository.save(User.builder()
+                .username("bulk_emp1").email("bulk_emp1@itx.local")
+                .passwordHash(passwordEncoder.encode("emp123")).fullName("Bulk Emp 1")
+                .role(UserRole.EMPLOYEE).department(dept).shift(oldShift).build());
+            userRepository.save(User.builder()
+                .username("bulk_emp2").email("bulk_emp2@itx.local")
+                .passwordHash(passwordEncoder.encode("emp123")).fullName("Bulk Emp 2")
+                .role(UserRole.EMPLOYEE).department(dept).shift(oldShift).build());
+
+            String body = "{\"shiftId\":\"" + newShift.getId() + "\"}";
+
+            mockMvc.perform(put("/api/admin/departments/" + dept.getId() + "/shift")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.updatedCount").value(2));
+
+            var updatedEmployees = userRepository.findByDepartmentIdAndActiveTrue(dept.getId());
+            updatedEmployees.forEach(u -> assertThat(u.getShift().getId()).isEqualTo(newShift.getId()));
+
+            var auditPage = auditLogRepository.findByFilters(
+                null, "users", LocalDateTime.now().minusMinutes(5), LocalDateTime.now().plusMinutes(5),
+                PageRequest.of(0, 10));
+            long bulkAssignEntries = auditPage.getContent().stream()
+                .filter(log -> "Department bulk shift assignment".equals(log.getReason()))
+                .count();
+            assertThat(bulkAssignEntries).isEqualTo(2);
+        }
+
+        @Test
+        void assignShiftToDepartment_emptyDepartment_returns400WithDEPARTMENT_EMPTY() throws Exception {
+            Department dept = departmentRepository.save(Department.builder().name("Phòng Không NV").build());
+            Shift shift = shiftRepository.save(ShiftFixtures.daySchedule().build());
+
+            String body = "{\"shiftId\":\"" + shift.getId() + "\"}";
+
+            mockMvc.perform(put("/api/admin/departments/" + dept.getId() + "/shift")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("DEPARTMENT_EMPTY"));
+        }
+
+        @Test
+        void assignShiftToDepartment_shiftNotFound_returns404WithSHIFT_NOT_FOUND() throws Exception {
+            Department dept = departmentRepository.save(Department.builder().name("Phòng Ca Ghost").build());
+            userRepository.save(User.builder()
+                .username("ghost_shift_emp").email("ghost_shift_emp@itx.local")
+                .passwordHash(passwordEncoder.encode("emp123")).fullName("Ghost Shift Emp")
+                .role(UserRole.EMPLOYEE).department(dept).build());
+
+            String body = "{\"shiftId\":\"nonexistent-shift-id\"}";
+
+            mockMvc.perform(put("/api/admin/departments/" + dept.getId() + "/shift")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("SHIFT_NOT_FOUND"));
+        }
+
+        @Test
+        void assignShiftToDepartment_departmentNotFound_returns404WithDEPARTMENT_NOT_FOUND() throws Exception {
+            Shift shift = shiftRepository.save(ShiftFixtures.daySchedule().build());
+            String body = "{\"shiftId\":\"" + shift.getId() + "\"}";
+
+            mockMvc.perform(put("/api/admin/departments/9999/shift")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("DEPARTMENT_NOT_FOUND"));
+        }
     }
 
-    @Test
-    void createDepartment_missingName_returns400() throws Exception {
-        String body = "{\"description\":\"Không có tên\"}";
+    @Nested
+    @DisplayName("GET /api/admin/employees/details")
+    class GetEmployeesWithDept {
 
-        mockMvc.perform(post("/api/admin/departments")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isBadRequest());
+        @Test
+        void getEmployeesWithDept_returnsShiftAndDepartmentNames() throws Exception {
+            Department dept = departmentRepository.save(Department.builder().name("Phòng Chi Tiết").build());
+            Shift shift = shiftRepository.save(Shift.builder()
+                .name("Ca Chi Tiết").shiftStartTime(LocalTime.of(8, 0)).shiftEndTime(LocalTime.of(17, 0)).build());
+            userRepository.save(User.builder()
+                .username("detail_emp").email("detail_emp@itx.local")
+                .passwordHash(passwordEncoder.encode("emp123")).fullName("Detail Emp")
+                .role(UserRole.EMPLOYEE).department(dept).shift(shift).build());
+
+            mockMvc.perform(get("/api/admin/employees/details")
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.username=='detail_emp')].departmentName").value(hasItem("Phòng Chi Tiết")))
+                .andExpect(jsonPath("$[?(@.username=='detail_emp')].shiftName").value(hasItem("Ca Chi Tiết")));
+        }
     }
 
-    // ── PUT /api/admin/departments/{id} ─────────────────────────────────────
+    @Nested
+    @DisplayName("PUT /api/admin/employees/{userId}/department")
+    class AssignEmployeeDepartment {
 
-    @Test
-    void updateDepartment_validRequest_returns200() throws Exception {
-        Department dept = departmentRepository.save(Department.builder().name("Marketing").build());
-        String body = objectMapper.writeValueAsString(new CreateDepartmentRequest("Marketing (Cập nhật)", "Mô tả mới"));
+        @Test
+        void assignEmployeeDepartment_validDepartment_returns200() throws Exception {
+            Department dept = departmentRepository.save(Department.builder().name("Phòng Đích").build());
+            User employee = userRepository.save(User.builder()
+                .username("assign_dept_emp").email("assign_dept_emp@itx.local")
+                .passwordHash(passwordEncoder.encode("emp123")).fullName("Assign Dept Emp")
+                .role(UserRole.EMPLOYEE).build());
 
-        mockMvc.perform(put("/api/admin/departments/" + dept.getId())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.name").value("Marketing (Cập nhật)"))
-            .andExpect(jsonPath("$.description").value("Mô tả mới"));
-    }
+            String body = "{\"departmentId\":" + dept.getId() + "}";
 
-    @Test
-    void updateDepartment_duplicateNameOnAnother_returns409() throws Exception {
-        departmentRepository.save(Department.builder().name("Phòng A").build());
-        Department deptB = departmentRepository.save(Department.builder().name("Phòng B").build());
-        String body = objectMapper.writeValueAsString(new CreateDepartmentRequest("Phòng A", null));
+            mockMvc.perform(put("/api/admin/employees/" + employee.getId() + "/department")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(body)
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.departmentId").value(dept.getId()))
+                .andExpect(jsonPath("$.departmentName").value("Phòng Đích"));
+        }
 
-        mockMvc.perform(put("/api/admin/departments/" + deptB.getId())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isConflict())
-            .andExpect(jsonPath("$.error").value("DEPARTMENT_ALREADY_EXISTS"));
-    }
+        @Test
+        void assignEmployeeDepartment_nullDepartmentId_clearsDepartment() throws Exception {
+            Department dept = departmentRepository.save(Department.builder().name("Phòng Cũ").build());
+            User employee = userRepository.save(User.builder()
+                .username("clear_dept_emp").email("clear_dept_emp@itx.local")
+                .passwordHash(passwordEncoder.encode("emp123")).fullName("Clear Dept Emp")
+                .role(UserRole.EMPLOYEE).department(dept).build());
 
-    @Test
-    void updateDepartment_notFound_returns404WithDEPARTMENT_NOT_FOUND() throws Exception {
-        String body = objectMapper.writeValueAsString(new CreateDepartmentRequest("Ghost", null));
+            mockMvc.perform(put("/api/admin/employees/" + employee.getId() + "/department")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"departmentId\":null}")
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.departmentId").value(nullValue()))
+                .andExpect(jsonPath("$.departmentName").value(nullValue()));
+        }
 
-        mockMvc.perform(put("/api/admin/departments/9999")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isNotFound())
-            .andExpect(jsonPath("$.error").value("DEPARTMENT_NOT_FOUND"));
-    }
-
-    // ── DELETE /api/admin/departments/{id} ──────────────────────────────────
-
-    @Test
-    void deleteDepartment_noEmployees_returns204() throws Exception {
-        Department dept = departmentRepository.save(Department.builder().name("Phòng Trống").build());
-
-        mockMvc.perform(delete("/api/admin/departments/" + dept.getId())
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isNoContent());
-    }
-
-    @Test
-    void deleteDepartment_hasEmployees_returns400WithDEPARTMENT_HAS_EMPLOYEES() throws Exception {
-        Department dept = departmentRepository.save(Department.builder().name("Phòng Có NV").build());
-        userRepository.save(User.builder()
-            .username("has_dept_emp")
-            .email("has_dept_emp@itx.local")
-            .passwordHash(passwordEncoder.encode("emp123"))
-            .fullName("Has Dept Employee")
-            .role(UserRole.EMPLOYEE)
-            .department(dept)
-            .build());
-
-        mockMvc.perform(delete("/api/admin/departments/" + dept.getId())
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("DEPARTMENT_HAS_EMPLOYEES"));
-    }
-
-    @Test
-    void deleteDepartment_notFound_returns404() throws Exception {
-        mockMvc.perform(delete("/api/admin/departments/9999")
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isNotFound())
-            .andExpect(jsonPath("$.error").value("DEPARTMENT_NOT_FOUND"));
-    }
-
-    // ── PUT /api/admin/departments/{id}/shift (bulk assign) ─────────────────
-
-    @Test
-    void assignShiftToDepartment_validRequest_updatesAllEmployeesAndReturnsCount() throws Exception {
-        Department dept = departmentRepository.save(Department.builder().name("Phòng Gán Ca").build());
-        Shift oldShift = shiftRepository.save(Shift.builder()
-            .name("Ca Cũ").shiftStartTime(LocalTime.of(7, 0)).shiftEndTime(LocalTime.of(16, 0)).build());
-        Shift newShift = shiftRepository.save(Shift.builder()
-            .name("Ca Mới").shiftStartTime(LocalTime.of(8, 0)).shiftEndTime(LocalTime.of(17, 0)).build());
-
-        userRepository.save(User.builder()
-            .username("bulk_emp1").email("bulk_emp1@itx.local")
-            .passwordHash(passwordEncoder.encode("emp123")).fullName("Bulk Emp 1")
-            .role(UserRole.EMPLOYEE).department(dept).shift(oldShift).build());
-        userRepository.save(User.builder()
-            .username("bulk_emp2").email("bulk_emp2@itx.local")
-            .passwordHash(passwordEncoder.encode("emp123")).fullName("Bulk Emp 2")
-            .role(UserRole.EMPLOYEE).department(dept).shift(oldShift).build());
-
-        String body = "{\"shiftId\":\"" + newShift.getId() + "\"}";
-
-        mockMvc.perform(put("/api/admin/departments/" + dept.getId() + "/shift")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.updatedCount").value(2));
-
-        var updatedEmployees = userRepository.findByDepartmentIdAndActiveTrue(dept.getId());
-        updatedEmployees.forEach(u -> assertEquals(newShift.getId(), u.getShift().getId()));
-
-        var auditPage = auditLogRepository.findByFilters(
-            null, "users", LocalDateTime.now().minusMinutes(5), LocalDateTime.now().plusMinutes(5),
-            PageRequest.of(0, 10));
-        long bulkAssignEntries = auditPage.getContent().stream()
-            .filter(log -> "Department bulk shift assignment".equals(log.getReason()))
-            .count();
-        assertEquals(2, bulkAssignEntries);
-    }
-
-    @Test
-    void assignShiftToDepartment_emptyDepartment_returns400WithDEPARTMENT_EMPTY() throws Exception {
-        Department dept = departmentRepository.save(Department.builder().name("Phòng Không NV").build());
-        Shift shift = shiftRepository.save(Shift.builder()
-            .name("Ca X").shiftStartTime(LocalTime.of(8, 0)).shiftEndTime(LocalTime.of(17, 0)).build());
-
-        String body = "{\"shiftId\":\"" + shift.getId() + "\"}";
-
-        mockMvc.perform(put("/api/admin/departments/" + dept.getId() + "/shift")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.error").value("DEPARTMENT_EMPTY"));
-    }
-
-    @Test
-    void assignShiftToDepartment_shiftNotFound_returns404WithSHIFT_NOT_FOUND() throws Exception {
-        Department dept = departmentRepository.save(Department.builder().name("Phòng Ca Ghost").build());
-        userRepository.save(User.builder()
-            .username("ghost_shift_emp").email("ghost_shift_emp@itx.local")
-            .passwordHash(passwordEncoder.encode("emp123")).fullName("Ghost Shift Emp")
-            .role(UserRole.EMPLOYEE).department(dept).build());
-
-        String body = "{\"shiftId\":\"nonexistent-shift-id\"}";
-
-        mockMvc.perform(put("/api/admin/departments/" + dept.getId() + "/shift")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isNotFound())
-            .andExpect(jsonPath("$.error").value("SHIFT_NOT_FOUND"));
-    }
-
-    @Test
-    void assignShiftToDepartment_departmentNotFound_returns404WithDEPARTMENT_NOT_FOUND() throws Exception {
-        Shift shift = shiftRepository.save(Shift.builder()
-            .name("Ca Y").shiftStartTime(LocalTime.of(8, 0)).shiftEndTime(LocalTime.of(17, 0)).build());
-        String body = "{\"shiftId\":\"" + shift.getId() + "\"}";
-
-        mockMvc.perform(put("/api/admin/departments/9999/shift")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isNotFound())
-            .andExpect(jsonPath("$.error").value("DEPARTMENT_NOT_FOUND"));
-    }
-
-    // ── GET /api/admin/employees/details ─────────────────────────────────────
-
-    @Test
-    void getEmployeesWithDept_returnsShiftAndDepartmentNames() throws Exception {
-        Department dept = departmentRepository.save(Department.builder().name("Phòng Chi Tiết").build());
-        Shift shift = shiftRepository.save(Shift.builder()
-            .name("Ca Chi Tiết").shiftStartTime(LocalTime.of(8, 0)).shiftEndTime(LocalTime.of(17, 0)).build());
-        userRepository.save(User.builder()
-            .username("detail_emp").email("detail_emp@itx.local")
-            .passwordHash(passwordEncoder.encode("emp123")).fullName("Detail Emp")
-            .role(UserRole.EMPLOYEE).department(dept).shift(shift).build());
-
-        mockMvc.perform(get("/api/admin/employees/details")
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$[?(@.username=='detail_emp')].departmentName").value(hasItem("Phòng Chi Tiết")))
-            .andExpect(jsonPath("$[?(@.username=='detail_emp')].shiftName").value(hasItem("Ca Chi Tiết")));
-    }
-
-    // ── PUT /api/admin/employees/{userId}/department ────────────────────────
-
-    @Test
-    void assignEmployeeDepartment_validDepartment_returns200() throws Exception {
-        Department dept = departmentRepository.save(Department.builder().name("Phòng Đích").build());
-        User employee = userRepository.save(User.builder()
-            .username("assign_dept_emp").email("assign_dept_emp@itx.local")
-            .passwordHash(passwordEncoder.encode("emp123")).fullName("Assign Dept Emp")
-            .role(UserRole.EMPLOYEE).build());
-
-        String body = "{\"departmentId\":" + dept.getId() + "}";
-
-        mockMvc.perform(put("/api/admin/employees/" + employee.getId() + "/department")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(body)
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.departmentId").value(dept.getId()))
-            .andExpect(jsonPath("$.departmentName").value("Phòng Đích"));
-    }
-
-    @Test
-    void assignEmployeeDepartment_nullDepartmentId_clearsDepartment() throws Exception {
-        Department dept = departmentRepository.save(Department.builder().name("Phòng Cũ").build());
-        User employee = userRepository.save(User.builder()
-            .username("clear_dept_emp").email("clear_dept_emp@itx.local")
-            .passwordHash(passwordEncoder.encode("emp123")).fullName("Clear Dept Emp")
-            .role(UserRole.EMPLOYEE).department(dept).build());
-
-        mockMvc.perform(put("/api/admin/employees/" + employee.getId() + "/department")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"departmentId\":null}")
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.departmentId").value(nullValue()))
-            .andExpect(jsonPath("$.departmentName").value(nullValue()));
-    }
-
-    @Test
-    void assignEmployeeDepartment_userNotFound_returns404WithUSER_NOT_FOUND() throws Exception {
-        mockMvc.perform(put("/api/admin/employees/nonexistent-user-id/department")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"departmentId\":null}")
-                .header("Authorization", "Bearer " + adminToken))
-            .andExpect(status().isNotFound())
-            .andExpect(jsonPath("$.error").value("USER_NOT_FOUND"));
+        @Test
+        void assignEmployeeDepartment_userNotFound_returns404WithUSER_NOT_FOUND() throws Exception {
+            mockMvc.perform(put("/api/admin/employees/nonexistent-user-id/department")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"departmentId\":null}")
+                    .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("USER_NOT_FOUND"));
+        }
     }
 }
