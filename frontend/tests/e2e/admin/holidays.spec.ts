@@ -61,22 +61,27 @@ test.describe('Admin — Quản lý Ngày lễ (Story 2.3)', () => {
   // ── Filter ─────────────────────────────────────────────────────────────
 
   test('bộ lọc năm gọi API với year param đúng', async ({ page }) => {
-    const requestUrls: string[] = [];
-    await page.route('**/api/admin/holidays**', (route) => {
-      requestUrls.push(route.request().url());
-      route.fulfill({ status: 200, json: EMPTY_HOLIDAY_PAGE });
-    });
+    await page.route('**/api/admin/holidays**', (route) =>
+      route.fulfill({ status: 200, json: EMPTY_HOLIDAY_PAGE })
+    );
     await page.goto('/admin/holidays');
 
     // Wait for initial load
     await expect(page.getByRole('heading', { name: 'Quản lý Ngày lễ' })).toBeVisible();
 
-    // Change year filter — verify it re-fetches
+    // Change year filter — verify it re-fetches with the selected year param.
+    // yearOptions = [currentYear - 2 .. currentYear + 2], so index 0 = currentYear - 2.
+    const expectedYear = new Date().getFullYear() - 2;
     const yearSelect = page.getByRole('combobox', { name: 'Lọc theo năm' });
-    await yearSelect.selectOption({ index: 0 });
 
-    // Just verify the select interaction works
-    await expect(yearSelect).toBeVisible();
+    // Set up the request wait before triggering the change — the fetch it's
+    // watching for can fire before an awaited-after promise would attach.
+    const yearRequest = page.waitForRequest(
+      (req) => req.url().includes(`year=${expectedYear}`),
+      { timeout: 5000 }
+    );
+    await yearSelect.selectOption({ index: 0 });
+    await yearRequest;
   });
 
   test('bộ lọc loại ngày lễ lọc phía client (FIXED/DYNAMIC)', async ({ page }) => {
